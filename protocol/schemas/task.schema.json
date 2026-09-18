@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/task.schema.json",
+  "title": "P4U Spatial Task",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "type",
+    "status"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "verify",
+        "identify",
+        "capture",
+        "revisit",
+        "registration"
+      ]
+    },
+    "status": {
+      "enum": [
+        "open",
+        "assigned",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "targetId": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string"
+    },
+    "choices": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": true
+}
