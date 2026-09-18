@@ -66,7 +66,7 @@ Normal HTTP caching/ETag semantics SHOULD be used.
 
 ## Upload
 
-A provider advertising `artifacts.write` supports a retry-safe upload session.
+A provider advertising `spatial.artifacts.write` supports a retry-safe upload session.
 
 Conceptual flow:
 
@@ -122,8 +122,8 @@ Knowledge of a SHA-256 is never by itself authorization to retrieve content.
 
 ## Relevant capabilities
 
-- `artifacts.read`
-- `artifacts.write`
+- `spatial.artifacts.read`
+- `spatial.artifacts.write`
 
 ## Relevant errors
 

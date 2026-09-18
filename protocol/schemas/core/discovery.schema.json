@@ -3,6 +3,7 @@
   "$id": "core/discovery.schema.json",
   "type": "object",
   "required": [
+    "protocolId",
     "coreVersion",
     "instanceId",
     "roles",
@@ -11,26 +12,62 @@
     "capabilities"
   ],
   "properties": {
-    "coreVersion": {"type": "string"},
-    "instanceId": {"$ref": "definitions.schema.json#/$defs/uuid"},
-    "serverTime": {"$ref": "definitions.schema.json#/$defs/timestamp"},
+    "protocolId": {
+      "const": "open-spatial-interop"
+    },
+    "coreVersion": {
+      "type": "string"
+    },
+    "instanceId": {
+      "$ref": "definitions.schema.json#/$defs/uuid"
+    },
+    "serverTime": {
+      "$ref": "definitions.schema.json#/$defs/timestamp"
+    },
     "roles": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "enum": [
+          "content-provider",
+          "federation-provider",
+          "account-provider"
+        ]
+      },
       "uniqueItems": true
     },
     "contracts": {
       "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
       "additionalProperties": {
         "$ref": "definitions.schema.json#/$defs/contract"
       }
     },
     "authentication": {
       "type": "object",
-      "required": ["required"],
+      "required": [
+        "required"
+      ],
       "properties": {
-        "required": {"type": "boolean"},
-        "protectedResourceMetadata": {"type": "string", "format": "uri"}
+        "required": {
+          "type": "boolean"
+        },
+        "bearer": {
+          "type": "boolean"
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "protectedResourceMetadata": {
+          "type": "string",
+          "format": "uri"
+        }
       },
       "additionalProperties": true
     },

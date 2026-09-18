@@ -4,6 +4,20 @@ Status: draft / incubating in p4u-spatial.
 
 This directory defines implementation-neutral contracts shared by P4U Spatial, MultiGIS and compatible third-party or private implementations. The contracts are intentionally independent of PICO, Home Assistant, Fire, RCHKB, Gitea and GitHub.
 
+The draft machine discovery identifier is:
+
+```text
+open-spatial-interop
+```
+
+Discovery:
+
+```http
+GET /.well-known/open-spatial-interop
+```
+
+The human-readable family name remains **Open Interoperability Protocol**. The machine identifier is a technical draft identifier, not a product brand.
+
 ## Contract layers
 
 ```text
@@ -11,7 +25,7 @@ Core
 ├── identity / discovery / auth / capabilities / errors
 │
 ├── Spatial
-│   └── Sources / Routes / Collections / Features / Snapshots
+│   └── Sources / Routes / Collections / Features / Relations / Artifacts / Snapshots
 │
 ├── Tiles
 │   └── Tile Sets / Offline Plans
@@ -28,6 +42,8 @@ Core
 
 Portable backup is a local file format, not a network contract.
 
+Publish is a client workflow between application-owned state and Spatial authority, not a separate storage service.
+
 ## Core invariants
 
 1. Core, Spatial and App Sync are implementation-neutral.
@@ -41,6 +57,24 @@ Portable backup is a local file format, not a network contract.
 9. Provider data is not replicated into an Account Provider as a second authority.
 10. Repository layouts are backend profiles, not protocol requirements.
 11. XR-specific behavior is an extension of the common contracts, not the common core itself.
+12. App Sync storage does not implicitly publish data into Spatial.
+13. Cross-source relations own assertions, not their endpoint objects.
+14. Committed Spatial Artifacts are immutable.
+
+## Canonical machine namespaces
+
+See [Core Registry](core/registry.md).
+
+Contract identifiers:
+
+```text
+core
+spatial
+tiles
+federation
+app-sync
+xr
+```
 
 ## Current target topology
 

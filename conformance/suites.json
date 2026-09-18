@@ -1,0 +1,19 @@
+{
+  "version": "0.1",
+  "protocolId": "open-spatial-interop",
+  "suites": [
+    {"id": "CORE", "document": "README.md"},
+    {"id": "SPATIAL-READ", "document": "README.md"},
+    {"id": "SPATIAL-WRITE", "document": "spatial-write.md"},
+    {"id": "ARTIFACTS", "document": "artifacts.md"},
+    {"id": "RELATIONS", "document": "relations.md"},
+    {"id": "TILES-READ", "document": "README.md"},
+    {"id": "TILES-OFFLINE", "document": "README.md"},
+    {"id": "FEDERATION", "document": "federation.md"},
+    {"id": "APP-SYNC", "document": "README.md"},
+    {"id": "APP-SYNC-BACKUP", "document": "README.md"},
+    {"id": "XR", "document": "xr.md"},
+    {"id": "GIT-REPOSITORY", "document": "git-repository.md"},
+    {"id": "PUBLISH", "document": "publish.md"}
+  ]
+}

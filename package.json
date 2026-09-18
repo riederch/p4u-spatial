@@ -8,7 +8,9 @@
     "dev:bridge": "npm --workspace @p4u-spatial/bridge run dev",
     "dev:sim": "npm --workspace @p4u-spatial/scanner-simulator run dev",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "vitest run"
+    "check:schemas": "node tools/check-schema-refs.mjs",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run check:schemas && npm test"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,11 +1,43 @@
 export type DeviceStatus = "pending-pairing" | "authorized" | "disabled" | "revoked";
 
-export type DeviceScope =
+export type CanonicalDeviceScope =
+  | "xr.display.read"
+  | "xr.scan.write"
+  | "xr.observation.write"
+  | "xr.task.read"
+  | "xr.task.answer";
+
+export type LegacyDeviceScope =
   | "display:read"
   | "scan:write"
   | "observation:write"
   | "task:read"
   | "task:answer";
+
+export type DeviceScope = CanonicalDeviceScope | LegacyDeviceScope;
+
+const LEGACY_SCOPE_MAP: Record<LegacyDeviceScope, CanonicalDeviceScope> = {
+  "display:read": "xr.display.read",
+  "scan:write": "xr.scan.write",
+  "observation:write": "xr.observation.write",
+  "task:read": "xr.task.read",
+  "task:answer": "xr.task.answer",
+};
+
+export function canonicalDeviceScope(scope: DeviceScope): CanonicalDeviceScope {
+  return scope in LEGACY_SCOPE_MAP
+    ? LEGACY_SCOPE_MAP[scope as LegacyDeviceScope]
+    : scope as CanonicalDeviceScope;
+}
+
+export function canonicalDeviceScopes(scopes: readonly DeviceScope[]): CanonicalDeviceScope[] {
+  return [...new Set(scopes.map(canonicalDeviceScope))];
+}
+
+export function hasDeviceScope(scopes: readonly DeviceScope[], required: DeviceScope): boolean {
+  const canonicalRequired = canonicalDeviceScope(required);
+  return scopes.some((scope) => canonicalDeviceScope(scope) === canonicalRequired);
+}
 
 export interface DeviceDescriptor {
   deviceId: string;
@@ -49,9 +81,9 @@ export interface ScanManifest {
 }
 
 export const DEFAULT_DEVICE_SCOPES: DeviceScope[] = [
-  "display:read",
-  "scan:write",
-  "observation:write",
-  "task:read",
-  "task:answer",
+  "xr.display.read",
+  "xr.scan.write",
+  "xr.observation.write",
+  "xr.task.read",
+  "xr.task.answer",
 ];

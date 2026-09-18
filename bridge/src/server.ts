@@ -1,9 +1,15 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { BridgeConfig } from "./config.js";
-import type { DeviceDescriptor, DeviceScope } from "./domain.js";
+import {
+  canonicalDeviceScopes,
+  hasDeviceScope,
+  type DeviceDescriptor,
+  type DeviceScope,
+} from "./domain.js";
 import { BridgeError, assertOrThrow } from "./errors.js";
 import type { RepositoryProvider } from "./repository/provider.js";
 import { DeviceRegistry } from "./services/device-registry.js";
+import { InstanceIdentityService } from "./services/instance-identity.js";
 import { PairingService } from "./services/pairing-service.js";
 import { ScanUploadService } from "./services/scan-upload-service.js";
 import { SessionService } from "./services/session-service.js";
@@ -11,6 +17,7 @@ import { normalizeRelativePath, safeEqual, sha256 } from "./util.js";
 
 interface Services {
   devices: DeviceRegistry;
+  identity: InstanceIdentityService;
   pairings: PairingService;
   sessions: SessionService;
   scans: ScanUploadService;
@@ -18,7 +25,7 @@ interface Services {
 
 function bearer(request: FastifyRequest): string {
   const value = request.headers.authorization;
-  if (!value?.startsWith("Bearer ")) throw new BridgeError(401, "SESSION_EXPIRED", "Bearer token required.");
+  if (!value?.startsWith("Bearer ")) throw new BridgeError(401, "AUTH_REQUIRED", "Bearer token required.");
   return value.slice(7);
 }
 
@@ -29,7 +36,7 @@ async function authenticatedDevice(request: FastifyRequest, services: Services, 
   if (device.status === "revoked") throw new BridgeError(401, "DEVICE_REVOKED", "Device has been revoked.");
   if (device.status === "disabled") throw new BridgeError(403, "DEVICE_DISABLED", "Device is disabled.");
   if (device.status !== "authorized") throw new BridgeError(403, "DEVICE_NOT_AUTHORIZED", "Device is not authorized.");
-  if (scope && !device.scopes.includes(scope)) throw new BridgeError(403, "SCOPE_REQUIRED", `Scope required: ${scope}`);
+  if (scope && !hasDeviceScope(device.scopes, scope)) throw new BridgeError(403, "SCOPE_REQUIRED", `Scope required: ${scope}`);
   await services.devices.touch(device.deviceId);
   return device;
 }
@@ -54,6 +61,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
+    identity: new InstanceIdentityService(config.stateDir),
     pairings: new PairingService(config.stateDir, config.pairingTtlSeconds),
     sessions: new SessionService(config.stateDir, config.accessTokenTtlSeconds, config.refreshTokenTtlSeconds),
     scans: new ScanUploadService(config.stateDir, repository, config.spatialRoot),
@@ -71,6 +79,47 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/health", async () => ({ status: "ok", repository: repository.kind }));
+
+  app.get("/.well-known/open-spatial-interop", async (request) => {
+    const base = publicBridgeUrl(request, config);
+    return {
+      protocolId: "open-spatial-interop",
+      coreVersion: "0.1",
+      instanceId: await services.identity.get(),
+      serverTime: new Date().toISOString(),
+      roles: [],
+      contracts: {
+        core: { version: "0.1", href: `${base}/core/v1` },
+        xr: { version: "0.1", href: `${base}/api/v1` },
+      },
+      authentication: {
+        required: true,
+        bearer: true,
+        methods: ["xr-pairing"],
+      },
+      capabilities: [
+        "core.me",
+        "xr.pairing",
+        "xr.device",
+        "xr.display.read",
+        "xr.scan.write",
+        "xr.observation.write",
+      ],
+    };
+  });
+
+  app.get("/core/v1/me", async (request) => {
+    const device = await authenticatedDevice(request, services);
+    return {
+      principalId: `device:${device.deviceId}`,
+      principalType: "device",
+      displayName: device.name ?? `${device.platform} ${device.model}`,
+      scopes: canonicalDeviceScopes(device.scopes),
+      deviceContext: {
+        deviceId: device.deviceId,
+      },
+    };
+  });
 
   app.post("/api/v1/admin/pairings", async (request) => {
     requireAdmin(request, config);
@@ -160,7 +209,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/api/v1/device", async (request) => ({ device: await authenticatedDevice(request, services) }));
 
   app.get("/api/v1/display/manifest", async (request, reply) => {
-    await authenticatedDevice(request, services, "display:read");
+    await authenticatedDevice(request, services, "xr.display.read");
     const data = await repository.readFile(`${config.spatialRoot}/display/manifest.json`);
     if (!data) throw new BridgeError(404, "DISPLAY_NOT_PUBLISHED", "No display manifest is published.");
     const parsed = JSON.parse(Buffer.from(data).toString("utf8")) as { revision?: string };
@@ -169,7 +218,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/api/v1/display/files/*", async (request, reply) => {
-    await authenticatedDevice(request, services, "display:read");
+    await authenticatedDevice(request, services, "xr.display.read");
     const path = normalizeRelativePath((request.params as { "*": string })["*"]);
     const data = await repository.readFile(`${config.spatialRoot}/display/${path}`);
     if (!data) throw new BridgeError(404, "DISPLAY_FILE_NOT_FOUND", "Display file not found.");
@@ -177,13 +226,13 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.put("/api/v1/scans/:scanId/manifest", async (request) => {
-    const device = await authenticatedDevice(request, services, "scan:write");
+    const device = await authenticatedDevice(request, services, "xr.scan.write");
     const { scanId } = request.params as { scanId: string };
     return services.scans.putManifest(device.deviceId, scanId, request.body);
   });
 
   app.put("/api/v1/scans/:scanId/files/*", async (request) => {
-    const device = await authenticatedDevice(request, services, "scan:write");
+    const device = await authenticatedDevice(request, services, "xr.scan.write");
     const params = request.params as { scanId: string; "*": string };
     assertOrThrow(Buffer.isBuffer(request.body), 400, "INVALID_REQUEST", "Binary request body required.");
     const header = request.headers["x-content-sha256"];
@@ -192,13 +241,13 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/scans/:scanId/commit", async (request) => {
-    const device = await authenticatedDevice(request, services, "scan:write");
+    const device = await authenticatedDevice(request, services, "xr.scan.write");
     const { scanId } = request.params as { scanId: string };
     return services.scans.commit(device.deviceId, scanId);
   });
 
   app.put("/api/v1/observations/:observationId", async (request) => {
-    const device = await authenticatedDevice(request, services, "observation:write");
+    const device = await authenticatedDevice(request, services, "xr.observation.write");
     const { observationId } = request.params as { observationId: string };
     const body = request.body as Record<string, unknown>;
     assertOrThrow(body && typeof body === "object", 400, "INVALID_REQUEST", "Observation JSON object required.");

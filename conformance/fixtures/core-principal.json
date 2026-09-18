@@ -1,0 +1,12 @@
+{
+  "principalId": "device:019d4b1a-2b7c-7abc-8def-0123456789ab",
+  "displayName": "Reference XR Device",
+  "scopes": [
+    "xr.display.read",
+    "xr.scan.write",
+    "xr.observation.write"
+  ],
+  "deviceContext": {
+    "deviceId": "019d4b1a-2b7c-7abc-8def-0123456789ab"
+  }
+}

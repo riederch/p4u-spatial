@@ -12,7 +12,7 @@ function sha(data: string): string {
 }
 
 describe("bridge vertical slice", () => {
-  it("pairs a device and commits a scan", async () => {
+  it("discovers Core, pairs a device, resolves /me and commits a scan", async () => {
     const root = await mkdtemp(join(tmpdir(), "p4u-spatial-"));
     const config: BridgeConfig = {
       host: "127.0.0.1",
@@ -28,6 +28,30 @@ describe("bridge vertical slice", () => {
     };
 
     const app = buildServer(config, new FilesystemRepositoryProvider(config.repositoryRoot));
+
+    const discovery = await app.inject({
+      method: "GET",
+      url: "/.well-known/open-spatial-interop"
+    });
+    expect(discovery.statusCode).toBe(200);
+    const firstDiscovery = discovery.json() as {
+      protocolId: string;
+      instanceId: string;
+      contracts: Record<string, { href: string }>;
+      capabilities: string[];
+    };
+    expect(firstDiscovery).toMatchObject({
+      protocolId: "open-spatial-interop",
+      contracts: {
+        core: { href: "https://bridge.test/core/v1" },
+        xr: { href: "https://bridge.test/api/v1" }
+      }
+    });
+    expect(firstDiscovery.capabilities).toContain("core.me");
+
+    const unauthenticatedMe = await app.inject({ method: "GET", url: "/core/v1/me" });
+    expect(unauthenticatedMe.statusCode).toBe(401);
+    expect(unauthenticatedMe.json()).toMatchObject({ error: { code: "AUTH_REQUIRED" } });
 
     const pairing = await app.inject({
       method: "POST",
@@ -60,6 +84,22 @@ describe("bridge vertical slice", () => {
     const session = (poll.json() as { session: { accessToken: string } }).session;
     expect(session.accessToken).toBeTruthy();
 
+    const auth = { authorization: `Bearer ${session.accessToken}` };
+
+    const me = await app.inject({
+      method: "GET",
+      url: "/core/v1/me",
+      headers: auth
+    });
+    expect(me.statusCode).toBe(200);
+    expect(me.json()).toMatchObject({
+      principalId: `device:${deviceId}`,
+      principalType: "device",
+      deviceContext: { deviceId }
+    });
+    expect((me.json() as { scopes: string[] }).scopes).toContain("xr.scan.write");
+    expect((me.json() as { scopes: string[] }).scopes).not.toContain("scan:write");
+
     const scanId = randomUUID();
     const trajectory = "{\"t\":0,\"position\":[0,0,0]}\n";
     const manifest = {
@@ -70,7 +110,6 @@ describe("bridge vertical slice", () => {
       createdAt: new Date().toISOString(),
       files: [{ path: "trajectory.jsonl", sha256: sha(trajectory), mediaType: "application/x-ndjson" }]
     };
-    const auth = { authorization: `Bearer ${session.accessToken}` };
 
     expect((await app.inject({
       method: "PUT",
@@ -98,5 +137,14 @@ describe("bridge vertical slice", () => {
     expect(saved).toBe(trajectory);
 
     await app.close();
+
+    const restarted = buildServer(config, new FilesystemRepositoryProvider(config.repositoryRoot));
+    const rediscovery = await restarted.inject({
+      method: "GET",
+      url: "/.well-known/open-spatial-interop"
+    });
+    expect(rediscovery.statusCode).toBe(200);
+    expect((rediscovery.json() as { instanceId: string }).instanceId).toBe(firstDiscovery.instanceId);
+    await restarted.close();
   });
 });

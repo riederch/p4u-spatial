@@ -16,16 +16,20 @@ It defines:
 
 It does not define spatial data, workspace data, backup content or XR capture.
 
-## Endpoints
+## Discovery and endpoints
 
-Initial mandatory endpoints:
+The draft protocol family uses the machine identifier `open-spatial-interop`.
+
+Initial mandatory Core endpoints:
 
 ```http
-GET /.well-known/<protocol-name>
+GET /.well-known/open-spatial-interop
 GET /core/v1/me
 ```
 
-The final protocol name and well-known path are intentionally not fixed yet.
+See [registry.md](registry.md) for canonical contract, capability and scope names.
+
+Contract base URLs are returned by discovery and MUST NOT be inferred from one another.
 
 ## Identity
 
@@ -37,7 +41,7 @@ A principal is globally identified by:
 (instanceId, principalId)
 ```
 
-Equal `principalId` values on different instances MUST NOT be assumed to represent the same person.
+Equal `principalId` values on different instances MUST NOT be assumed to represent the same person/service/device.
 
 Protocol-generated global technical identifiers SHOULD use UUIDv7 where practical. Provider-native identifiers may remain opaque strings.
 
@@ -53,7 +57,21 @@ Authorization: Bearer <access-token>
 
 The method used to acquire the credential is separate from the API contract. OAuth/OIDC, passkeys, username/password login or XR QR pairing may be used by an implementation.
 
-XR pairing is a credential bootstrap flow, not a separate spatial authentication model.
+XR pairing is a credential bootstrap flow, not a separate Spatial authentication model.
+
+A server implementing OAuth protected-resource metadata SHOULD advertise the corresponding metadata URI from discovery.
+
+## Principal endpoint
+
+```http
+GET /core/v1/me
+```
+
+returns the authenticated Core principal and effective top-level scopes.
+
+Device-authenticated sessions may use a device/service principal and include `deviceContext.deviceId`.
+
+The same credential used with multiple contracts on one instance resolves to the same Core principal identity.
 
 ## Capabilities, scopes and permissions
 
@@ -90,10 +108,12 @@ All contracts use the common error envelope:
   "error": {
     "code": "ACCESS_DENIED",
     "message": "The authenticated principal may not access this resource.",
-    "requestId": "019..."
+    "requestId": "req-123"
   }
 }
 ```
+
+`requestId` is an opaque correlation identifier, not a protocol entity ID.
 
 Common error codes include:
 

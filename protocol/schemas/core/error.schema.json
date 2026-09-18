@@ -12,9 +12,15 @@
           "type": "string",
           "pattern": "^[A-Z][A-Z0-9_]*$"
         },
-        "message": {"type": "string"},
-        "requestId": {"$ref": "definitions.schema.json#/$defs/uuid"},
-        "details": {"type": "object"}
+        "message": {
+          "type": "string"
+        },
+        "requestId": {
+          "$ref": "definitions.schema.json#/$defs/opaqueId"
+        },
+        "details": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     }

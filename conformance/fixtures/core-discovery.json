@@ -1,0 +1,30 @@
+{
+  "protocolId": "open-spatial-interop",
+  "coreVersion": "0.1",
+  "instanceId": "019d4b1a-2b7c-7abc-8def-0123456789ab",
+  "serverTime": "2026-09-18T16:30:00Z",
+  "roles": [],
+  "contracts": {
+    "core": {
+      "version": "0.1",
+      "href": "https://example.test/core/v1"
+    },
+    "xr": {
+      "version": "0.1",
+      "href": "https://example.test/api/v1"
+    }
+  },
+  "authentication": {
+    "required": true,
+    "bearer": true,
+    "methods": ["xr-pairing"]
+  },
+  "capabilities": [
+    "core.me",
+    "xr.pairing",
+    "xr.device",
+    "xr.display.read",
+    "xr.scan.write",
+    "xr.observation.write"
+  ]
+}
