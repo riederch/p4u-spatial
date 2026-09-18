@@ -5,6 +5,9 @@
   "required": ["principalId", "scopes"],
   "properties": {
     "principalId": {"$ref": "definitions.schema.json#/$defs/opaqueId"},
+    "principalType": {
+      "enum": ["user", "service", "device"]
+    },
     "displayName": {"type": "string"},
     "scopes": {
       "type": "array",
