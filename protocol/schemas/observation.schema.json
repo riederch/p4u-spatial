@@ -1,44 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://p4u-spatial.example/schema/observation.schema.json",
-  "title": "P4U Spatial Observation",
-  "type": "object",
-  "required": [
-    "schemaVersion",
-    "id",
-    "deviceId",
-    "createdAt",
-    "kind"
-  ],
-  "properties": {
-    "schemaVersion": {
-      "const": "1.0"
-    },
-    "id": {
-      "type": "string"
-    },
-    "deviceId": {
-      "type": "string"
-    },
-    "createdAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "kind": {
-      "enum": [
-        "manual-confirmation",
-        "manual-correction",
-        "asset-capture",
-        "landmark-capture",
-        "task-answer"
-      ]
-    },
-    "targetId": {
-      "type": "string"
-    },
-    "payload": {
-      "type": "object"
-    }
-  },
-  "additionalProperties": true
+  "$comment": "Deprecated compatibility entry point. Canonical schema: xr/observation.schema.json",
+  "$ref": "xr/observation.schema.json"
 }

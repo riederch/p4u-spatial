@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/xr/device.schema.json",
+  "title": "XR Device",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "deviceId",
+    "platform",
+    "model",
+    "status",
+    "capabilities"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "deviceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "name": {"type": "string"},
+    "platform": {"type": "string"},
+    "model": {"type": "string"},
+    "runtime": {"type": "string"},
+    "appVersion": {"type": "string"},
+    "status": {
+      "enum": ["pending-pairing", "authorized", "disabled", "revoked"]
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string"}
+    },
+    "scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "../core/definitions.schema.json#/$defs/scope"
+      }
+    },
+    "pairedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "lastSeenAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "publicKey": {"type": "string"}
+  },
+  "additionalProperties": true
+}

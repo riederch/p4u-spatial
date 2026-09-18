@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/spatial/coordinate-frame.schema.json",
+  "title": "Spatial Coordinate Frame",
+  "type": "object",
+  "required": ["schemaVersion", "id", "kind", "unit", "handedness"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "id": {"type": "string", "minLength": 1},
+    "kind": {
+      "enum": ["xr-runtime", "scan", "room", "floor", "building", "site", "crs"]
+    },
+    "name": {"type": "string"},
+    "unit": {"enum": ["metre", "degree"]},
+    "handedness": {"enum": ["right", "left", "not-applicable"]},
+    "axes": {
+      "type": "object",
+      "properties": {
+        "x": {"type": "string"},
+        "y": {"type": "string"},
+        "z": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "crs": {
+      "type": "object",
+      "properties": {
+        "authority": {"type": "string"},
+        "code": {"type": ["string", "integer"]},
+        "wkt2": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "provenance": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "crs"}}},
+      "then": {"required": ["crs"]}
+    }
+  ],
+  "additionalProperties": true
+}

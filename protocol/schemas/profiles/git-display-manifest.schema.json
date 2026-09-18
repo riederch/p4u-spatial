@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/profiles/git-display-manifest.schema.json",
+  "title": "Git Repository Display Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "revision", "generatedAt", "files"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "revision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "generatedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {
+            "$ref": "../core/definitions.schema.json#/$defs/sha256"
+          },
+          "size": {"type": "integer", "minimum": 0},
+          "mediaType": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

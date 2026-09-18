@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/xr/task.schema.json",
+  "title": "XR Task",
+  "type": "object",
+  "required": ["schemaVersion", "id", "type", "status"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "id": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "type": {
+      "enum": ["verify", "identify", "capture", "revisit", "registration"]
+    },
+    "status": {
+      "enum": ["open", "assigned", "completed", "cancelled"]
+    },
+    "target": {
+      "$ref": "../spatial/object-ref.schema.json"
+    },
+    "targetId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "question": {"type": "string"},
+    "choices": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "expiresAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,52 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://p4u-spatial.example/schema/display-manifest.schema.json",
-  "title": "P4U Spatial Display Manifest",
-  "type": "object",
-  "required": [
-    "schemaVersion",
-    "revision",
-    "generatedAt",
-    "files"
-  ],
-  "properties": {
-    "schemaVersion": {
-      "const": "1.0"
-    },
-    "revision": {
-      "type": "string"
-    },
-    "generatedAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "files": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "path",
-          "sha256"
-        ],
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "sha256": {
-            "type": "string",
-            "pattern": "^[a-fA-F0-9]{64}$"
-          },
-          "size": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "mediaType": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      }
-    }
-  },
-  "additionalProperties": true
+  "$comment": "Deprecated compatibility entry point. Canonical schema: profiles/git-display-manifest.schema.json",
+  "$ref": "profiles/git-display-manifest.schema.json"
 }

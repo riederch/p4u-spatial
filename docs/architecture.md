@@ -1,6 +1,29 @@
 # Architecture
 
-## System boundary
+## Open interoperability boundary
+
+P4U Spatial is a reference implementation of the open contracts incubated in `protocol/`; it is not the definition of every implementation's internal storage model.
+
+```text
+                    Core
+                      |
+          +-----------+-----------+
+          |                       |
+       Spatial                 App Sync
+          |
+      Federation
+          |
+          XR
+
+Portable Backup = independent local file format
+Git Repository  = optional backend profile
+```
+
+P4U Spatial primarily implements Core + Spatial + Federation + XR and a Git repository backend profile.
+
+A separate application such as MultiGIS may implement the client side of Core/Spatial/App Sync. A content provider may expose Core + Spatial without any XR or Git internals.
+
+## P4U system boundary
 
 ```text
 XR Headset
@@ -15,8 +38,9 @@ OpenXR-first XR Spatial Adapter
     |
     v
 P4U Spatial Bridge
-    |-- pairing / sessions / revocation
-    |-- sync / validation / idempotency
+    |-- Core auth identity
+    |-- XR pairing / sessions / revocation
+    |-- Spatial read/write/federation
     |-- deterministic spatial services
     |-- repository provider abstraction
     |
@@ -30,7 +54,7 @@ raw/ -> deterministic normalization -> model/
 model/ -> display/
 ```
 
-The headset only knows the bridge URL, its device identity and its bridge session. It does not know repository credentials or provider-specific APIs.
+The headset only knows discovered service URLs, its device identity and bridge/Core session. It does not know repository credentials or upstream federation credentials.
 
 ## XR portability boundary
 
@@ -38,11 +62,22 @@ The scanner core is capability-driven, not device-name-driven. OpenXR core and p
 
 Vendor anchor UUIDs and scene-object IDs are bindings, not canonical spatial entity IDs.
 
+## Runtime vs protocol capabilities
+
+Runtime capabilities describe what the XR hardware/runtime can do, such as scene mesh or hand tracking.
+
+Protocol capabilities describe what an instance/route can do, such as `spatial.read` or `federation.durable-relay`.
+
+Authorization scopes describe what the current principal/device is allowed to invoke.
+
+These categories must not be conflated.
+
 ## Deterministic core
 
 P4U Spatial must remain operational without an AI model.
 
 Deterministic processing includes:
+
 - raw capture and preservation,
 - geometric transformations,
 - trajectory storage,
@@ -52,58 +87,46 @@ Deterministic processing includes:
 - protocol validation,
 - display of already structured canonical data.
 
-AI is an optional processing tool for semantic interpretation and enrichment. Failure or absence of AI must degrade enrichment quality, not basic system availability.
+AI is optional for semantic interpretation and enrichment. Failure or absence of AI degrades enrichment quality, not basic system availability.
 
 ## Device trust
 
-Pairing starts in the bridge/add-on UI using a short-lived one-time QR payload. Revocation immediately invalidates active sessions and future refresh attempts.
+Pairing is defined by the XR profile and bootstraps Core-compatible credentials.
 
-Recommended scanner scopes:
-- display:read
-- scan:write
-- observation:write
-- task:read
-- task:answer
+Canonical XR scopes include:
 
-Detailed lifecycle and management rules are in [device-management.md](device-management.md).
+- `xr.display.read`
+- `xr.scan.write`
+- `xr.observation.write`
+- `xr.task.read`
+- `xr.task.answer`
+
+Detailed lifecycle rules are in [device-management.md](device-management.md).
 
 ## Offline model
 
-- `cache/`: reconstructable display data.
-- `outbox/`: unacknowledged primary uploads; never evicted automatically.
-- `state/`: sync state and non-secret metadata.
+- `cache/`: reconstructable display/provider data,
+- `outbox/`: primary data or unacknowledged operations; durable,
+- `state/`: synchronization metadata,
 - secrets: OS secure storage / keystore only.
 
-Detailed offline-storage behavior is in [offline-storage.md](offline-storage.md).
+Detailed XR storage behavior is in [offline-storage.md](offline-storage.md).
 
 ## Spatial modes
 
 ### Indoor Mapping
+
 Rooms, walls, doors, windows, scene anchors, spatial meshes and technical assets.
 
 ### Site Mapping
-Outdoor trajectories, buildings, landmarks and assets such as lamps, shafts, storage areas or wood piles.
 
-Site mapping uses local XR tracking plus known landmarks and optional GNSS evidence. Long-range tracking drift is measured rather than ignored. See [site-mapping.md](site-mapping.md).
+Outdoor trajectories, buildings, landmarks and assets such as lamps, shafts, gates, storage areas or wood piles.
+
+Site mapping uses local XR tracking plus known landmarks and optional GNSS evidence. Long-range drift is measured rather than ignored. See [site-mapping.md](site-mapping.md).
 
 ## Coordinate frames
 
-```text
-XR runtime local
-        |
-        v
-scan frame
-        |
-        v
-site/building frame
-   |         |
- floors     outdoor
-   |
- rooms
-        |
-        v
-georeferenced CRS / Earth
-```
+Coordinate-frame rules are part of the Spatial contract: [Spatial Coordinate Frames](../protocol/spatial/coordinate-frames.md).
 
 XR runtime coordinates are normalized at the adapter boundary. Site-scale canonical geometry uses metres in a local East-North-Up frame where practical. The local frame is linked to an authoritative CRS through an explicit transform.
 

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/xr/scan.schema.json",
+  "title": "XR Scan Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "scanId",
+    "device",
+    "mode",
+    "createdAt",
+    "files"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "scanId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "device": {
+      "type": "object",
+      "required": ["deviceId", "platform", "model"],
+      "properties": {
+        "deviceId": {
+          "$ref": "../core/definitions.schema.json#/$defs/uuid"
+        },
+        "platform": {"type": "string"},
+        "model": {"type": "string"},
+        "runtime": {"type": "string"},
+        "appVersion": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "mode": {
+      "enum": ["indoor", "site", "registration", "drift-test"]
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "coordinateFrame": {"type": "string"},
+    "capabilities": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {
+            "$ref": "../core/definitions.schema.json#/$defs/sha256"
+          },
+          "size": {"type": "integer", "minimum": 0},
+          "mediaType": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,34 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://p4u-spatial.example/schema/pairing-qr.schema.json",
-  "title": "P4U Spatial Pairing QR Payload",
-  "type": "object",
-  "required": [
-    "version",
-    "bridge",
-    "pairingId",
-    "secret",
-    "expiresAt"
-  ],
-  "properties": {
-    "version": {
-      "const": 1
-    },
-    "bridge": {
-      "type": "string",
-      "format": "uri"
-    },
-    "pairingId": {
-      "type": "string"
-    },
-    "secret": {
-      "type": "string",
-      "minLength": 22
-    },
-    "expiresAt": {
-      "type": "string",
-      "format": "date-time"
-    }
-  },
-  "additionalProperties": false
+  "$comment": "Deprecated compatibility entry point. Canonical schema: xr/pairing-qr.schema.json",
+  "$ref": "xr/pairing-qr.schema.json"
 }
