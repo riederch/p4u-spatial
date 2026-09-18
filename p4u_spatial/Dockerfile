@@ -31,7 +31,7 @@ LABEL \
   org.opencontainers.image.description="Open spatial bridge for XR, GIS and interoperable spatial data." \
   org.opencontainers.image.source="https://github.com/riederch/p4u-spatial"
 
-RUN apk add --no-cache nodejs
+RUN apk add --no-cache nodejs git ca-certificates
 
 WORKDIR /opt/p4u-spatial/bridge
 

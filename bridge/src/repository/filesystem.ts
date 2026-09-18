@@ -34,7 +34,7 @@ export class FilesystemRepositoryProvider implements RepositoryProvider {
     if (change.ifAbsent && existing) {
       throw new BridgeError(409, "REPOSITORY_CONFLICT", `Repository path already exists: ${change.path}`);
     }
-    if (change.expectedSha256 !== undefined && (!existing || sha256(existing) !== change.expectedSha256)) {
+    if (change.expectedSha256 !== undefined && sha256(existing ?? new Uint8Array()) !== change.expectedSha256) {
       throw new BridgeError(409, "REPOSITORY_CONFLICT", `Repository path changed concurrently: ${change.path}`);
     }
   }

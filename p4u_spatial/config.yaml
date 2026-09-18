@@ -17,6 +17,16 @@ ports_description:
 options:
   admin_key: ""
   source_title: "P4U Spatial"
+  repository_provider: "filesystem"
+  git_remote_url: ""
+  git_branch: "main"
+  git_username: ""
+  git_token: ""
 schema:
   admin_key: str
   source_title: str
+  repository_provider: list(filesystem|git)
+  git_remote_url: str
+  git_branch: str
+  git_username: str
+  git_token: password
