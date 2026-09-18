@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/write-policy.schema.json",
+  "type": "object",
+  "required": ["operationRetentionSeconds"],
+  "properties": {
+    "operationRetentionSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "clientAssignedObjectIds": {
+      "type": "boolean"
+    },
+    "maxPayloadBytes": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true
+}

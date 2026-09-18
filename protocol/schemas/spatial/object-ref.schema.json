@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/object-ref.schema.json",
+  "type": "object",
+  "required": ["sourceId", "objectId"],
+  "properties": {
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "objectId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    }
+  },
+  "additionalProperties": true
+}

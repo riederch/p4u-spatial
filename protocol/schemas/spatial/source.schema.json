@@ -32,6 +32,9 @@
     "capabilities": {
       "$ref": "../core/definitions.schema.json#/$defs/capabilitySet"
     },
+    "writePolicy": {
+      "$ref": "write-policy.schema.json"
+    },
     "links": {
       "type": "array",
       "items": {"$ref": "../core/link.schema.json"}

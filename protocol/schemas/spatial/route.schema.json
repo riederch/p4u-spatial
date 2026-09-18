@@ -12,12 +12,17 @@
     },
     "upstreamInstanceId": {
       "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "accessMode": {
+      "enum": ["anonymous", "service", "delegated-user"]
     }
   },
   "allOf": [
     {
       "if": {"properties": {"kind": {"const": "federated"}}},
-      "then": {"required": ["upstreamInstanceId"]}
+      "then": {
+        "required": ["upstreamInstanceId", "accessMode"]
+      }
     }
   ],
   "additionalProperties": true

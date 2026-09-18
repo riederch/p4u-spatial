@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/operation-status.schema.json",
+  "type": "object",
+  "required": ["operationId", "sourceId", "state", "updatedAt"],
+  "properties": {
+    "operationId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "state": {
+      "enum": [
+        "accepted",
+        "relay-durable",
+        "source-committed",
+        "conflict",
+        "rejected"
+      ]
+    },
+    "updatedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "collectionId": {
+          "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+        },
+        "objectId": {
+          "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+        },
+        "revision": {
+          "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+        },
+        "sourceRevision": {
+          "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+        },
+        "committedAt": {
+          "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": true
+    },
+    "relay": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "$ref": "../core/definitions.schema.json#/$defs/uuid"
+        },
+        "durableAt": {
+          "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": true
+    },
+    "conflict": {
+      "$ref": "conflict.schema.json"
+    },
+    "error": {
+      "$ref": "../core/error.schema.json"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "relay-durable"}}},
+      "then": {"required": ["relay"]}
+    },
+    {
+      "if": {"properties": {"state": {"const": "source-committed"}}},
+      "then": {"required": ["result"]}
+    },
+    {
+      "if": {"properties": {"state": {"const": "conflict"}}},
+      "then": {"required": ["conflict"]}
+    },
+    {
+      "if": {"properties": {"state": {"const": "rejected"}}},
+      "then": {"required": ["error"]}
+    }
+  ],
+  "additionalProperties": true
+}
