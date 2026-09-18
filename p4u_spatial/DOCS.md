@@ -59,6 +59,18 @@ Optional key for the current bridge administration endpoints.
 
 If left empty, the administration API remains disabled. Set a sufficiently long random value before using device pairing administration.
 
+## Updating to 0.0.1
+
+Version 0.0.1 is distributed as the pre-built image:
+
+```text
+ghcr.io/riederch/p4u-spatial-ha:0.0.1
+```
+
+The image is published manually through the repository's **Publish Home Assistant App** GitHub Actions workflow.
+
+The GHCR package must be public so Home Assistant can pull it without GitHub credentials.
+
 ## Current scope
 
 This is still an early development version.
