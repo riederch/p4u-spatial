@@ -6,7 +6,7 @@
   "required": [
     "schemaVersion",
     "scanId",
-    "deviceId",
+    "device",
     "mode",
     "createdAt",
     "files"
@@ -17,11 +17,41 @@
     },
     "scanId": {
       "type": "string",
-      "minLength": 8
+      "format": "uuid"
     },
-    "deviceId": {
-      "type": "string",
-      "minLength": 1
+    "device": {
+      "type": "object",
+      "required": [
+        "deviceId",
+        "platform",
+        "model"
+      ],
+      "properties": {
+        "deviceId": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string",
+          "examples": [
+            "pico",
+            "meta"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "examples": [
+            "pico-4-ultra",
+            "quest-3"
+          ]
+        },
+        "runtime": {
+          "type": "string"
+        },
+        "appVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
     },
     "mode": {
       "enum": [
@@ -37,6 +67,12 @@
     },
     "coordinateFrame": {
       "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "files": {
       "type": "array",
@@ -60,21 +96,6 @@
         },
         "additionalProperties": false
       }
-    },
-    "source": {
-      "type": "object",
-      "properties": {
-        "deviceModel": {
-          "type": "string"
-        },
-        "appVersion": {
-          "type": "string"
-        },
-        "osVersion": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": true
     }
   },
   "additionalProperties": true

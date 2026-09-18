@@ -3,64 +3,60 @@
 ## System boundary
 
 ```text
-PICO 4 Ultra
+XR Headset
     |
-    | Bridge API
+    v
+Scanner Core
+    |
+    v
+OpenXR-first XR Spatial Adapter
+    |-- standard OpenXR capabilities
+    |-- vendor fallback modules
+    |
     v
 P4U Spatial Bridge
-    |-- device pairing / sessions / revocation
+    |-- pairing / sessions / revocation
     |-- sync / validation / idempotency
+    |-- deterministic spatial services
     |-- repository provider abstraction
     |
     +--> Gitea
     +--> GitHub
 
-Agent processing
-    raw/ -> model/ -> display/
+Optional processing:
+raw/ -> deterministic normalization -> model/
+                    |
+                    +-> AI enrichment when available
+model/ -> display/
 ```
 
-The headset only knows the bridge URL, its device identity and its bridge session. It does not know repository credentials, Git commits, provider-specific APIs or private knowledge-base structure.
+The headset only knows the bridge URL, its device identity and its bridge session. It does not know repository credentials or provider-specific APIs.
 
-## Runtime components
+## XR portability boundary
 
-### P4U Spatial Scanner
-- indoor mapping using PICO scene/spatial capabilities,
-- site mapping for outdoor assets and trajectories,
-- landmark capture,
-- display cache,
-- durable upload outbox,
-- task/observation workflow.
+The scanner core is capability-driven, not device-name-driven. OpenXR core and portable extensions are preferred. Vendor APIs are allowed only behind adapters when a required capability is unavailable through portable OpenXR.
 
-### P4U Spatial Bridge
-- QR pairing,
-- device registry,
-- authorization and revocation,
-- session issuance,
-- upload validation,
-- idempotent scan ingestion,
-- repository commits,
-- display synchronization,
-- provider abstraction.
+Vendor anchor UUIDs and scene-object IDs are bindings, not canonical spatial entity IDs.
 
-### Home Assistant add-on
-The HA add-on packages the same bridge used by standalone deployments. Home Assistant is a deployment option, not a protocol dependency.
+## Deterministic core
 
-### Repository providers
-Both Gitea and GitHub implement the same internal repository interface. Provider-specific commit mechanics must not leak into scanner or spatial protocol logic.
+P4U Spatial must remain operational without an AI model.
 
-## Data flow
+Deterministic processing includes:
+- raw capture and preservation,
+- geometric transformations,
+- trajectory storage,
+- marker decoding and known-landmark lookup,
+- control-point registration and residual calculation,
+- repository synchronization,
+- protocol validation,
+- display of already structured canonical data.
 
-```text
-scanner -> raw/ -> agent -> model/ -> publisher -> display/ -> scanner cache
-             ^                                      |
-             |------ observations / task answers ---|
-```
+AI is an optional processing tool for semantic interpretation and enrichment. Failure or absence of AI must degrade enrichment quality, not basic system availability.
 
 ## Device trust
 
-Pairing starts in the add-on UI. A short-lived one-time QR payload authorizes a new device. The bridge then creates a persistent device identity and issues short-lived sessions.
-
-Revocation must immediately invalidate both active sessions and future refresh attempts.
+Pairing starts in the bridge/add-on UI using a short-lived one-time QR payload. Revocation immediately invalidates active sessions and future refresh attempts.
 
 Recommended scanner scopes:
 - display:read
@@ -68,8 +64,6 @@ Recommended scanner scopes:
 - observation:write
 - task:read
 - task:answer
-
-The scanner must never have canonical-model or repository-administration permission.
 
 ## Offline model
 
@@ -86,20 +80,29 @@ Rooms, walls, doors, windows, scene anchors, spatial meshes and technical assets
 ### Site Mapping
 Outdoor trajectories, buildings, landmarks and assets such as lamps, shafts, storage areas or wood piles.
 
-## Spatial registration
-
-Coordinate frames are linked explicitly:
+## Coordinate frames
 
 ```text
-PICO local -> room -> floor -> building -> GIS
+XR runtime local
+        |
+        v
+scan frame
+        |
+        v
+site/building frame
+   |         |
+ floors     outdoor
+   |
+ rooms
+        |
+        v
+georeferenced CRS / Earth
 ```
 
-Known control points and stable landmarks are preferred for precise registration. Phone GNSS may be used as an optional coarse global signal, not as the sole precise registration method.
+XR runtime coordinates are normalized at the adapter boundary. Site-scale canonical geometry uses metres in a local East-North-Up frame where practical. The local frame is linked to an authoritative CRS through an explicit transform.
 
-Landmarks may be:
-- stable natural/infrastructure landmarks,
-- manually confirmed landmarks,
-- artificial visual markers,
-- persistent headset anchors where appropriate.
+Known control points and stable landmarks are preferred for precise registration. Phone GNSS is optional coarse evidence, not the authoritative precise transform.
 
-Tracking drift should be measurable through recorded trajectories and loop-closure tests.
+## Geometry delivery
+
+Renderable meshes should use glTF/GLB where practical. Large geospatial 3D datasets may later use 3D Tiles. Semantic identity and geospatial placement remain explicit and are not inferred from render geometry.

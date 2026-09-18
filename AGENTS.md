@@ -8,21 +8,38 @@ P4U Spatial is public software. Do not add private site data, credentials, real 
 
 ## Architecture invariants
 
-- The PICO 4 Ultra never receives Gitea or GitHub credentials.
+- The canonical protocol is headset-vendor-neutral.
+- OpenXR is the preferred XR portability boundary.
+- Vendor-specific APIs and identifiers stay behind adapter/binding layers.
+- Prefer capability checks over hard-coded headset model checks.
+- Headsets never receive Gitea or GitHub credentials.
 - Pairing and device authorization are handled by the bridge.
 - Gitea and GitHub are equal repository providers behind one interface.
-- Raw scanner data, canonical model data and headset display data are separate layers.
-- Raw data is preserved and must not be silently rewritten by agents.
-- The canonical model is provider- and device-independent.
-- Display data is generated and may be rebuilt from the canonical model.
-- Headset cache is disposable; headset outbox is durable until acknowledged by the bridge.
+- Raw scanner data, canonical model data and display data are separate layers.
+- Raw data is preserved and must not be silently rewritten.
+- Display data is generated and may be rebuilt.
+- Headset cache is disposable; headset outbox is durable until acknowledged.
 - Spatial uncertainty, provenance and coordinate-frame transforms must be explicit.
 - Site-specific paths must be configurable. Never hard-code RCHKB paths.
 
-## Changes
+## AI independence
 
-When adding protocol fields or schemas:
-1. preserve backward compatibility where practical,
-2. document breaking changes,
-3. update examples and protocol docs,
-4. never invent certainty for unresolved spatial mappings.
+AI/LLM/VLM processing is optional and must never be required for a fundamental workflow.
+
+The following must remain deterministic and usable without an AI model:
+- capture and raw-data persistence,
+- device pairing and authorization,
+- cache and durable outbox,
+- upload/sync/retry/idempotency,
+- coordinate conversion and rigid transforms,
+- control-point registration,
+- known marker/landmark bindings,
+- schema validation,
+- canonical data read/write,
+- display generation where the input is already structured.
+
+AI may assist with semantic recognition, classification, deduplication, conflict resolution, inferred relationships and user-facing suggestions. AI-derived changes must preserve provenance and confidence and must not silently replace source evidence.
+
+## Standards
+
+Prefer the standards documented in `docs/standards.md`. Do not replace a standard representation with a proprietary one without an ADR explaining why.
