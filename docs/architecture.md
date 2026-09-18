@@ -65,12 +65,16 @@ Recommended scanner scopes:
 - task:read
 - task:answer
 
+Detailed lifecycle and management rules are in [device-management.md](device-management.md).
+
 ## Offline model
 
 - `cache/`: reconstructable display data.
 - `outbox/`: unacknowledged primary uploads; never evicted automatically.
 - `state/`: sync state and non-secret metadata.
 - secrets: OS secure storage / keystore only.
+
+Detailed offline-storage behavior is in [offline-storage.md](offline-storage.md).
 
 ## Spatial modes
 
@@ -79,6 +83,8 @@ Rooms, walls, doors, windows, scene anchors, spatial meshes and technical assets
 
 ### Site Mapping
 Outdoor trajectories, buildings, landmarks and assets such as lamps, shafts, storage areas or wood piles.
+
+Site mapping uses local XR tracking plus known landmarks and optional GNSS evidence. Long-range tracking drift is measured rather than ignored. See [site-mapping.md](site-mapping.md).
 
 ## Coordinate frames
 
