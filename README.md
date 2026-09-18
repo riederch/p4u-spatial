@@ -1,5 +1,7 @@
 # P4U Spatial
 
+![P4U Spatial](p4u_spatial/logo.png)
+
 Open-source, vendor-neutral spatial capture and visualization system for XR headsets. The first reference implementation targets the **PICO 4 Ultra**.
 
 P4U Spatial connects XR scanners to a Git-backed spatial knowledge repository through a bridge service. This software repository contains **no site-specific or knowledge-base data**.

@@ -4,3 +4,4 @@
 
 - Initial Home Assistant repository bootstrap.
 - Add installable Hello World app.
+- Add official P4U Spatial Home Assistant icon and logo.
