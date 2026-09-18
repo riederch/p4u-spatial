@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/blob-ref.schema.json",
+  "type": "object",
+  "required": ["sha256", "size", "mediaType"],
+  "properties": {
+    "sha256": {
+      "$ref": "../core/definitions.schema.json#/$defs/sha256"
+    },
+    "size": {"type": "integer", "minimum": 0},
+    "mediaType": {"type": "string", "minLength": 1},
+    "filename": {"type": "string"}
+  },
+  "additionalProperties": true
+}

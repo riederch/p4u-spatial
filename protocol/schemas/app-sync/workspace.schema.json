@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/workspace.schema.json",
+  "type": "object",
+  "required": [
+    "workspaceId",
+    "application",
+    "applicationSchemaVersion",
+    "revision"
+  ],
+  "properties": {
+    "workspaceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "application": {"type": "string", "minLength": 1},
+    "applicationSchemaVersion": {"type": "string", "minLength": 1},
+    "revision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "maxStorageBytes": {"type": "integer", "minimum": 0},
+        "maxBlobBytes": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": true
+    },
+    "history": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "minimumRetentionSeconds": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

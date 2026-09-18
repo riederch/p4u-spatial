@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/workspace-object.schema.json",
+  "type": "object",
+  "required": [
+    "objectId",
+    "type",
+    "schemaVersion",
+    "scope",
+    "revision",
+    "originDeviceId",
+    "payload"
+  ],
+  "properties": {
+    "objectId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "type": {"type": "string", "minLength": 1},
+    "schemaVersion": {"type": "string", "minLength": 1},
+    "scope": {
+      "enum": ["account", "device"]
+    },
+    "deviceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "revision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "updatedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "originDeviceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "payload": {}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {"const": "device"}
+        }
+      },
+      "then": {
+        "required": ["deviceId"]
+      }
+    }
+  ],
+  "additionalProperties": true
+}

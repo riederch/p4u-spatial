@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/device.schema.json",
+  "type": "object",
+  "required": ["deviceId", "application", "status"],
+  "properties": {
+    "deviceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "name": {"type": "string"},
+    "application": {"type": "string", "minLength": 1},
+    "platform": {"type": "string"},
+    "appVersion": {"type": "string"},
+    "status": {
+      "enum": ["authorized", "revoked"]
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "lastSeenAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "lastSyncAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    }
+  },
+  "additionalProperties": true
+}

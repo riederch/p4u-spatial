@@ -6,6 +6,22 @@ These rules apply to the whole repository.
 
 P4U Spatial is public software. Do not add private site data, credentials, real repository tokens, or RCHKB-specific knowledge to this repository.
 
+## Open interoperability protocol invariants
+
+- Core, Spatial and App Sync are implementation-neutral contracts.
+- Spatial and App Sync both depend on Core but must not depend on each other.
+- Authentication belongs to Core; contract-specific authorization is expressed with scopes and resource permissions.
+- A spatial source is an authority; a route is only a transport path.
+- Federation must preserve upstream `sourceId`.
+- Multiple routes with the same `sourceId` represent one source, not duplicate sources.
+- Route preference must never be interpreted as data authority.
+- Provider and client caches are never canonical.
+- Different route/principal access views must not be silently merged.
+- Account Providers must not copy external provider data as a second canonical source.
+- App Sync may carry opaque application payloads, including GeoJSON or pending provider operations, without becoming a Spatial Provider.
+- Repository layout is a backend profile, not a protocol requirement.
+- Portable backup is independent from Spatial and App Sync network availability.
+
 ## Architecture invariants
 
 - The canonical protocol is headset-vendor-neutral.

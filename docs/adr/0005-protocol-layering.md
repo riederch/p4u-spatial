@@ -1,0 +1,21 @@
+# ADR 0005: Protocol Layering
+
+Status: accepted
+
+## Decision
+
+The public interoperability contract is split into a shared Core and independent contracts for Spatial, Tiles, App Sync, Federation and XR.
+
+Spatial and App Sync both depend on Core but MUST NOT depend on each other.
+
+Portable backup is a local file format rather than a network contract.
+
+## Consequences
+
+A domain Fire instance may expose Core + Spatial only.
+
+A dedicated MultiGIS backend may expose Core + App Sync only.
+
+P4U Spatial may expose Core + Spatial + Federation + XR.
+
+The protocol may later move to its own repository without changing these dependency boundaries.

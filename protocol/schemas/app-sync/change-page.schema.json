@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/change-page.schema.json",
+  "type": "object",
+  "required": ["changes", "nextCursor", "hasMore"],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["objectId", "revision", "deleted"],
+        "properties": {
+          "changeId": {
+            "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+          },
+          "objectId": {
+            "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+          },
+          "revision": {
+            "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+          },
+          "deleted": {"type": "boolean"},
+          "object": {
+            "$ref": "workspace-object.schema.json"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "deleted": {"const": false}
+              }
+            },
+            "then": {
+              "required": ["object"]
+            }
+          }
+        ],
+        "additionalProperties": true
+      }
+    },
+    "nextCursor": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "hasMore": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

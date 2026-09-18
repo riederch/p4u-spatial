@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "core/discovery.schema.json",
+  "type": "object",
+  "required": [
+    "coreVersion",
+    "instanceId",
+    "roles",
+    "contracts",
+    "authentication",
+    "capabilities"
+  ],
+  "properties": {
+    "coreVersion": {"type": "string"},
+    "instanceId": {"$ref": "definitions.schema.json#/$defs/uuid"},
+    "serverTime": {"$ref": "definitions.schema.json#/$defs/timestamp"},
+    "roles": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "definitions.schema.json#/$defs/contract"
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "required": ["required"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "protectedResourceMetadata": {"type": "string", "format": "uri"}
+      },
+      "additionalProperties": true
+    },
+    "capabilities": {
+      "$ref": "definitions.schema.json#/$defs/capabilitySet"
+    }
+  },
+  "additionalProperties": true
+}

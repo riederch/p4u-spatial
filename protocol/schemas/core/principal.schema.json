@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "core/principal.schema.json",
+  "type": "object",
+  "required": ["principalId", "scopes"],
+  "properties": {
+    "principalId": {"$ref": "definitions.schema.json#/$defs/opaqueId"},
+    "displayName": {"type": "string"},
+    "scopes": {
+      "type": "array",
+      "items": {"$ref": "definitions.schema.json#/$defs/scope"},
+      "uniqueItems": true
+    },
+    "deviceContext": {
+      "type": "object",
+      "required": ["deviceId"],
+      "properties": {
+        "deviceId": {"$ref": "definitions.schema.json#/$defs/uuid"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

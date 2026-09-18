@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "core/error.schema.json",
+  "type": "object",
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "message": {"type": "string"},
+        "requestId": {"$ref": "definitions.schema.json#/$defs/uuid"},
+        "details": {"type": "object"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
