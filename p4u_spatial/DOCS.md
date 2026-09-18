@@ -1,12 +1,66 @@
-# P4U Spatial 0.0.0
+# P4U Spatial 0.0.1
 
-This is the initial Home Assistant bootstrap package for P4U Spatial.
+Version 0.0.1 runs the actual P4U Spatial Bridge inside Home Assistant.
 
-After starting the app, the log should contain:
+## Network
+
+The bridge listens on:
 
 ```text
-P4U Spatial 0.0.0 - Hello World
-Home Assistant app bootstrap is running.
+TCP 8787
 ```
 
-No bridge service, ports or configuration options are exposed yet.
+A basic runtime check is available at:
+
+```text
+http://<home-assistant-host>:8787/health
+```
+
+Core discovery is available at:
+
+```text
+http://<home-assistant-host>:8787/.well-known/open-spatial-interop
+```
+
+## Persistent storage
+
+Home Assistant provides `/data` as persistent app storage.
+
+P4U Spatial uses:
+
+```text
+/data/state       persistent bridge identity/session state
+/data/repository  local spatial repository backend
+```
+
+The bridge's configured spatial root is:
+
+```text
+spatial/
+```
+
+inside the repository directory.
+
+## Options
+
+### source_title
+
+Human-readable title of the local Spatial Source.
+
+Default:
+
+```text
+P4U Spatial
+```
+
+### admin_key
+
+Optional key for the current bridge administration endpoints.
+
+If left empty, the administration API remains disabled. Set a sufficiently long random value before using device pairing administration.
+
+## Current scope
+
+This is still an early development version.
+
+It does not yet expose a Home Assistant ingress UI and does not yet connect to external Git providers automatically.
