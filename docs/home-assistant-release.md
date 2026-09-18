@@ -15,18 +15,27 @@ Supported architectures:
 
 The app version in `p4u_spatial/config.yaml` is the authoritative release version.
 
-## Publish
+## On-demand publishing
 
-Publishing is intentionally manual to avoid consuming GitHub Actions quota on every push.
+Publishing is intentionally not tied to normal `main` pushes.
 
-In GitHub:
+The dedicated branch:
 
-1. Open **Actions**.
-2. Select **Publish Home Assistant App**.
-3. Choose **Run workflow** on `main`.
-4. Wait for both architecture builds and the manifest job to finish.
+```text
+ha-release
+```
 
-The workflow publishes:
+acts as the release pointer.
+
+Moving `ha-release` to a commit triggers exactly one Home Assistant image publication for the app version contained in that commit.
+
+This keeps normal development pushes free of GitHub Actions usage.
+
+The workflow can also still be started manually with `workflow_dispatch`.
+
+## Published images
+
+A successful run publishes:
 
 ```text
 ghcr.io/riederch/amd64-p4u-spatial-ha:<version>
@@ -37,27 +46,25 @@ ghcr.io/riederch/p4u-spatial-ha:latest
 
 ## GHCR visibility
 
-The multi-architecture image must be readable by Home Assistant without GitHub credentials.
+The generic multi-architecture image must be readable by Home Assistant.
 
-After the first package publication, verify in GitHub package settings that the package is **Public**.
-
-If the package is private, Home Assistant will fail while pulling the image even though the app repository itself is visible.
+After the first package publication, verify in GitHub package settings that the package visibility/authentication matches the Home Assistant installation. Public visibility is preferred for a public app repository.
 
 ## Home Assistant update
 
 After publishing:
 
-1. Reload the custom app/add-on repository in Home Assistant.
-2. P4U Spatial should show version `0.0.1`.
+1. Reload the custom app repository in Home Assistant.
+2. Confirm the new P4U Spatial version is shown.
 3. Install/update the app.
 4. Start it.
 
 ## Smoke test
 
-Expected log start:
+Expected startup log:
 
 ```text
-Starting P4U Spatial 0.0.1
+Starting P4U Spatial <version>
 Bridge API listening on port 8787
 Persistent state: /data/state
 Spatial repository: /data/repository
@@ -100,4 +107,4 @@ content-provider
 
 Do not bump the Home Assistant app version for ordinary protocol/documentation changes.
 
-Bump `p4u_spatial/config.yaml` only when a new app image should be published.
+Bump `p4u_spatial/config.yaml` only when a new app image should be published, then move `ha-release` to that commit.

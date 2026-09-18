@@ -2,6 +2,9 @@ name: Publish Home Assistant App
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ha-release
 
 permissions:
   contents: read
