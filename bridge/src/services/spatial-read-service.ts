@@ -99,6 +99,7 @@ export class SpatialReadService {
     private readonly spatialRoot: string,
     private readonly sourceTitle: string,
     private readonly snapshotTtlSeconds: number,
+    private readonly operationRetentionSeconds: number,
   ) {
     this.sourceStore = new AtomicJsonStore(join(stateDir, "spatial-source.json"), () => ({}));
     this.snapshotRoot = join(stateDir, "spatial-snapshots");
@@ -168,9 +169,9 @@ export class SpatialReadService {
       itemCount: collection.items.length,
       permissions: {
         read: true,
-        create: false,
-        update: false,
-        delete: false,
+        create: true,
+        update: true,
+        delete: true,
       },
       sync: {
         snapshot: true,
@@ -205,11 +206,19 @@ export class SpatialReadService {
       capabilities: [
         "spatial.read",
         "spatial.snapshots",
+        "spatial.create",
+        "spatial.update",
+        "spatial.delete",
       ],
+      writePolicy: {
+        operationRetentionSeconds: this.operationRetentionSeconds,
+        clientAssignedObjectIds: true,
+      },
       links: [
         { rel: "self", href: root },
         { rel: "collections", href: `${root}/collections` },
         { rel: "snapshots", href: `${root}/snapshots` },
+        { rel: "operations", href: `${baseUrl}/spatial/v1/operations` },
       ],
     };
   }

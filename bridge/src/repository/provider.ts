@@ -2,6 +2,7 @@ export interface FileChange {
   path: string;
   content: Uint8Array;
   ifAbsent?: boolean;
+  expectedSha256?: string;
 }
 
 export interface CommitResult {

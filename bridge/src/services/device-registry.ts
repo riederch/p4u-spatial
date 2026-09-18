@@ -45,6 +45,16 @@ export class DeviceRegistry {
     });
   }
 
+  async setScopes(deviceId: string, scopes: DeviceScope[]): Promise<DeviceRecord> {
+    return this.store.mutate((state) => {
+      const device = state.devices.find((d) => d.deviceId === deviceId);
+      if (!device) throw new BridgeError(404, "DEVICE_NOT_FOUND", "Device not found.");
+      if (device.status === "revoked") throw new BridgeError(409, "DEVICE_REVOKED", "Revoked device scopes cannot be changed.");
+      device.scopes = [...new Set(scopes)];
+      return device;
+    });
+  }
+
   async setStatus(deviceId: string, status: DeviceStatus): Promise<DeviceRecord> {
     return this.store.mutate((state) => {
       const device = state.devices.find((d) => d.deviceId === deviceId);

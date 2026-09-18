@@ -2,6 +2,9 @@ export type DeviceStatus = "pending-pairing" | "authorized" | "disabled" | "revo
 
 export type CanonicalDeviceScope =
   | "spatial.read"
+  | "spatial.create"
+  | "spatial.update"
+  | "spatial.delete"
   | "xr.display.read"
   | "xr.scan.write"
   | "xr.observation.write"
@@ -16,6 +19,35 @@ export type LegacyDeviceScope =
   | "task:answer";
 
 export type DeviceScope = CanonicalDeviceScope | LegacyDeviceScope;
+
+export const CANONICAL_DEVICE_SCOPES: readonly CanonicalDeviceScope[] = [
+  "spatial.read",
+  "spatial.create",
+  "spatial.update",
+  "spatial.delete",
+  "xr.display.read",
+  "xr.scan.write",
+  "xr.observation.write",
+  "xr.task.read",
+  "xr.task.answer",
+];
+
+export const LEGACY_DEVICE_SCOPES: readonly LegacyDeviceScope[] = [
+  "display:read",
+  "scan:write",
+  "observation:write",
+  "task:read",
+  "task:answer",
+];
+
+const DEVICE_SCOPE_SET = new Set<string>([
+  ...CANONICAL_DEVICE_SCOPES,
+  ...LEGACY_DEVICE_SCOPES,
+]);
+
+export function isDeviceScope(value: unknown): value is DeviceScope {
+  return typeof value === "string" && DEVICE_SCOPE_SET.has(value);
+}
 
 const LEGACY_SCOPE_MAP: Record<LegacyDeviceScope, CanonicalDeviceScope> = {
   "display:read": "xr.display.read",

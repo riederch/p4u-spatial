@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { BridgeError } from "../errors.js";
-import { newId, resolveBelow } from "../util.js";
+import { newId, resolveBelow, sha256 } from "../util.js";
 import type { CommitResult, FileChange, RepositoryProvider } from "./provider.js";
 
 export class FilesystemRepositoryProvider implements RepositoryProvider {
@@ -29,12 +29,18 @@ export class FilesystemRepositoryProvider implements RepositoryProvider {
     }
   }
 
-  async commitFiles(changes: FileChange[], _message: string): Promise<CommitResult> {
-    for (const change of changes) {
-      if (change.ifAbsent && await this.exists(change.path)) {
-        throw new BridgeError(409, "REPOSITORY_CONFLICT", `Repository path already exists: ${change.path}`);
-      }
+  private async assertPreconditions(change: FileChange): Promise<void> {
+    const existing = await this.readFile(change.path);
+    if (change.ifAbsent && existing) {
+      throw new BridgeError(409, "REPOSITORY_CONFLICT", `Repository path already exists: ${change.path}`);
     }
+    if (change.expectedSha256 !== undefined && (!existing || sha256(existing) !== change.expectedSha256)) {
+      throw new BridgeError(409, "REPOSITORY_CONFLICT", `Repository path changed concurrently: ${change.path}`);
+    }
+  }
+
+  async commitFiles(changes: FileChange[], _message: string): Promise<CommitResult> {
+    for (const change of changes) await this.assertPreconditions(change);
 
     const stageRoot = join(this.root, ".p4u-stage", newId());
     await mkdir(stageRoot, { recursive: true });
@@ -46,11 +52,7 @@ export class FilesystemRepositoryProvider implements RepositoryProvider {
         await writeFile(staged, change.content);
       }
 
-      for (const change of changes) {
-        if (change.ifAbsent && await this.exists(change.path)) {
-          throw new BridgeError(409, "REPOSITORY_CONFLICT", `Repository path already exists: ${change.path}`);
-        }
-      }
+      for (const change of changes) await this.assertPreconditions(change);
 
       for (const change of changes) {
         const staged = resolveBelow(stageRoot, change.path);

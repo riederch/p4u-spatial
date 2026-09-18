@@ -1,8 +1,10 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { BridgeConfig } from "./config.js";
 import {
+  CANONICAL_DEVICE_SCOPES,
   canonicalDeviceScopes,
   hasDeviceScope,
+  isDeviceScope,
   type DeviceDescriptor,
   type DeviceScope,
 } from "./domain.js";
@@ -14,7 +16,8 @@ import { PairingService } from "./services/pairing-service.js";
 import { ScanUploadService } from "./services/scan-upload-service.js";
 import { SessionService } from "./services/session-service.js";
 import { SpatialReadService } from "./services/spatial-read-service.js";
-import { normalizeRelativePath, safeEqual, sha256 } from "./util.js";
+import { SpatialWriteService, type SpatialWriteAction } from "./services/spatial-write-service.js";
+import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
   devices: DeviceRegistry;
@@ -23,6 +26,7 @@ interface Services {
   sessions: SessionService;
   scans: ScanUploadService;
   spatial: SpatialReadService;
+  spatialWrite: SpatialWriteService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -61,9 +65,29 @@ function principalId(deviceId: string): string {
   return `device:${deviceId}`;
 }
 
+function operationAction(body: unknown): SpatialWriteAction {
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new BridgeError(400, "OPERATION_INVALID", "Operation JSON object required.");
+  const action = (body as Record<string, unknown>).action;
+  if (action !== "create" && action !== "update" && action !== "delete") throw new BridgeError(400, "OPERATION_INVALID", "action must be create, update or delete.");
+  return action;
+}
+
+function spatialActionScope(action: SpatialWriteAction): DeviceScope {
+  return `spatial.${action}` as DeviceScope;
+}
+
 export function buildServer(config: BridgeConfig, repository: RepositoryProvider): FastifyInstance {
   const app = Fastify({ logger: true, bodyLimit: 64 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
+
+  const spatial = new SpatialReadService(
+    config.stateDir,
+    repository,
+    config.spatialRoot,
+    config.spatialSourceTitle,
+    config.spatialSnapshotTtlSeconds,
+    config.spatialOperationRetentionSeconds,
+  );
 
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
@@ -71,12 +95,12 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     pairings: new PairingService(config.stateDir, config.pairingTtlSeconds),
     sessions: new SessionService(config.stateDir, config.accessTokenTtlSeconds, config.refreshTokenTtlSeconds),
     scans: new ScanUploadService(config.stateDir, repository, config.spatialRoot),
-    spatial: new SpatialReadService(
+    spatial,
+    spatialWrite: new SpatialWriteService(
       config.stateDir,
       repository,
       config.spatialRoot,
-      config.spatialSourceTitle,
-      config.spatialSnapshotTtlSeconds,
+      () => spatial.sourceId(),
     ),
   };
 
@@ -115,6 +139,9 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         "core.me",
         "spatial.read",
         "spatial.snapshots",
+        "spatial.create",
+        "spatial.update",
+        "spatial.delete",
         "xr.pairing",
         "xr.device",
         "xr.display.read",
@@ -144,6 +171,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       version: "0.1",
       links: [
         { rel: "sources", href: `${base}/spatial/v1/sources` },
+        { rel: "operations", href: `${base}/spatial/v1/operations` },
       ],
     };
   });
@@ -184,7 +212,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     return services.spatial.listItems(collectionId);
   });
 
-  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items/:objectId", async (request) => {
+  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items/:objectId", async (request, reply) => {
     await authenticatedDevice(request, services, "spatial.read");
     const { sourceId, collectionId, objectId } = request.params as {
       sourceId: string;
@@ -192,7 +220,11 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       objectId: string;
     };
     await services.spatial.assertSource(sourceId);
-    return services.spatial.getItem(collectionId, objectId);
+    const item = await services.spatial.getItem(collectionId, objectId);
+    const revision = `sha256:${sha256(Buffer.from(stableStringify(item)))}`;
+    reply.header("ETag", `"${revision}"`);
+    reply.header("X-P4U-Revision", revision);
+    return item;
   });
 
   app.post("/spatial/v1/sources/:sourceId/snapshots", async (request) => {
@@ -230,6 +262,18 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     return services.spatial.getSnapshotItem(snapshotId, principalId(device.deviceId), collectionId, objectId);
   });
 
+  app.post("/spatial/v1/operations", async (request) => {
+    const action = operationAction(request.body);
+    await authenticatedDevice(request, services, spatialActionScope(action));
+    return services.spatialWrite.submit(request.body);
+  });
+
+  app.get("/spatial/v1/operations/:operationId", async (request) => {
+    await authenticatedDevice(request, services);
+    const { operationId } = request.params as { operationId: string };
+    return services.spatialWrite.get(operationId);
+  });
+
   app.post("/api/v1/admin/pairings", async (request) => {
     requireAdmin(request, config);
     return services.pairings.create(publicBridgeUrl(request, config));
@@ -238,6 +282,19 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/api/v1/admin/devices", async (request) => {
     requireAdmin(request, config);
     return { devices: await services.devices.list() };
+  });
+
+  app.get("/api/v1/admin/scopes", async (request) => {
+    requireAdmin(request, config);
+    return { scopes: CANONICAL_DEVICE_SCOPES };
+  });
+
+  app.put("/api/v1/admin/devices/:deviceId/scopes", async (request) => {
+    requireAdmin(request, config);
+    const { deviceId } = request.params as { deviceId: string };
+    const body = request.body as { scopes?: unknown };
+    assertOrThrow(Array.isArray(body?.scopes) && body.scopes.every(isDeviceScope), 400, "INVALID_REQUEST", "scopes must be an array of supported scopes.");
+    return { device: await services.devices.setScopes(deviceId, body.scopes as DeviceScope[]) };
   });
 
   app.post("/api/v1/admin/pairing-claims/:claimId/authorize", async (request) => {

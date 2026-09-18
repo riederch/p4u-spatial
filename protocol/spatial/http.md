@@ -41,6 +41,15 @@ Initial kinds:
 
 The concrete item representation/media type is determined by the collection/profile.
 
+A writable implementation SHOULD expose the current opaque object revision on a live item response. The reference HTTP binding uses:
+
+```http
+ETag: "<opaque-revision>"
+X-P4U-Revision: <opaque-revision>
+```
+
+The value is the `baseRevision` to use for a subsequent update or delete. Clients MUST treat it as opaque.
+
 ## OGC API Features
 
 A feature collection SHOULD expose OGC API Features compatible links and GeoJSON representations.

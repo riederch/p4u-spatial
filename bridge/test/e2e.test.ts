@@ -24,6 +24,7 @@ describe("bridge vertical slice", () => {
       spatialRoot: "spatial",
       spatialSourceTitle: "Test Spatial Source",
       spatialSnapshotTtlSeconds: 600,
+      spatialOperationRetentionSeconds: 86400,
       accessTokenTtlSeconds: 1800,
       refreshTokenTtlSeconds: 86400,
       pairingTtlSeconds: 300
@@ -106,6 +107,7 @@ describe("bridge vertical slice", () => {
     expect(me.statusCode).toBe(200);
     expect((me.json() as { scopes: string[] }).scopes).toContain("spatial.read");
     expect((me.json() as { scopes: string[] }).scopes).toContain("xr.scan.write");
+    expect((me.json() as { scopes: string[] }).scopes).not.toContain("spatial.create");
 
     const sources = await app.inject({
       method: "GET",
@@ -115,6 +117,40 @@ describe("bridge vertical slice", () => {
     expect(sources.statusCode).toBe(200);
     const source = (sources.json() as { sources: Array<{ sourceId: string; sourceRevision: string }> }).sources[0]!;
     expect(source.sourceId).toBeTruthy();
+
+    const deniedCreate = await app.inject({
+      method: "POST",
+      url: "/spatial/v1/operations",
+      headers: auth,
+      payload: {
+        operationId: randomUUID(),
+        target: { sourceId: source.sourceId, collectionId: "assets", objectId: "asset:2" },
+        action: "create",
+        baseRevision: null,
+        payload: { objectId: "asset:2", name: "Valve", status: "new" }
+      }
+    });
+    expect(deniedCreate.statusCode).toBe(403);
+
+    const scopeGrant = await app.inject({
+      method: "PUT",
+      url: `/api/v1/admin/devices/${deviceId}/scopes`,
+      headers: { "x-p4u-admin-key": config.adminKey },
+      payload: {
+        scopes: [
+          "spatial.read",
+          "spatial.create",
+          "spatial.update",
+          "spatial.delete",
+          "xr.display.read",
+          "xr.scan.write",
+          "xr.observation.write",
+          "xr.task.read",
+          "xr.task.answer"
+        ]
+      }
+    });
+    expect(scopeGrant.statusCode).toBe(200);
 
     const collections = await app.inject({
       method: "GET",
@@ -136,6 +172,91 @@ describe("bridge vertical slice", () => {
     });
     expect(liveInitial.statusCode).toBe(200);
     expect(liveInitial.json()).toMatchObject({ objectId: "asset:1", status: "initial" });
+
+    const createOperationId = randomUUID();
+    const createPayload = {
+      operationId: createOperationId,
+      target: { sourceId: source.sourceId, collectionId: "assets", objectId: "asset:2" },
+      action: "create",
+      baseRevision: null,
+      payload: { objectId: "asset:2", name: "Valve", status: "new" }
+    };
+    const create = await app.inject({ method: "POST", url: "/spatial/v1/operations", headers: auth, payload: createPayload });
+    expect(create.statusCode).toBe(200);
+    expect(create.json()).toMatchObject({ state: "source-committed", result: { objectId: "asset:2" } });
+
+    const retry = await app.inject({ method: "POST", url: "/spatial/v1/operations", headers: auth, payload: createPayload });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json()).toEqual(create.json());
+
+    const operationIdConflict = await app.inject({
+      method: "POST",
+      url: "/spatial/v1/operations",
+      headers: auth,
+      payload: { ...createPayload, payload: { objectId: "asset:2", name: "Different" } }
+    });
+    expect(operationIdConflict.statusCode).toBe(409);
+    expect(operationIdConflict.json()).toMatchObject({ error: { code: "OPERATION_ID_CONFLICT" } });
+
+    const createdItem = await app.inject({
+      method: "GET",
+      url: `/spatial/v1/sources/${source.sourceId}/collections/assets/items/asset%3A2`,
+      headers: auth
+    });
+    const createdRevision = createdItem.headers["x-p4u-revision"];
+    expect(createdRevision).toBeTruthy();
+
+    const updateOperationId = randomUUID();
+    const update = await app.inject({
+      method: "POST",
+      url: "/spatial/v1/operations",
+      headers: auth,
+      payload: {
+        operationId: updateOperationId,
+        target: { sourceId: source.sourceId, collectionId: "assets", objectId: "asset:2" },
+        action: "update",
+        baseRevision: createdRevision,
+        payload: { objectId: "asset:2", name: "Valve", status: "updated" }
+      }
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json()).toMatchObject({ state: "source-committed", result: { objectId: "asset:2" } });
+
+    const stale = await app.inject({
+      method: "POST",
+      url: "/spatial/v1/operations",
+      headers: auth,
+      payload: {
+        operationId: randomUUID(),
+        target: { sourceId: source.sourceId, collectionId: "assets", objectId: "asset:2" },
+        action: "delete",
+        baseRevision: createdRevision
+      }
+    });
+    expect(stale.statusCode).toBe(200);
+    expect(stale.json()).toMatchObject({ state: "conflict", conflict: { type: "revision-mismatch" } });
+
+    const updatedItem = await app.inject({
+      method: "GET",
+      url: `/spatial/v1/sources/${source.sourceId}/collections/assets/items/asset%3A2`,
+      headers: auth
+    });
+    const updatedRevision = updatedItem.headers["x-p4u-revision"];
+    expect(updatedRevision).toBeTruthy();
+
+    const deleted = await app.inject({
+      method: "POST",
+      url: "/spatial/v1/operations",
+      headers: auth,
+      payload: {
+        operationId: randomUUID(),
+        target: { sourceId: source.sourceId, collectionId: "assets", objectId: "asset:2" },
+        action: "delete",
+        baseRevision: updatedRevision
+      }
+    });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toMatchObject({ state: "source-committed", result: { objectId: "asset:2" } });
 
     const snapshotResponse = await app.inject({
       method: "POST",

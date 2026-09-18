@@ -58,7 +58,7 @@ The open contract does not require providers to adopt the payload as their inter
 
 Update and delete MUST include `baseRevision`.
 
-The revision is opaque.
+The revision is opaque. A client obtains it from the live read representation or response metadata defined by the provider binding; the reference HTTP binding exposes it as `ETag` and `X-P4U-Revision` on an item response.
 
 If the current authoritative object revision no longer matches the supplied base revision, the operation enters terminal state `conflict`.
 
