@@ -1,0 +1,13 @@
+name: "P4U Spatial"
+version: "0.0.0"
+slug: "p4u_spatial"
+description: "Hello World bootstrap for the P4U Spatial Home Assistant app."
+url: "https://github.com/riederch/p4u-spatial"
+startup: application
+boot: manual
+init: false
+arch:
+  - aarch64
+  - amd64
+options: {}
+schema: {}

@@ -9,7 +9,7 @@ P4U Spatial connects XR scanners to a Git-backed spatial knowledge repository th
 - **P4U Spatial Scanner** — XR application for indoor and site mapping.
 - **XR Spatial Adapter** — OpenXR-first capability abstraction with vendor fallbacks where required.
 - **P4U Spatial Bridge** — pairing, device sessions, synchronization and repository abstraction.
-- **P4U Spatial HA Add-on** — Home Assistant deployment of the bridge.
+- **P4U Spatial HA App** — Home Assistant deployment of the bridge.
 - **Repository Providers** — filesystem reference backend, then Gitea and GitHub.
 - **Spatial Protocol** — provider- and headset-independent repository layout and schemas.
 - **Agent Interface** — optional higher-level processing of raw data into the canonical model.
@@ -50,5 +50,15 @@ filesystem RepositoryProvider
        v
 spatial/raw/scans/<scan-id>/
 ```
+
+## Home Assistant repository
+
+This repository can be added directly to the Home Assistant app/add-on store:
+
+```text
+https://github.com/riederch/p4u-spatial
+```
+
+The initial **P4U Spatial 0.0.0** app is intentionally only a Hello World bootstrap. It verifies repository discovery, image build, installation and startup before the real bridge is packaged.
 
 See [Development](docs/development.md), [Architecture](docs/architecture.md), [Bridge API](protocol/api.md), [Standards](docs/standards.md) and [Repository layout](protocol/repository-layout.md).
