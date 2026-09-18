@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/artifact-descriptor.schema.json",
+  "type": "object",
+  "required": [
+    "sourceId",
+    "artifactId",
+    "sha256",
+    "size",
+    "mediaType",
+    "createdAt",
+    "links"
+  ],
+  "properties": {
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "artifactId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "sha256": {
+      "$ref": "../core/definitions.schema.json#/$defs/sha256"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mediaType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "filename": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "../core/link.schema.json"
+      }
+    }
+  },
+  "additionalProperties": true
+}

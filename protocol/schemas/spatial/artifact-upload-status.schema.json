@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/artifact-upload-status.schema.json",
+  "type": "object",
+  "required": ["uploadId", "sourceId", "state", "updatedAt"],
+  "properties": {
+    "uploadId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "state": {
+      "enum": ["created", "uploading", "uploaded", "committed", "rejected", "expired"]
+    },
+    "artifactId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "updatedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "expiresAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "descriptor": {
+      "$ref": "artifact-descriptor.schema.json"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "../core/link.schema.json"
+      }
+    },
+    "error": {
+      "$ref": "../core/error.schema.json"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "committed"}}},
+      "then": {"required": ["artifactId", "descriptor"]}
+    },
+    {
+      "if": {"properties": {"state": {"const": "rejected"}}},
+      "then": {"required": ["error"]}
+    }
+  ],
+  "additionalProperties": true
+}

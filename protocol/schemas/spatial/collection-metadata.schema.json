@@ -8,10 +8,14 @@
       "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
     },
     "title": {"type": "string", "minLength": 1},
+    "itemKind": {
+      "enum": ["feature", "relation"]
+    },
     "revision": {
       "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
     },
     "featureCount": {"type": "integer", "minimum": 0},
+    "itemCount": {"type": "integer", "minimum": 0},
     "permissions": {
       "type": "object",
       "required": ["read"],

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/relation.schema.json",
+  "type": "object",
+  "required": [
+    "sourceId",
+    "relationId",
+    "predicate",
+    "subject",
+    "object",
+    "revision"
+  ],
+  "properties": {
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "relationId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "predicate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject": {
+      "$ref": "object-ref.schema.json"
+    },
+    "object": {
+      "$ref": "object-ref.schema.json"
+    },
+    "revision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "properties": {
+      "type": "object"
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "updatedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    }
+  },
+  "additionalProperties": true
+}

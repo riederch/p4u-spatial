@@ -8,7 +8,7 @@
     "viewRevision",
     "createdAt",
     "expiresAt",
-    "featuresHref"
+    "collectionsHref"
   ],
   "properties": {
     "snapshotId": {
@@ -29,7 +29,12 @@
     "expiresAt": {
       "$ref": "../core/definitions.schema.json#/$defs/timestamp"
     },
+    "collectionsHref": {
+      "type": "string",
+      "format": "uri"
+    },
     "featuresHref": {
+      "description": "Legacy/optional shortcut for feature-only snapshot consumers.",
       "type": "string",
       "format": "uri"
     }
