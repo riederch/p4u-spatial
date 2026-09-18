@@ -1,0 +1,19 @@
+{
+  "name": "p4u-spatial",
+  "private": true,
+  "type": "module",
+  "workspaces": ["bridge", "tools/scanner-simulator"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev:bridge": "npm --workspace @p4u-spatial/bridge run dev",
+    "dev:sim": "npm --workspace @p4u-spatial/scanner-simulator run dev",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

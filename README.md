@@ -10,9 +10,10 @@ P4U Spatial connects XR scanners to a Git-backed spatial knowledge repository th
 - **XR Spatial Adapter** — OpenXR-first capability abstraction with vendor fallbacks where required.
 - **P4U Spatial Bridge** — pairing, device sessions, synchronization and repository abstraction.
 - **P4U Spatial HA Add-on** — Home Assistant deployment of the bridge.
-- **Repository Providers** — Gitea and GitHub.
+- **Repository Providers** — filesystem reference backend, then Gitea and GitHub.
 - **Spatial Protocol** — provider- and headset-independent repository layout and schemas.
 - **Agent Interface** — optional higher-level processing of raw data into the canonical model.
+- **Scanner Simulator** — deterministic development client for bridge testing without XR hardware.
 
 ## Core principles
 
@@ -29,4 +30,25 @@ P4U Spatial connects XR scanners to a Git-backed spatial knowledge repository th
 11. Established standards are reused where practical instead of inventing proprietary equivalents.
 12. **AI is optional. Core capture, storage, sync, geometry, registration and display must work without an AI model.**
 
-See [Architecture](docs/architecture.md), [Standards](docs/standards.md) and [Repository layout](protocol/repository-layout.md).
+## Implemented vertical slice
+
+```text
+scanner simulator
+       |
+       v
+QR-style pairing + approval
+       |
+       v
+device/session registry
+       |
+       v
+retry-safe scan upload
+       |
+       v
+filesystem RepositoryProvider
+       |
+       v
+spatial/raw/scans/<scan-id>/
+```
+
+See [Development](docs/development.md), [Architecture](docs/architecture.md), [Bridge API](protocol/api.md), [Standards](docs/standards.md) and [Repository layout](protocol/repository-layout.md).
