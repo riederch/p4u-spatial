@@ -2,9 +2,15 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      bootstrap_lockfile:
+        description: Generate and commit package-lock.json before running checks
+        required: false
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -15,6 +21,8 @@ jobs:
     name: TypeScript, schemas and tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: ${{ inputs.bootstrap_lockfile && 'write' || 'read' }}
 
     steps:
       - name: Check out repository
@@ -26,13 +34,12 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - name: Bootstrap lockfile if missing
-        run: |
-          if [ ! -f package-lock.json ]; then
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          fi
+      - name: Bootstrap lockfile
+        if: inputs.bootstrap_lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
       - name: Commit generated lockfile
+        if: inputs.bootstrap_lockfile
         run: |
           if [ -n "$(git status --porcelain -- package-lock.json)" ]; then
             git config user.name "github-actions[bot]"
@@ -40,6 +47,14 @@ jobs:
             git add package-lock.json
             git commit -m "chore: add npm lockfile"
             git push
+          fi
+
+      - name: Require lockfile
+        if: ${{ !inputs.bootstrap_lockfile }}
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "package-lock.json is missing. Re-run this workflow with bootstrap_lockfile=true once."
+            exit 1
           fi
 
       - name: Install locked dependencies
