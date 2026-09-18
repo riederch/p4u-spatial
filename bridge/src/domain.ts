@@ -1,6 +1,7 @@
 export type DeviceStatus = "pending-pairing" | "authorized" | "disabled" | "revoked";
 
 export type CanonicalDeviceScope =
+  | "spatial.read"
   | "xr.display.read"
   | "xr.scan.write"
   | "xr.observation.write"
@@ -81,6 +82,7 @@ export interface ScanManifest {
 }
 
 export const DEFAULT_DEVICE_SCOPES: DeviceScope[] = [
+  "spatial.read",
   "xr.display.read",
   "xr.scan.write",
   "xr.observation.write",

@@ -13,6 +13,7 @@ import { InstanceIdentityService } from "./services/instance-identity.js";
 import { PairingService } from "./services/pairing-service.js";
 import { ScanUploadService } from "./services/scan-upload-service.js";
 import { SessionService } from "./services/session-service.js";
+import { SpatialReadService } from "./services/spatial-read-service.js";
 import { normalizeRelativePath, safeEqual, sha256 } from "./util.js";
 
 interface Services {
@@ -21,6 +22,7 @@ interface Services {
   pairings: PairingService;
   sessions: SessionService;
   scans: ScanUploadService;
+  spatial: SpatialReadService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -55,6 +57,10 @@ function publicBridgeUrl(request: FastifyRequest, config: BridgeConfig): string 
   return `${request.protocol}://${host}`;
 }
 
+function principalId(deviceId: string): string {
+  return `device:${deviceId}`;
+}
+
 export function buildServer(config: BridgeConfig, repository: RepositoryProvider): FastifyInstance {
   const app = Fastify({ logger: true, bodyLimit: 64 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
@@ -65,6 +71,13 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     pairings: new PairingService(config.stateDir, config.pairingTtlSeconds),
     sessions: new SessionService(config.stateDir, config.accessTokenTtlSeconds, config.refreshTokenTtlSeconds),
     scans: new ScanUploadService(config.stateDir, repository, config.spatialRoot),
+    spatial: new SpatialReadService(
+      config.stateDir,
+      repository,
+      config.spatialRoot,
+      config.spatialSourceTitle,
+      config.spatialSnapshotTtlSeconds,
+    ),
   };
 
   app.setErrorHandler((error, request, reply) => {
@@ -87,9 +100,10 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       coreVersion: "0.1",
       instanceId: await services.identity.get(),
       serverTime: new Date().toISOString(),
-      roles: [],
+      roles: ["content-provider"],
       contracts: {
         core: { version: "0.1", href: `${base}/core/v1` },
+        spatial: { version: "0.1", href: `${base}/spatial/v1` },
         xr: { version: "0.1", href: `${base}/api/v1` },
       },
       authentication: {
@@ -99,6 +113,8 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       },
       capabilities: [
         "core.me",
+        "spatial.read",
+        "spatial.snapshots",
         "xr.pairing",
         "xr.device",
         "xr.display.read",
@@ -111,7 +127,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/core/v1/me", async (request) => {
     const device = await authenticatedDevice(request, services);
     return {
-      principalId: `device:${device.deviceId}`,
+      principalId: principalId(device.deviceId),
       principalType: "device",
       displayName: device.name ?? `${device.platform} ${device.model}`,
       scopes: canonicalDeviceScopes(device.scopes),
@@ -119,6 +135,99 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         deviceId: device.deviceId,
       },
     };
+  });
+
+  app.get("/spatial/v1", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const base = publicBridgeUrl(request, config);
+    return {
+      version: "0.1",
+      links: [
+        { rel: "sources", href: `${base}/spatial/v1/sources` },
+      ],
+    };
+  });
+
+  app.get("/spatial/v1/sources", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const base = publicBridgeUrl(request, config);
+    return {
+      sources: [await services.spatial.sourceDescriptor(base)],
+    };
+  });
+
+  app.get("/spatial/v1/sources/:sourceId", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const { sourceId } = request.params as { sourceId: string };
+    await services.spatial.assertSource(sourceId);
+    return services.spatial.sourceDescriptor(publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/collections", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const { sourceId } = request.params as { sourceId: string };
+    await services.spatial.assertSource(sourceId);
+    return services.spatial.listCollections(publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const { sourceId, collectionId } = request.params as { sourceId: string; collectionId: string };
+    await services.spatial.assertSource(sourceId);
+    return services.spatial.getCollection(collectionId, publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const { sourceId, collectionId } = request.params as { sourceId: string; collectionId: string };
+    await services.spatial.assertSource(sourceId);
+    return services.spatial.listItems(collectionId);
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items/:objectId", async (request) => {
+    await authenticatedDevice(request, services, "spatial.read");
+    const { sourceId, collectionId, objectId } = request.params as {
+      sourceId: string;
+      collectionId: string;
+      objectId: string;
+    };
+    await services.spatial.assertSource(sourceId);
+    return services.spatial.getItem(collectionId, objectId);
+  });
+
+  app.post("/spatial/v1/sources/:sourceId/snapshots", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    const { sourceId } = request.params as { sourceId: string };
+    await services.spatial.assertSource(sourceId);
+    return services.spatial.createSnapshot(principalId(device.deviceId), publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/snapshots/:snapshotId", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    const { snapshotId } = request.params as { snapshotId: string };
+    return services.spatial.getSnapshot(snapshotId, principalId(device.deviceId), publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/snapshots/:snapshotId/collections", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    const { snapshotId } = request.params as { snapshotId: string };
+    return services.spatial.listSnapshotCollections(snapshotId, principalId(device.deviceId), publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/snapshots/:snapshotId/collections/:collectionId/items", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    const { snapshotId, collectionId } = request.params as { snapshotId: string; collectionId: string };
+    return services.spatial.listSnapshotItems(snapshotId, principalId(device.deviceId), collectionId);
+  });
+
+  app.get("/spatial/v1/snapshots/:snapshotId/collections/:collectionId/items/:objectId", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    const { snapshotId, collectionId, objectId } = request.params as {
+      snapshotId: string;
+      collectionId: string;
+      objectId: string;
+    };
+    return services.spatial.getSnapshotItem(snapshotId, principalId(device.deviceId), collectionId, objectId);
   });
 
   app.post("/api/v1/admin/pairings", async (request) => {

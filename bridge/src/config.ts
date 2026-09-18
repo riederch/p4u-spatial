@@ -8,6 +8,8 @@ export interface BridgeConfig {
   stateDir: string;
   repositoryRoot: string;
   spatialRoot: string;
+  spatialSourceTitle: string;
+  spatialSnapshotTtlSeconds: number;
   accessTokenTtlSeconds: number;
   refreshTokenTtlSeconds: number;
   pairingTtlSeconds: number;
@@ -28,6 +30,8 @@ export function loadConfig(): BridgeConfig {
     stateDir: resolve(process.env.P4U_STATE_DIR ?? ".data/state"),
     repositoryRoot: resolve(process.env.P4U_REPOSITORY_ROOT ?? ".data/repository"),
     spatialRoot: process.env.P4U_SPATIAL_ROOT ?? "spatial",
+    spatialSourceTitle: process.env.P4U_SPATIAL_SOURCE_TITLE ?? "P4U Spatial Repository",
+    spatialSnapshotTtlSeconds: intEnv("P4U_SPATIAL_SNAPSHOT_TTL", 10 * 60),
     accessTokenTtlSeconds: intEnv("P4U_ACCESS_TOKEN_TTL", 30 * 60),
     refreshTokenTtlSeconds: intEnv("P4U_REFRESH_TOKEN_TTL", 30 * 24 * 60 * 60),
     pairingTtlSeconds: intEnv("P4U_PAIRING_TTL", 5 * 60),
