@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/device.schema.json",
+  "title": "P4U Spatial Device",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "deviceId",
+    "platform",
+    "model",
+    "status",
+    "capabilities"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "deviceId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "runtime": {
+      "type": "string"
+    },
+    "appVersion": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending-pairing",
+        "authorized",
+        "disabled",
+        "revoked"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "display:read",
+          "scan:write",
+          "observation:write",
+          "task:read",
+          "task:answer"
+        ]
+      }
+    },
+    "pairedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lastSeenAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "publicKey": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
