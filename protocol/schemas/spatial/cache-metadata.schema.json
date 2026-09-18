@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/cache-metadata.schema.json",
+  "type": "object",
+  "required": [
+    "instanceId",
+    "principalId",
+    "routeId",
+    "sourceId",
+    "viewRevision",
+    "retrievedAt",
+    "delivery"
+  ],
+  "properties": {
+    "instanceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "principalId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "routeId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "viewRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "sourceRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "snapshotId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "retrievedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "delivery": {
+      "$ref": "delivery.schema.json"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/collection-metadata.schema.json",
+  "type": "object",
+  "required": ["id", "title", "revision", "permissions", "sync"],
+  "properties": {
+    "id": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "title": {"type": "string", "minLength": 1},
+    "revision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "featureCount": {"type": "integer", "minimum": 0},
+    "permissions": {
+      "type": "object",
+      "required": ["read"],
+      "properties": {
+        "read": {"type": "boolean"},
+        "create": {"type": "boolean"},
+        "update": {"type": "boolean"},
+        "delete": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "sync": {
+      "type": "object",
+      "required": ["snapshot"],
+      "properties": {
+        "snapshot": {"type": "boolean"},
+        "delta": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "links": {
+      "type": "array",
+      "items": {"$ref": "../core/link.schema.json"}
+    }
+  },
+  "additionalProperties": true
+}

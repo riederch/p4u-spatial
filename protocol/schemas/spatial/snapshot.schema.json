@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/snapshot.schema.json",
+  "type": "object",
+  "required": [
+    "snapshotId",
+    "sourceId",
+    "viewRevision",
+    "createdAt",
+    "expiresAt",
+    "featuresHref"
+  ],
+  "properties": {
+    "snapshotId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "sourceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "viewRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "sourceRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "expiresAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "featuresHref": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "additionalProperties": true
+}

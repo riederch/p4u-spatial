@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/operation.schema.json",
+  "type": "object",
+  "required": ["operationId", "action", "objectId"],
+  "properties": {
+    "operationId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "action": {
+      "enum": ["create", "update", "delete"]
+    },
+    "objectId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "baseRevision": {
+      "oneOf": [
+        {"$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"},
+        {"type": "null"}
+      ]
+    },
+    "object": {
+      "$ref": "workspace-object.schema.json"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"action": {"const": "create"}}},
+      "then": {
+        "required": ["object"],
+        "properties": {"baseRevision": {"type": "null"}}
+      }
+    },
+    {
+      "if": {"properties": {"action": {"const": "update"}}},
+      "then": {
+        "required": ["baseRevision", "object"],
+        "properties": {
+          "baseRevision": {
+            "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"action": {"const": "delete"}}},
+      "then": {
+        "required": ["baseRevision"],
+        "properties": {
+          "baseRevision": {
+            "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": true
+}

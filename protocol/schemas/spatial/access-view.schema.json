@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/access-view.schema.json",
+  "type": "object",
+  "required": ["viewRevision"],
+  "properties": {
+    "viewRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/history-entry.schema.json",
+  "type": "object",
+  "required": [
+    "historyPointId",
+    "workspaceRevision",
+    "createdAt"
+  ],
+  "properties": {
+    "historyPointId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "workspaceRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "label": {"type": "string"},
+    "restorable": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

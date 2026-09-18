@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/operation-status.schema.json",
+  "type": "object",
+  "required": ["operationId", "state", "updatedAt"],
+  "properties": {
+    "operationId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "state": {
+      "enum": ["accepted", "committed", "conflict", "rejected"]
+    },
+    "updatedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+        },
+        "revision": {
+          "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+        }
+      },
+      "additionalProperties": true
+    },
+    "conflict": {
+      "$ref": "conflict.schema.json"
+    },
+    "error": {
+      "$ref": "../core/error.schema.json"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "conflict"}}},
+      "then": {"required": ["conflict"]}
+    },
+    {
+      "if": {"properties": {"state": {"const": "rejected"}}},
+      "then": {"required": ["error"]}
+    }
+  ],
+  "additionalProperties": true
+}

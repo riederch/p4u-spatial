@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/delivery.schema.json",
+  "type": "object",
+  "required": ["mode"],
+  "properties": {
+    "mode": {
+      "enum": ["live", "cache"]
+    },
+    "freshness": {
+      "enum": ["current", "stale", "unknown"]
+    },
+    "observedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "retrievedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "cache"}}},
+      "then": {"required": ["freshness", "retrievedAt"]}
+    }
+  ],
+  "additionalProperties": true
+}

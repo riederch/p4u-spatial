@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/snapshot.schema.json",
+  "type": "object",
+  "required": [
+    "snapshotId",
+    "workspaceRevision",
+    "changeCursor",
+    "createdAt",
+    "expiresAt",
+    "objectsHref"
+  ],
+  "properties": {
+    "snapshotId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "workspaceRevision": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueRevision"
+    },
+    "changeCursor": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "createdAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "expiresAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "objectsHref": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "additionalProperties": true
+}

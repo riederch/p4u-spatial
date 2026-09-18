@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial/route.schema.json",
+  "type": "object",
+  "required": ["routeId", "kind"],
+  "properties": {
+    "routeId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "kind": {
+      "enum": ["direct", "federated"]
+    },
+    "upstreamInstanceId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "federated"}}},
+      "then": {"required": ["upstreamInstanceId"]}
+    }
+  ],
+  "additionalProperties": true
+}

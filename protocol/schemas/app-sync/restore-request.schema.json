@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app-sync/restore-request.schema.json",
+  "type": "object",
+  "required": ["operationId", "historyPointId"],
+  "properties": {
+    "operationId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "historyPointId": {
+      "$ref": "../core/definitions.schema.json#/$defs/opaqueId"
+    },
+    "reason": {"type": "string"}
+  },
+  "additionalProperties": true
+}
