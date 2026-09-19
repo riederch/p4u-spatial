@@ -71,3 +71,18 @@ npm test
 ## Current scope
 
 The filesystem provider remains the deterministic local reference backend. GitHub and Gitea are supported through the generic Git remote `RepositoryProvider`; provider-specific REST APIs are intentionally not part of the Spatial contract.
+
+
+## Federation reference route
+
+A bridge can expose one configured upstream Spatial provider as a federated route:
+
+```bash
+export P4U_FEDERATION_UPSTREAM_URL=https://upstream.example.invalid
+export P4U_FEDERATION_TOKEN=...
+export P4U_FEDERATION_ROUTE_ID=upstream
+```
+
+If no token is configured, the route uses `anonymous` upstream access. With a token it uses `service` access.
+
+The bridge preserves the upstream `sourceId` and `operationId`. Read results are cached with delivery provenance, and writes to an unavailable upstream are durably retained with state `relay-durable` until a later retry reaches a terminal upstream state.

@@ -22,6 +22,9 @@ options:
   git_branch: "main"
   git_username: ""
   git_token: ""
+  federation_upstream_url: ""
+  federation_token: ""
+  federation_route_id: "upstream"
 schema:
   admin_key: str
   source_title: str
@@ -30,3 +33,6 @@ schema:
   git_branch: str
   git_username: str
   git_token: password
+  federation_upstream_url: str
+  federation_token: password
+  federation_route_id: str

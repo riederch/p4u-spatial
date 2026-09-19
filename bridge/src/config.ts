@@ -13,6 +13,9 @@ export interface BridgeConfig {
   gitUsername?: string;
   gitToken?: string;
   gitRefreshIntervalMs: number;
+  federationUpstreamUrl?: string;
+  federationToken?: string;
+  federationRouteId: string;
   spatialRoot: string;
   spatialSourceTitle: string;
   spatialSnapshotTtlSeconds: number;
@@ -39,6 +42,7 @@ export function loadConfig(): BridgeConfig {
     repositoryProvider: process.env.P4U_REPOSITORY_PROVIDER === "git" ? "git" : "filesystem",
     gitBranch: process.env.P4U_GIT_BRANCH ?? "main",
     gitRefreshIntervalMs: intEnv("P4U_GIT_REFRESH_INTERVAL_MS", 1000),
+    federationRouteId: process.env.P4U_FEDERATION_ROUTE_ID ?? "upstream",
     spatialRoot: process.env.P4U_SPATIAL_ROOT ?? "spatial",
     spatialSourceTitle: process.env.P4U_SPATIAL_SOURCE_TITLE ?? "P4U Spatial Repository",
     spatialSnapshotTtlSeconds: intEnv("P4U_SPATIAL_SNAPSHOT_TTL", 10 * 60),
@@ -52,6 +56,8 @@ export function loadConfig(): BridgeConfig {
   if (process.env.P4U_GIT_REMOTE_URL) config.gitRemoteUrl = process.env.P4U_GIT_REMOTE_URL;
   if (process.env.P4U_GIT_USERNAME) config.gitUsername = process.env.P4U_GIT_USERNAME;
   if (process.env.P4U_GIT_TOKEN) config.gitToken = process.env.P4U_GIT_TOKEN;
+  if (process.env.P4U_FEDERATION_UPSTREAM_URL) config.federationUpstreamUrl = process.env.P4U_FEDERATION_UPSTREAM_URL;
+  if (process.env.P4U_FEDERATION_TOKEN) config.federationToken = process.env.P4U_FEDERATION_TOKEN;
   if (process.env.P4U_ADMIN_KEY) config.adminKey = process.env.P4U_ADMIN_KEY;
   return config;
 }

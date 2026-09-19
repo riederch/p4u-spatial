@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { BridgeConfig } from "./config.js";
 import {
   CANONICAL_DEVICE_SCOPES,
@@ -11,6 +11,7 @@ import {
 import { BridgeError, assertOrThrow } from "./errors.js";
 import type { RepositoryProvider } from "./repository/provider.js";
 import { DeviceRegistry } from "./services/device-registry.js";
+import { FederationService, type FederatedReadResult } from "./services/federation-service.js";
 import { InstanceIdentityService } from "./services/instance-identity.js";
 import { PairingService } from "./services/pairing-service.js";
 import { ScanUploadService } from "./services/scan-upload-service.js";
@@ -27,6 +28,7 @@ interface Services {
   scans: ScanUploadService;
   spatial: SpatialReadService;
   spatialWrite: SpatialWriteService;
+  federation?: FederationService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -76,6 +78,15 @@ function spatialActionScope(action: SpatialWriteAction): DeviceScope {
   return `spatial.${action}` as DeviceScope;
 }
 
+function applyFederatedReadHeaders(reply: FastifyReply, result: FederatedReadResult): void {
+  reply.header("X-P4U-Delivery", result.deliveryMode);
+  reply.header("X-P4U-Freshness", result.freshness);
+  if (result.revision) {
+    reply.header("ETag", `"${result.revision}"`);
+    reply.header("X-P4U-Revision", result.revision);
+  }
+}
+
 export function buildServer(config: BridgeConfig, repository: RepositoryProvider): FastifyInstance {
   const app = Fastify({ logger: true, bodyLimit: 64 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
@@ -88,6 +99,15 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     config.spatialSnapshotTtlSeconds,
     config.spatialOperationRetentionSeconds,
   );
+
+  const federation = config.federationUpstreamUrl
+    ? new FederationService(config.stateDir, {
+        upstreamUrl: config.federationUpstreamUrl,
+        routeId: config.federationRouteId,
+        accessMode: config.federationToken ? "service" : "anonymous",
+        ...(config.federationToken ? { token: config.federationToken } : {}),
+      })
+    : undefined;
 
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
@@ -102,6 +122,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       config.spatialRoot,
       () => spatial.sourceId(),
     ),
+    ...(federation ? { federation } : {}),
   };
 
   app.setErrorHandler((error, request, reply) => {
@@ -115,7 +136,11 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error.", requestId } });
   });
 
-  app.get("/health", async () => ({ status: "ok", repository: repository.kind }));
+  app.get("/health", async () => ({
+    status: "ok",
+    repository: repository.kind,
+    federation: services.federation ? "configured" : "disabled",
+  }));
 
   app.get("/.well-known/open-spatial-interop", async (request) => {
     const base = publicBridgeUrl(request, config);
@@ -124,10 +149,11 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       coreVersion: "0.1",
       instanceId: await services.identity.get(),
       serverTime: new Date().toISOString(),
-      roles: ["content-provider"],
+      roles: services.federation ? ["content-provider", "federation-provider"] : ["content-provider"],
       contracts: {
         core: { version: "0.1", href: `${base}/core/v1` },
         spatial: { version: "0.1", href: `${base}/spatial/v1` },
+        ...(services.federation ? { federation: { version: "0.1", href: `${base}/spatial/v1` } } : {}),
         xr: { version: "0.1", href: `${base}/api/v1` },
       },
       authentication: {
@@ -142,6 +168,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         "spatial.create",
         "spatial.update",
         "spatial.delete",
+        ...(services.federation ? ["federation.read", "federation.cache", "federation.durable-relay"] : []),
         "xr.pairing",
         "xr.device",
         "xr.display.read",
@@ -179,37 +206,54 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/spatial/v1/sources", async (request) => {
     await authenticatedDevice(request, services, "spatial.read");
     const base = publicBridgeUrl(request, config);
-    return {
-      sources: [await services.spatial.sourceDescriptor(base)],
-    };
+    const sources = [await services.spatial.sourceDescriptor(base)];
+    if (services.federation) sources.push(...await services.federation.listSources(base));
+    return { sources };
   });
 
   app.get("/spatial/v1/sources/:sourceId", async (request) => {
     await authenticatedDevice(request, services, "spatial.read");
     const { sourceId } = request.params as { sourceId: string };
-    await services.spatial.assertSource(sourceId);
-    return services.spatial.sourceDescriptor(publicBridgeUrl(request, config));
+    const base = publicBridgeUrl(request, config);
+    if (sourceId === await services.spatial.sourceId()) return services.spatial.sourceDescriptor(base);
+    if (services.federation) return services.federation.getSource(sourceId, base);
+    throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
-  app.get("/spatial/v1/sources/:sourceId/collections", async (request) => {
+  app.get("/spatial/v1/sources/:sourceId/collections", async (request, reply) => {
     await authenticatedDevice(request, services, "spatial.read");
     const { sourceId } = request.params as { sourceId: string };
-    await services.spatial.assertSource(sourceId);
-    return services.spatial.listCollections(publicBridgeUrl(request, config));
+    if (sourceId === await services.spatial.sourceId()) return services.spatial.listCollections(publicBridgeUrl(request, config));
+    if (services.federation) {
+      const result = await services.federation.read(sourceId, "/collections");
+      applyFederatedReadHeaders(reply, result);
+      return result.body;
+    }
+    throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
-  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId", async (request) => {
+  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId", async (request, reply) => {
     await authenticatedDevice(request, services, "spatial.read");
     const { sourceId, collectionId } = request.params as { sourceId: string; collectionId: string };
-    await services.spatial.assertSource(sourceId);
-    return services.spatial.getCollection(collectionId, publicBridgeUrl(request, config));
+    if (sourceId === await services.spatial.sourceId()) return services.spatial.getCollection(collectionId, publicBridgeUrl(request, config));
+    if (services.federation) {
+      const result = await services.federation.read(sourceId, `/collections/${encodeURIComponent(collectionId)}`);
+      applyFederatedReadHeaders(reply, result);
+      return result.body;
+    }
+    throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
-  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items", async (request) => {
+  app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items", async (request, reply) => {
     await authenticatedDevice(request, services, "spatial.read");
     const { sourceId, collectionId } = request.params as { sourceId: string; collectionId: string };
-    await services.spatial.assertSource(sourceId);
-    return services.spatial.listItems(collectionId);
+    if (sourceId === await services.spatial.sourceId()) return services.spatial.listItems(collectionId);
+    if (services.federation) {
+      const result = await services.federation.read(sourceId, `/collections/${encodeURIComponent(collectionId)}/items`);
+      applyFederatedReadHeaders(reply, result);
+      return result.body;
+    }
+    throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
   app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items/:objectId", async (request, reply) => {
@@ -219,12 +263,22 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       collectionId: string;
       objectId: string;
     };
-    await services.spatial.assertSource(sourceId);
-    const item = await services.spatial.getItem(collectionId, objectId);
-    const revision = `sha256:${sha256(Buffer.from(stableStringify(item)))}`;
-    reply.header("ETag", `"${revision}"`);
-    reply.header("X-P4U-Revision", revision);
-    return item;
+    if (sourceId === await services.spatial.sourceId()) {
+      const item = await services.spatial.getItem(collectionId, objectId);
+      const revision = `sha256:${sha256(Buffer.from(stableStringify(item)))}`;
+      reply.header("ETag", `"${revision}"`);
+      reply.header("X-P4U-Revision", revision);
+      return item;
+    }
+    if (services.federation) {
+      const result = await services.federation.read(
+        sourceId,
+        `/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(objectId)}`,
+      );
+      applyFederatedReadHeaders(reply, result);
+      return result.body;
+    }
+    throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
   app.post("/spatial/v1/sources/:sourceId/snapshots", async (request) => {
@@ -265,13 +319,29 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.post("/spatial/v1/operations", async (request) => {
     const action = operationAction(request.body);
     await authenticatedDevice(request, services, spatialActionScope(action));
-    return services.spatialWrite.submit(request.body);
+    const body = request.body as Record<string, unknown>;
+    const target = body.target as Record<string, unknown> | undefined;
+    const sourceId = typeof target?.sourceId === "string" ? target.sourceId : "";
+    if (sourceId === await services.spatial.sourceId()) return services.spatialWrite.submit(request.body);
+    if (services.federation) return services.federation.submitOperation(request.body, publicBridgeUrl(request, config));
+    throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
   app.get("/spatial/v1/operations/:operationId", async (request) => {
     await authenticatedDevice(request, services);
     const { operationId } = request.params as { operationId: string };
-    return services.spatialWrite.get(operationId);
+    try {
+      return await services.spatialWrite.get(operationId);
+    } catch (error) {
+      if (!(error instanceof BridgeError) || error.code !== "OPERATION_NOT_FOUND" || !services.federation) throw error;
+      return services.federation.getOperation(operationId);
+    }
+  });
+
+  app.post("/api/v1/admin/federation/retry", async (request) => {
+    requireAdmin(request, config);
+    if (!services.federation) throw new BridgeError(404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");
+    return services.federation.retryPending();
   });
 
   app.post("/api/v1/admin/pairings", async (request) => {
