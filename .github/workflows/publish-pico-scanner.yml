@@ -66,10 +66,8 @@ jobs:
       - name: Install Android SDK components
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Set up Gradle 9.6
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.6.0"
 
       - name: Validate release inputs
         shell: bash
@@ -102,7 +100,7 @@ jobs:
           P4U_ANDROID_KEY_ALIAS: ${{ secrets.P4U_ANDROID_KEY_ALIAS }}
           P4U_ANDROID_KEY_PASSWORD: ${{ secrets.P4U_ANDROID_KEY_PASSWORD }}
         run: |
-          gradle :app:assembleRelease             -PP4U_VERSION_NAME="${{ inputs.version_name }}"             -PP4U_VERSION_CODE="${{ inputs.version_code }}"
+          ./gradlew :app:assembleRelease             -PP4U_VERSION_NAME="${{ inputs.version_name }}"             -PP4U_VERSION_CODE="${{ inputs.version_code }}"
 
       - name: Verify signed APK and collect metadata
         id: metadata
