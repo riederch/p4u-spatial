@@ -18,6 +18,7 @@ import { ScanUploadService } from "./services/scan-upload-service.js";
 import { SessionService } from "./services/session-service.js";
 import { SpatialReadService } from "./services/spatial-read-service.js";
 import { SpatialWriteService, type SpatialWriteAction } from "./services/spatial-write-service.js";
+import { XrAppReleaseService } from "./services/xr-app-release-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
@@ -28,6 +29,7 @@ interface Services {
   scans: ScanUploadService;
   spatial: SpatialReadService;
   spatialWrite: SpatialWriteService;
+  xrAppReleases: XrAppReleaseService;
   federation?: FederationService;
 }
 
@@ -124,6 +126,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       config.spatialRoot,
       () => spatial.sourceId(),
     ),
+    xrAppReleases: new XrAppReleaseService(config.stateDir),
     ...(federation ? { federation } : {}),
   };
 
@@ -157,6 +160,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         spatial: { version: "0.1", href: `${base}/spatial/v1` },
         ...(services.federation ? { federation: { version: "0.1", href: `${base}/spatial/v1` } } : {}),
         xr: { version: "0.1", href: `${base}/api/v1` },
+        "xr-app": { version: "0.1", href: `${base}/xr-app/v1` },
       },
       authentication: {
         required: true,
@@ -174,8 +178,38 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         "xr.display.read",
         "xr.scan.write",
         "xr.observation.write",
+        "xr.app.update",
       ],
     };
+  });
+
+  app.get("/xr-app/v1/releases/latest", async (request) => {
+    const query = request.query as { channel?: string; platform?: string };
+    return services.xrAppReleases.latest(query.channel, query.platform);
+  });
+
+  app.get("/xr-app/v1/releases/:releaseId", async (request) => {
+    const { releaseId } = request.params as { releaseId: string };
+    return services.xrAppReleases.get(releaseId);
+  });
+
+  app.get("/xr-app/v1/releases/:releaseId/package", async (request, reply) => {
+    const { releaseId } = request.params as { releaseId: string };
+    const release = await services.xrAppReleases.get(releaseId);
+    return reply.redirect(release.package.href, 307);
+  });
+
+  app.put("/api/v1/admin/xr-app/releases/:releaseId", async (request) => {
+    requireAdmin(request, config);
+    const { releaseId } = request.params as { releaseId: string };
+    const body = request.body as Record<string, unknown>;
+    assertOrThrow(body && typeof body === "object" && !Array.isArray(body), 400, "XR_APP_RELEASE_INVALID", "Release descriptor JSON object required.");
+    if ("releaseId" in body) {
+      assertOrThrow(body.releaseId === releaseId, 400, "XR_APP_RELEASE_INVALID", "Body releaseId must match URL releaseId.");
+    } else {
+      body.releaseId = releaseId;
+    }
+    return { release: await services.xrAppReleases.publish(body) };
   });
 
   app.get("/core/v1/me", async (request) => {
