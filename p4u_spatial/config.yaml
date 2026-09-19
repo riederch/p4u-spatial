@@ -28,6 +28,7 @@ options:
   federation_upstream_url: ""
   federation_token: ""
   federation_route_id: "upstream"
+  scan_upload_retention_seconds: 604800
 schema:
   admin_key: str
   source_title: str
@@ -42,3 +43,4 @@ schema:
   federation_upstream_url: str
   federation_token: password
   federation_route_id: str
+  scan_upload_retention_seconds: int

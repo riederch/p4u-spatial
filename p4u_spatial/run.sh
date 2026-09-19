@@ -13,6 +13,7 @@ GIT_TOKEN="$(bashio::config 'git_token')"
 FEDERATION_UPSTREAM_URL="$(bashio::config 'federation_upstream_url')"
 FEDERATION_TOKEN="$(bashio::config 'federation_token')"
 FEDERATION_ROUTE_ID="$(bashio::config 'federation_route_id')"
+SCAN_UPLOAD_RETENTION_SECONDS="$(bashio::config 'scan_upload_retention_seconds')"
 
 export P4U_HOST="0.0.0.0"
 export P4U_PORT="8787"
@@ -45,6 +46,7 @@ if [[ -n "${FEDERATION_TOKEN}" ]]; then
   export P4U_FEDERATION_TOKEN="${FEDERATION_TOKEN}"
 fi
 export P4U_FEDERATION_ROUTE_ID="${FEDERATION_ROUTE_ID}"
+export P4U_SCAN_UPLOAD_RETENTION="${SCAN_UPLOAD_RETENTION_SECONDS}"
 
 if [[ -n "${ADMIN_KEY}" ]]; then
   export P4U_ADMIN_KEY="${ADMIN_KEY}"

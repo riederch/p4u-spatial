@@ -125,3 +125,24 @@ export P4U_RCHKB_ALLOW_SPATIAL_WRITES=true
 ```
 
 That opt-in should only be used where an external workflow also maintains the canonical RCHKB knowledge and provenance. Normal RCHKB knowledge changes should be applied through the RCHKB workflow first and then reflected in the local Spatial projection.
+
+## XR scan upload resource limits and staging retention
+
+The bridge bounds authenticated XR scan ingestion to protect persistent state from accidental or hostile oversized uploads:
+
+```bash
+export P4U_SCAN_MAX_FILES=256
+export P4U_SCAN_MAX_FILE_BYTES=67108864
+export P4U_SCAN_MAX_TOTAL_BYTES=536870912
+export P4U_SCAN_UPLOAD_RETENTION=604800
+```
+
+The total-size limit is enforced from declared file sizes; clients should therefore include `size` for every scan file. Individual uploaded files are always bounded independently and, when `size` is present, the bridge verifies the exact byte count in addition to SHA-256.
+
+Incomplete server-side staging older than the retention period can be removed through the admin endpoint:
+
+```text
+POST /api/v1/admin/xr/scans/cleanup
+```
+
+Cleanup affects only incomplete data below the bridge state directory. It never deletes committed raw scans from the repository and does not alter the headset's durable offline outbox. A headset that still owns an outbox item can therefore restart the upload after server staging has expired.

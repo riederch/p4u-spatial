@@ -119,7 +119,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     maxFiles: config.scanMaxFiles,
     maxFileBytes: config.scanMaxFileBytes,
     maxTotalBytes: config.scanMaxTotalBytes,
-  });
+  }, config.scanUploadRetentionSeconds);
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
     identity: new InstanceIdentityService(config.stateDir),
@@ -480,6 +480,11 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       result as unknown as Record<string, unknown>,
     );
     return { candidateId, operation: result };
+  });
+
+  app.post("/api/v1/admin/xr/scans/cleanup", async (request) => {
+    requireAdmin(request, config);
+    return services.scans.cleanupStale();
   });
 
   app.post("/api/v1/admin/federation/retry", async (request) => {

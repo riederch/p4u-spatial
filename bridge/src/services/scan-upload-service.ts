@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { BridgeError, assertOrThrow } from "../errors.js";
 import type { ScanManifest } from "../domain.js";
@@ -35,6 +35,7 @@ export class ScanUploadService {
     private readonly repository: RepositoryProvider,
     private readonly spatialRoot: string,
     private readonly limits: { maxFiles: number; maxFileBytes: number; maxTotalBytes: number },
+    private readonly retentionSeconds: number,
   ) {
     this.uploadRoot = join(stateDir, "uploads");
   }
@@ -166,6 +167,38 @@ export class ScanUploadService {
     }
 
     return { scanId, state: "uploading", manifestSha256: sha256(stableStringify(manifest)), verifiedFiles, missingFiles };
+  }
+
+  async cleanupStale(nowMs = Date.now()): Promise<{ removed: string[]; kept: string[] }> {
+    await mkdir(this.uploadRoot, { recursive: true });
+    const removed: string[] = [];
+    const kept: string[] = [];
+    const cutoff = nowMs - this.retentionSeconds * 1000;
+
+    for (const entry of await readdir(this.uploadRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const scanId = entry.name;
+      const root = join(this.uploadRoot, scanId);
+      try {
+        const manifestInfo = await stat(join(root, "manifest.json"));
+        if (manifestInfo.mtimeMs >= cutoff) {
+          kept.push(scanId);
+          continue;
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        const rootInfo = await stat(root);
+        if (rootInfo.mtimeMs >= cutoff) {
+          kept.push(scanId);
+          continue;
+        }
+      }
+
+      await rm(root, { recursive: true, force: true });
+      removed.push(scanId);
+    }
+
+    return { removed, kept };
   }
 
   async isCommitted(scanId: string): Promise<boolean> {

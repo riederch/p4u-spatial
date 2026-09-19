@@ -37,7 +37,8 @@ describe("bridge vertical slice", () => {
       pairingTtlSeconds: 300,
       scanMaxFiles: 256,
       scanMaxFileBytes: 64 * 1024 * 1024,
-      scanMaxTotalBytes: 512 * 1024 * 1024
+      scanMaxTotalBytes: 512 * 1024 * 1024,
+      scanUploadRetentionSeconds: 7 * 24 * 60 * 60
     };
 
     const repository = new FilesystemRepositoryProvider(config.repositoryRoot);

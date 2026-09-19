@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, mkdir, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -73,6 +73,33 @@ describe("XR scan upload limits", () => {
     });
     expect(mismatch.statusCode).toBe(400);
     expect(mismatch.json()).toMatchObject({ error: { code: "SIZE_MISMATCH" } });
+    await app.close();
+  });
+
+  it("removes only stale incomplete server staging", async () => {
+    const root = await mkdtemp(join(tmpdir(), "p4u-scan-cleanup-"));
+    const cfg = { ...config(root), scanUploadRetentionSeconds: 60 };
+    const repository = new FilesystemRepositoryProvider(cfg.repositoryRoot);
+    const app = buildServer(cfg, repository);
+    const staleId = randomUUID();
+    const freshId = randomUUID();
+    const stale = join(cfg.stateDir, "uploads", staleId);
+    const fresh = join(cfg.stateDir, "uploads", freshId);
+    await mkdir(stale, { recursive: true });
+    await mkdir(fresh, { recursive: true });
+    await writeFile(join(stale, "manifest.json"), "{}");
+    await writeFile(join(fresh, "manifest.json"), "{}");
+    const now = Date.now();
+    await utimes(join(stale, "manifest.json"), new Date(now - 120_000), new Date(now - 120_000));
+    await utimes(join(fresh, "manifest.json"), new Date(now), new Date(now));
+
+    const cleanup = await app.inject({
+      method: "POST", url: "/api/v1/admin/xr/scans/cleanup",
+      headers: { "x-p4u-admin-key": cfg.adminKey },
+    });
+    expect(cleanup.statusCode).toBe(200);
+    expect(cleanup.json()).toEqual({ removed: [staleId], kept: [freshId] });
+
     await app.close();
   });
 });
