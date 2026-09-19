@@ -87,6 +87,18 @@ export class PairingService {
     return pairing;
   }
 
+  async listPending(): Promise<Array<{ claimId: string; pairingId: string; expiresAt: string; descriptor: DeviceDescriptor }>> {
+    const now = Date.now();
+    return (await this.store.read()).pairings
+      .filter((pairing) => pairing.state === "claimed" && pairing.claimId && pairing.descriptor && Date.parse(pairing.expiresAt) > now)
+      .map((pairing) => ({
+        claimId: pairing.claimId!,
+        pairingId: pairing.pairingId,
+        expiresAt: pairing.expiresAt,
+        descriptor: pairing.descriptor!,
+      }));
+  }
+
   async pendingDescriptor(claimId: string): Promise<DeviceDescriptor> {
     const pairing = await this.getClaim(claimId);
     if (pairing.state !== "claimed" || !pairing.descriptor) {
