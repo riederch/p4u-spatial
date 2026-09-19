@@ -102,6 +102,10 @@ export class AdminPasswordTotpService {
     return (await this.store.read()).credentials.some((item) => item.userId === userId);
   }
 
+  async anyEnabled(): Promise<boolean> {
+    return (await this.store.read()).credentials.length > 0;
+  }
+
   async beginSetup(userId: string, username: string, password: string) {
     assertOrThrow(password.length >= 12 && password.length <= 256, 400, "PASSWORD_INVALID", "Password must contain 12 to 256 characters.");
     const salt = randomBytes(16);
