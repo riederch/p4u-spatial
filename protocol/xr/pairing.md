@@ -164,7 +164,7 @@ A Bridge MAY configure two client-facing addresses:
 - `localUrl` — preferred when the client can reach the Bridge on its local/private network;
 - `publicUrl` — externally reachable address.
 
-The reference Bridge reads these from `P4U_LOCAL_BASE_URL` and `P4U_PUBLIC_BASE_URL`. Pairing QR payloads include both configured values in `addresses`. The legacy/top-level `bridge` field remains the bootstrap endpoint for v1 compatibility and normally uses the public address when configured.
+The reference Bridge stores these as operator-facing values in its persistent Bridge configuration. Legacy environment variables may be imported during migration/bootstrap, but they are not the authoritative functional configuration model. Pairing QR payloads include both configured values in `addresses`. The legacy/top-level `bridge` field remains the bootstrap endpoint for v1 compatibility and normally uses the public address when configured.
 
 An XR client stores both addresses in the paired Bridge profile. After pairing, the user MAY override either address locally on that client. Such an override changes routing only; it MUST NOT create a new Bridge identity, pairing or outbox.
 
