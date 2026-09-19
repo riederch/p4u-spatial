@@ -2,6 +2,23 @@ package at.p4u.spatial.scanner
 
 import android.app.Activity
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.ImageFormat
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.media.ImageReader
+import android.os.Handler
+import android.os.HandlerThread
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.Result
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.BarcodeFormat
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -32,6 +49,9 @@ class MainActivity : Activity() {
     private lateinit var checkButton: Button
     private lateinit var pairingInput: EditText
     private lateinit var pairButton: Button
+    private lateinit var scanQrButton: Button
+    private var qrScanner: PicoQrScanner? = null
+    private var pendingQrScan = false
     private lateinit var testUploadButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,8 +64,23 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        qrScanner?.close()
+        qrScanner = null
         executor.shutdownNow()
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_PERMISSION_REQUEST) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED && pendingQrScan) {
+                pendingQrScan = false
+                startQrScan()
+            } else {
+                pendingQrScan = false
+                status.text = "Kamerazugriff ist für den QR-Scanner erforderlich."
+            }
+        }
     }
 
     private fun buildUi(): ScrollView {
@@ -64,7 +99,7 @@ class MainActivity : Activity() {
         }, fullWidth())
 
         deviceNameInput = EditText(this).apply {
-            hint = "Lokaler Brillenname, z. B. PICO Christoph"
+            hint = "Lokaler Brillenname, z. B. picoVrVr Christoph"
             setText(deviceIdentity.localName())
             isSingleLine = true
         }
@@ -142,10 +177,16 @@ class MainActivity : Activity() {
         column.addView(activate, fullWidth())
         refreshBridgeProfiles()
 
+        scanQrButton = Button(this).apply {
+            text = "QR scannen"
+            setOnClickListener { requestQrScan() }
+        }
+        column.addView(scanQrButton, fullWidth())
+
         pairingInput = EditText(this).apply {
-            hint = "Pairing-QR JSON hier einfügen"
-            minLines = 4
-            maxLines = 8
+            hint = "Pairing-QR JSON (Debug-Fallback)"
+            minLines = 3
+            maxLines = 6
         }
         column.addView(pairingInput, fullWidth())
 
@@ -214,8 +255,45 @@ class MainActivity : Activity() {
             }
     }
 
-    private fun startPairing() {
-        val raw = pairingInput.text.toString().trim()
+    private fun requestQrScan() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startQrScan()
+            return
+        }
+        pendingQrScan = true
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_REQUEST)
+    }
+
+    private fun startQrScan() {
+        scanQrButton.isEnabled = false
+        status.text = "QR-Scanner startet … QR-Code vor die picoVrVr-Kamera halten."
+        qrScanner?.close()
+        qrScanner = PicoQrScanner(
+            activity = this,
+            onDecoded = { raw ->
+                runOnUiThread {
+                    qrScanner?.close()
+                    qrScanner = null
+                    pairingInput.setText(raw)
+                    scanQrButton.isEnabled = true
+                    status.text = "Pairing-QR erkannt. Pairing wird gestartet …"
+                    startPairing(raw)
+                }
+            },
+            onError = { message ->
+                runOnUiThread {
+                    qrScanner?.close()
+                    qrScanner = null
+                    scanQrButton.isEnabled = true
+                    status.text = "QR-Scanner: $message"
+                }
+            },
+        )
+        qrScanner?.start()
+    }
+
+    private fun startPairing(rawOverride: String? = null) {
+        val raw = rawOverride?.trim().orEmpty().ifEmpty { pairingInput.text.toString().trim() }
         if (raw.isEmpty()) {
             status.text = "Bitte zuerst den Pairing-QR-Inhalt einfügen."
             return
@@ -340,6 +418,10 @@ class MainActivity : Activity() {
         }
     }
 
+    companion object {
+        private const val CAMERA_PERMISSION_REQUEST = 4101
+    }
+
     private fun checkForUpdate() {
         val profile = profiles.active()
         if (profile == null) {
@@ -381,7 +463,7 @@ class MainActivity : Activity() {
 
                 when (AndroidInteractiveInstaller(this).launch(apk)) {
                     InstallLaunchResult.UserActionRequired ->
-                        "APK verifiziert. Android/PICO-Installation wurde geöffnet."
+                        "APK verifiziert. Android/picoVrVr-Installation wurde geöffnet."
                     InstallLaunchResult.UnknownSourcePermissionRequired ->
                         "Bitte Installation aus dieser Quelle erlauben und danach erneut auf Update prüfen."
                 }
