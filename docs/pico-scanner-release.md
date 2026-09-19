@@ -89,19 +89,19 @@ For a first deployment, publish to `beta`, validate on a test picoVr, then creat
 
 ## First installation
 
-The very first installation cannot use self-update because no trusted application exists on the headset yet:
+The very first installation cannot use self-update because no trusted application exists on the headset yet. A development PC or USB connection is not required: the signed APK can be downloaded directly with the headset browser and installed through the normal Android/PICO sideload flow.
 
 ```text
-signed APK
-  -> verify digest/certificate
-  -> administrator-controlled picoVr/Android sideload
+picoVr browser
+  -> download signed APK
+  -> Android/PICO installation confirmation
   -> launch
   -> configure/discover Bridge
   -> QR pairing
   -> administrator approval
 ```
 
-After this bootstrap, normal newer-version delivery uses the Bridge `xr-app` contract. No USB connection is required for later releases.
+After this initial browser/sideload installation, normal newer-version delivery uses the Bridge `xr-app` contract. A PC or USB connection is not part of the normal deployment path.
 
 ## Self-update
 
@@ -138,4 +138,4 @@ Before a stable descriptor is published to production:
 - Bridge discovery and update lookup work;
 - a failed/cancelled install leaves the previous app usable.
 
-The first real release should additionally validate the complete chain from clean sideload through pairing and one subsequent self-update.
+The first real release should additionally validate the complete PC-independent chain from browser download and clean sideload through pairing and one subsequent self-update.
