@@ -26,6 +26,7 @@ import { AdminUserService } from "./services/admin-user-service.js";
 import { AdminSessionService } from "./services/admin-session-service.js";
 import { AdminPasswordTotpService } from "./services/admin-password-totp-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
+import { adminPage } from "./web/admin-page.js";
 
 interface Services {
   devices: DeviceRegistry;
@@ -235,6 +236,16 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     request.log.error(error);
     return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error.", requestId } });
   });
+
+  const sendAdminPage = (_request: FastifyRequest, reply: FastifyReply) => {
+    reply.header("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Referrer-Policy", "no-referrer");
+    return reply.type("text/html; charset=utf-8").send(adminPage());
+  };
+
+  app.get("/admin", sendAdminPage);
+  app.get("/admin/credentials", sendAdminPage);
 
   app.get("/api/v1/admin-auth/status", async () => ({
     passkeyEnabled: !!services.adminPasskeys,
