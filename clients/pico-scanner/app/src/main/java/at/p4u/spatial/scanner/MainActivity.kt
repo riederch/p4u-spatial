@@ -252,7 +252,8 @@ class MainActivity : Activity() {
                     status.text = "Pairing wartet auf Freigabe. Claim-ID: $claimId"
                 }
 
-                while (true) {
+                var completedMessage: String? = null
+                while (completedMessage == null) {
                     when (val poll = client.poll(resolved.baseUrl, claimId)) {
                         PairingPoll.Pending -> Thread.sleep(2_000)
                         PairingPoll.Rejected -> error("Pairing wurde abgelehnt.")
@@ -262,10 +263,11 @@ class MainActivity : Activity() {
                                 resolved.baseUrl,
                                 SecureSessionStore(this, profile.profileId),
                             ).acceptBootstrap(poll.session)
-                            return@runCatching "Pairing abgeschlossen: ${profile.name}"
+                            completedMessage = "Pairing abgeschlossen: ${profile.name}"
                         }
                     }
                 }
+                completedMessage
             }.onSuccess { message ->
                 runOnUiThread {
                     refreshBridgeProfiles()
