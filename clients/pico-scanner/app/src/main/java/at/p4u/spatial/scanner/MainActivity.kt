@@ -224,7 +224,7 @@ class MainActivity : Activity() {
         pairButton.isEnabled = false
         status.text = "Pairing wird gestartet …"
         executor.execute {
-            runCatching {
+            runCatching<String> {
                 val client = PairingClient()
                 val qr = client.parseQr(raw)
                 val resolved = BridgeEndpointResolver().resolveForPairing(qr)
