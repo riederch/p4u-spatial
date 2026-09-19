@@ -209,6 +209,40 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     return services.adminPasskeys.verifyAuthentication(body.ceremonyId, body.response as any);
   });
 
+  app.get("/api/v1/admin-auth/passkeys", async (request) => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    const supplied = request.headers["x-p4u-admin-session"];
+    const token = Array.isArray(supplied) ? supplied[0] : supplied;
+    assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
+    return { passkeys: await services.adminPasskeys.listPasskeys() };
+  });
+
+  app.put("/api/v1/admin-auth/passkeys/:passkeyId", async (request) => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    const supplied = request.headers["x-p4u-admin-session"];
+    const token = Array.isArray(supplied) ? supplied[0] : supplied;
+    const csrf = request.headers["x-p4u-csrf"];
+    const csrfToken = Array.isArray(csrf) ? csrf[0] : csrf;
+    assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
+    assertOrThrow(csrfToken && await services.adminPasskeys.verifyCsrf(token, csrfToken), 403, "CSRF_INVALID", "Valid CSRF token required.");
+    const { passkeyId } = request.params as { passkeyId: string };
+    const body = request.body as { name?: unknown };
+    assertOrThrow(typeof body?.name === "string", 400, "INVALID_REQUEST", "name is required.");
+    return { passkey: await services.adminPasskeys.renamePasskey(passkeyId, body.name) };
+  });
+
+  app.delete("/api/v1/admin-auth/passkeys/:passkeyId", async (request) => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    const supplied = request.headers["x-p4u-admin-session"];
+    const token = Array.isArray(supplied) ? supplied[0] : supplied;
+    const csrf = request.headers["x-p4u-csrf"];
+    const csrfToken = Array.isArray(csrf) ? csrf[0] : csrf;
+    assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
+    assertOrThrow(csrfToken && await services.adminPasskeys.verifyCsrf(token, csrfToken), 403, "CSRF_INVALID", "Valid CSRF token required.");
+    const { passkeyId } = request.params as { passkeyId: string };
+    return { removed: await services.adminPasskeys.removePasskey(passkeyId) };
+  });
+
   app.get("/health", async () => ({
     status: "ok",
     repository: repository.kind,

@@ -34,3 +34,25 @@ The login verification creates a short-lived admin session plus a separate CSRF 
 Publishing the single Bridge port through Cloudflare Tunnel is compatible with this model. WebAuthn verification is bound to the configured public HTTPS origin, while device/API authentication remains independent.
 
 Cloudflare Access may additionally protect browser administration, but interactive Access authentication must not be placed indiscriminately in front of headset/device API routes unless those routes have a non-interactive service-token design.
+
+## Credential management UX
+
+The admin GUI has a dedicated `/admin/credentials` page. Credential management is always available there and is independent of any reminder banner.
+
+An administrator may register multiple passkeys. Each passkey can have a human-readable name, can be renamed, and can be removed. The last remaining passkey cannot be removed while passkey authentication is the only configured login path, preventing accidental lockout.
+
+Credential-management API:
+
+- `GET /api/v1/admin-auth/passkeys`
+- `PUT /api/v1/admin-auth/passkeys/{passkeyId}`
+- `DELETE /api/v1/admin-auth/passkeys/{passkeyId}`
+- the existing registration endpoints add further passkeys when an authenticated admin session is present.
+
+The planned authentication modes are:
+
+1. passkey only; or
+2. password + TOTP.
+
+Both may be enabled concurrently. Password without TOTP is not a supported administrator login mode.
+
+When both modes are enabled, the GUI may show a small friendly reminder suggesting passkey-only mode. The reminder only links to `/admin/credentials`; it never changes credentials directly. Closing it stores only a cosmetic browser cookie such as `p4u_passkey_only_reminder_dismissed=1`. The cookie does not alter authentication state, and the credential page remains permanently accessible through normal settings navigation.

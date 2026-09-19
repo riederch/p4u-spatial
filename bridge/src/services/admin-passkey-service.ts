@@ -55,6 +55,14 @@ export class AdminPasskeyService {
     return {token,csrfToken,expiresAt};
   }
   async verifySession(token:string){const h=sha256(token),s=await this.store.read();return s.sessions.some(x=>x.tokenHash===h&&Date.parse(x.expiresAt)>Date.now());}
+  async listPasskeys(){return (await this.store.read()).passkeys.map(({publicKey:_publicKey,...p})=>p);}
+  async renamePasskey(id:string,name:string){
+    const normalized=name.trim(); assertOrThrow(normalized.length>0&&normalized.length<=120,400,"PASSKEY_NAME_INVALID","Passkey name must contain 1 to 120 characters.");
+    return this.store.mutate(s=>{const p=s.passkeys.find(x=>x.id===id);if(!p)throw new BridgeError(404,"PASSKEY_NOT_FOUND","Passkey not found.");p.name=normalized;return {id:p.id,name:p.name,createdAt:p.createdAt};});
+  }
+  async removePasskey(id:string){
+    return this.store.mutate(s=>{assertOrThrow(s.passkeys.length>1,409,"LAST_PASSKEY","The last administrator passkey cannot be removed.");const i=s.passkeys.findIndex(x=>x.id===id);if(i<0)throw new BridgeError(404,"PASSKEY_NOT_FOUND","Passkey not found.");const [removed]=s.passkeys.splice(i,1);return {id:removed!.id,name:removed!.name};});
+  }
   async verifyCsrf(token:string,csrf:string){const a=sha256(token),b=sha256(csrf),s=await this.store.read();return s.sessions.some(x=>x.tokenHash===a&&x.csrfHash===b&&Date.parse(x.expiresAt)>Date.now());}
   private async consume(id:string,kind:CeremonyRecord["kind"]){return this.store.mutate(s=>{this.cleanup(s);const i=s.ceremonies.findIndex(x=>x.id===id&&x.kind===kind);if(i<0)throw new BridgeError(400,"PASSKEY_CEREMONY_INVALID","Passkey ceremony is missing or expired.");return s.ceremonies.splice(i,1)[0]!;});}
   private cleanup(s:State){const n=Date.now();s.ceremonies=s.ceremonies.filter(x=>Date.parse(x.expiresAt)>n);s.sessions=s.sessions.filter(x=>Date.parse(x.expiresAt)>n);}
