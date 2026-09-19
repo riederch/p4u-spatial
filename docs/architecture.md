@@ -56,6 +56,33 @@ model/ -> display/
 
 The headset only knows discovered service URLs, its device identity and bridge/Core session. It does not know repository credentials or upstream federation credentials.
 
+## Configuration and deployment boundary
+
+P4U Spatial Bridge owns its functional configuration and persists it as Bridge state. Operators configure repository access, federation, Spatial behavior, XR settings, limits and credentials through the Bridge web interface.
+
+Deployment wrappers are deliberately thinner than the Bridge:
+
+```text
+                    P4U Spatial Bridge
+                   + persistent web config
+                            |
+              +-------------+-------------+
+              |                           |
+      Generic Docker                Home Assistant App
+      lifecycle/storage             lifecycle/storage
+      ports/volumes                 ports/ingress
+              |                           |
+              +-------------+-------------+
+                            |
+                   same Bridge artifact
+```
+
+Home Assistant is therefore not a configuration authority and contains no repository, federation, XR, Spatial or RCHKB business logic. A generic Docker deployment and the Home Assistant app use the same persisted Bridge configuration model.
+
+Only values required before the web application can start may exist at the deployment/bootstrap boundary, and packaged deployments should minimize even those by using documented internal ports and fixed persistent-state locations. No new operator-facing functional setting belongs in a `P4U_*` environment variable.
+
+A fresh installation uses a Bridge-owned first-run web setup flow for administrator bootstrap. See ADR 0018.
+
 ## XR portability boundary
 
 The scanner core is capability-driven, not device-name-driven. OpenXR core and portable extensions are preferred. Vendor APIs are allowed only behind adapters when a required capability is unavailable through portable OpenXR.
