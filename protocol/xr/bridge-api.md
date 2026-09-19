@@ -106,6 +106,12 @@ Only after successful durable scan commit may the XR client remove that scan fro
 
 Scan commit means the raw XR capture is durable. It does not mean that optional later semantic enrichment or promotion into a canonical Spatial model has completed.
 
+### Offline/resume behavior
+
+The client keeps each uncommitted scan as immutable primary outbox data. After reconnect or process restart it repeats the manifest PUT. The returned `verifiedFiles` and `missingFiles` are the authoritative resume state; the client uploads only missing files and retries commit. No additional upload-session token is required.
+
+See [client-state.md](client-state.md).
+
 ## Observations
 
 ```http

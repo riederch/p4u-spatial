@@ -120,3 +120,9 @@ The pairing secret:
 - MUST NOT be persisted in repository data.
 
 The bridge URL is not itself a credential.
+
+## Client persistence and recovery
+
+The reference durable client state model is defined in [client-state.md](client-state.md).
+
+The device ID persists across normal application updates. The one-time pairing secret is discarded immediately after a successful claim. Access tokens may remain memory-only; refresh credentials are stored using OS-backed secure storage. Losing or revoking a session MUST NOT delete pending capture outbox data.
