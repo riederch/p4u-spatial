@@ -372,7 +372,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/spatial/v1/sources", async (request) => {
     await authenticatedDevice(request, services, "spatial.read");
     const base = publicBridgeUrl(request, config);
-    const sources = [await services.spatial.sourceDescriptor(base)];
+    const sources: Array<Record<string, unknown>> = [await services.spatial.sourceDescriptor(base)];
     if (services.federation) sources.push(...await services.federation.listSources(base));
     return { sources };
   });
