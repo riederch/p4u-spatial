@@ -31,6 +31,7 @@ code{word-break:break-all}
   <nav id="nav" class="hidden">
     <a href="/admin">Übersicht</a>
     <a href="/admin/credentials">Credentials</a>
+    <a href="/admin/settings">Einstellungen</a>
     <button id="logout">Abmelden</button>
   </nav>
 </header>
@@ -109,6 +110,18 @@ code{word-break:break-all}
       <code id="totp-uri"></code>
       <div class="row"><input id="totp-confirm-code" inputmode="numeric" placeholder="6-stelliger OTP-Code"><button id="confirm-fallback">Bestätigen</button></div>
     </div>
+  </div>
+</section>
+
+<section id="settings" class="hidden">
+  <h1>Einstellungen</h1>
+  <div class="card">
+    <p class="muted">Diese Konfiguration gehört der Bridge und wird persistent gespeichert. Änderungen werden nach einem Bridge-Neustart aktiv. Geheimnisse werden nicht zurückgelesen.</p>
+    <textarea id="settings-json" style="width:100%;min-height:420px;font:13px ui-monospace,monospace"></textarea>
+    <h3>Secrets ändern</h3>
+    <div class="row"><input id="settings-git-token" type="password" placeholder="Git Token (leer = unverändert)"></div>
+    <div class="row"><input id="settings-federation-token" type="password" placeholder="Federation Token (leer = unverändert)"></div>
+    <div class="row"><button id="save-settings">Speichern</button></div>
   </div>
 </section>
 
@@ -241,26 +254,48 @@ code{word-break:break-all}
     await addPasskey(headers,state.bootstrapUserId);
     location.reload();
   }
+  async function renderSettings(){
+    state.me=await loadMe();if(!state.me){location.href='/admin';return}
+    show('nav',true);show('settings',true);
+    var data=await request('/api/v1/admin/settings');
+    var config=data.config||{};
+    delete config.gitToken;delete config.federationToken;
+    el('settings-json').value=JSON.stringify(config,null,2);
+  }
   async function start(){
     state.status=await request('/api/v1/admin-auth/status');
     state.me=await loadMe();
     var credentialPage=location.pathname==='/admin/credentials';
+    var settingsPage=location.pathname==='/admin/settings';
     if(state.me){
       show('nav',true);
       if(credentialPage){await renderCredentials();return}
+      if(settingsPage){await renderSettings();return}
       show('dashboard',true);
       el('welcome').textContent=state.me.user.displayName||state.me.user.username;
       var both=state.me.loginMethods.passkey&&state.me.loginMethods.passwordTotp;
       show('passkey-reminder',both&&!cookie('p4u_passkey_only_reminder_dismissed'));
       return;
     }
-    if(credentialPage){location.href='/admin';return}
+    if(credentialPage||settingsPage){location.href='/admin';return}
     show('login',true);
     show('passkey-login-card',state.status.passkeyConfigured);
     show('password-login-card',state.status.passwordTotpConfigured);
     show('bootstrap',!state.status.passkeyConfigured&&!state.status.passwordTotpConfigured);
   }
 
+  el('save-settings').onclick=async function(){
+    try{
+      var config=JSON.parse(el('settings-json').value);
+      var gitToken=el('settings-git-token').value;
+      var federationToken=el('settings-federation-token').value;
+      if(gitToken)config.gitToken=gitToken;
+      if(federationToken)config.federationToken=federationToken;
+      var result=await request('/api/v1/admin/settings',{method:'PUT',body:JSON.stringify(config)});
+      message(result.restartRequired?'Gespeichert. Bridge-Neustart erforderlich.':'Gespeichert.');
+      el('settings-git-token').value='';el('settings-federation-token').value='';
+    }catch(e){message(e.message)}
+  };
   el('passkey-login').onclick=function(){loginPasskey().catch(function(e){message(e.message)})};
   el('password-login').onclick=async function(){
     try{

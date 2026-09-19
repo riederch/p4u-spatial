@@ -27,6 +27,7 @@ import { AdminSessionService } from "./services/admin-session-service.js";
 import { AdminPasswordTotpService } from "./services/admin-password-totp-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 import { adminPage } from "./web/admin-page.js";
+import type { BridgeConfigStore } from "./services/bridge-config-store.js";
 
 interface Services {
   devices: DeviceRegistry;
@@ -165,7 +166,7 @@ function applyFederatedReadHeaders(reply: FastifyReply, result: FederatedReadRes
   }
 }
 
-export function buildServer(config: BridgeConfig, repository: RepositoryProvider): FastifyInstance {
+export function buildServer(config: BridgeConfig, repository: RepositoryProvider, options: { configStore?: BridgeConfigStore } = {}): FastifyInstance {
   const app = Fastify({ logger: true, bodyLimit: 64 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
 
@@ -246,6 +247,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.get("/admin", sendAdminPage);
   app.get("/admin/credentials", sendAdminPage);
+  app.get("/admin/settings", sendAdminPage);
 
   app.get("/api/v1/admin-auth/status", async () => ({
     passkeyEnabled: !!services.adminPasskeys,
@@ -382,6 +384,22 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const userId = await credentialUserId(principal, body?.userId, services);
     const fallbackEnabled = await services.adminPasswordTotp.enabled(userId);
     return { removed: await services.adminPasskeys.removePasskey(userId, passkeyId, fallbackEnabled) };
+  });
+
+  app.get("/api/v1/admin/settings", async (request) => {
+    await requireAdmin(request, config, services);
+    assertOrThrow(options.configStore, 503, "CONFIG_STORE_UNAVAILABLE", "Persistent Bridge configuration is not available in this runtime.");
+    return {
+      config: await options.configStore.publicView(),
+      restartRequired: false,
+    };
+  });
+
+  app.put("/api/v1/admin/settings", async (request) => {
+    await requireAdmin(request, config, services);
+    assertOrThrow(options.configStore, 503, "CONFIG_STORE_UNAVAILABLE", "Persistent Bridge configuration is not available in this runtime.");
+    assertOrThrow(request.body && typeof request.body === "object" && !Array.isArray(request.body), 400, "INVALID_REQUEST", "JSON object required.");
+    return options.configStore.update(request.body as Record<string, unknown>);
   });
 
   app.get("/health", async () => ({
