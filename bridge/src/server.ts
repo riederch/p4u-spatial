@@ -27,6 +27,7 @@ import { AdminSessionService } from "./services/admin-session-service.js";
 import { AdminPasswordTotpService } from "./services/admin-password-totp-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 import { adminPage } from "./web/admin-page.js";
+import QRCode from "qrcode-svg";
 import type { BridgeConfigStore } from "./services/bridge-config-store.js";
 import { SetupBootstrapService } from "./services/setup-bootstrap-service.js";
 
@@ -836,10 +837,23 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     await requireAdmin(request, config, services);
     const publicUrl = config.publicBaseUrl?.replace(/\/$/, "") ?? publicBridgeUrl(request, config);
     const localUrl = config.localBaseUrl?.replace(/\/$/, "");
-    return services.pairings.create(publicUrl, {
+    const pairing = await services.pairings.create(publicUrl, {
       ...(localUrl ? { localUrl } : {}),
       ...(publicUrl ? { publicUrl } : {}),
     });
+    const qrSvg = new QRCode({
+      content: JSON.stringify(pairing),
+      padding: 4,
+      width: 384,
+      height: 384,
+      color: "#000000",
+      background: "#ffffff",
+      ecl: "M",
+      join: true,
+      container: "svg-viewbox",
+      xmlDeclaration: false,
+    }).svg();
+    return { ...pairing, qrSvg };
   });
 
   app.get("/api/v1/admin/devices", async (request) => {

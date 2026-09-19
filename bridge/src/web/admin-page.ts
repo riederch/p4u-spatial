@@ -23,6 +23,12 @@ button.danger{border-color:#b33}
 .passkey{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid color-mix(in srgb,currentColor 14%,transparent)}
 .passkey:last-child{border-bottom:0}
 code{word-break:break-all}
+.qr{max-width:360px;margin:16px auto}
+.qr svg{display:block;width:100%;height:auto;background:#fff;border-radius:12px}
+.list{display:grid;gap:10px}
+.item{border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:10px;padding:12px}
+.item .row{justify-content:space-between}
+.small{font-size:.84em}
 </style>
 </head>
 <body>
@@ -84,6 +90,20 @@ code{word-break:break-all}
     <h2 id="welcome">Administrator</h2>
     <p>Die Bridge läuft und deine Administrator-Session ist aktiv.</p>
     <a href="/admin/credentials">Loginmethoden und Passkeys verwalten</a>
+  </div>
+  <div class="card">
+    <h2>PICO koppeln</h2>
+    <p class="muted">Erzeugt einen kurzlebigen QR-Code. Auf der PICO "QR scannen" wählen und anschließend die Anfrage hier freigeben.</p>
+    <div class="row"><button id="create-pairing">Pairing-QR erzeugen</button><span id="pairing-expiry" class="muted"></span></div>
+    <div id="pairing-result" class="hidden">
+      <div id="pairing-qr" class="qr" aria-label="Pairing QR-Code"></div>
+    </div>
+    <h3>Wartet auf Freigabe</h3>
+    <div id="pairing-claims" class="list"><span class="muted">Keine offenen Anfragen.</span></div>
+  </div>
+  <div class="card">
+    <div class="row"><h2 style="flex:1;margin:0">Geräte</h2><button id="refresh-devices">Aktualisieren</button></div>
+    <div id="device-list" class="list"><span class="muted">Noch keine Geräte.</span></div>
   </div>
 </section>
 
@@ -239,6 +259,60 @@ code{word-break:break-all}
       actions.append(rename,remove);row.append(label,actions);root.append(row);
     });
   }
+  function clearChildren(node){while(node.firstChild)node.removeChild(node.firstChild)}
+  function deviceTitle(device){
+    return device.globalName||device.name||[device.platform,device.model].filter(Boolean).join(' ')||device.deviceId;
+  }
+  async function renderDevices(){
+    var data=await request('/api/v1/admin/devices');
+    var root=el('device-list');clearChildren(root);
+    if(!data.devices.length){root.innerHTML='<span class="muted">Noch keine Geräte.</span>';return}
+    data.devices.forEach(function(d){
+      var item=document.createElement('div');item.className='item';
+      var title=document.createElement('strong');title.textContent=deviceTitle(d);
+      var meta=document.createElement('div');meta.className='muted small';
+      meta.textContent=(d.status||'unknown')+' · '+d.deviceId+(d.appVersion?' · App '+d.appVersion:'');
+      item.append(title,meta);root.append(item);
+    });
+  }
+  async function renderPairingClaims(){
+    var data=await request('/api/v1/admin/pairing-claims');
+    var root=el('pairing-claims');clearChildren(root);
+    if(!data.claims.length){root.innerHTML='<span class="muted">Keine offenen Anfragen.</span>';return}
+    data.claims.forEach(function(c){
+      var item=document.createElement('div');item.className='item';
+      var top=document.createElement('div');top.className='row';
+      var label=document.createElement('div');
+      var strong=document.createElement('strong');strong.textContent=c.descriptor.name||c.descriptor.model||'PICO';
+      var meta=document.createElement('div');meta.className='muted small';
+      meta.textContent=c.descriptor.deviceId+' · '+(c.descriptor.model||c.descriptor.platform||'XR');
+      label.append(strong,meta);
+      var actions=document.createElement('div');
+      var approve=document.createElement('button');approve.textContent='Freigeben';
+      approve.onclick=async function(){
+        try{
+          await request('/api/v1/admin/pairing-claims/'+encodeURIComponent(c.claimId)+'/authorize',{method:'POST'});
+          message('PICO freigegeben.');await renderPairingClaims();await renderDevices();
+        }catch(e){message(e.message)}
+      };
+      var reject=document.createElement('button');reject.textContent='Ablehnen';reject.className='danger';
+      reject.onclick=async function(){
+        try{
+          await request('/api/v1/admin/pairing-claims/'+encodeURIComponent(c.claimId)+'/reject',{method:'POST'});
+          await renderPairingClaims();
+        }catch(e){message(e.message)}
+      };
+      actions.append(approve,reject);top.append(label,actions);item.append(top);root.append(item);
+    });
+  }
+  async function createPairing(){
+    message('');
+    var data=await request('/api/v1/admin/pairings',{method:'POST'});
+    el('pairing-qr').innerHTML=data.qrSvg;
+    el('pairing-expiry').textContent='gültig bis '+new Date(data.expiresAt).toLocaleTimeString();
+    show('pairing-result',true);
+    await renderPairingClaims();
+  }
   async function renderCredentials(){
     state.me=await loadMe();if(!state.me){location.href='/admin';return}
     show('nav',true);show('credentials',true);
@@ -272,6 +346,9 @@ code{word-break:break-all}
       el('welcome').textContent=state.me.user.displayName||state.me.user.username;
       var both=state.me.loginMethods.passkey&&state.me.loginMethods.passwordTotp;
       show('passkey-reminder',both&&!cookie('p4u_passkey_only_reminder_dismissed'));
+      await renderPairingClaims();
+      await renderDevices();
+      setInterval(function(){renderPairingClaims().catch(function(){})},2000);
       return;
     }
     if(credentialPage||settingsPage){location.href='/admin';return}
@@ -281,6 +358,8 @@ code{word-break:break-all}
     show('bootstrap',state.setup.setupRequired&&state.setup.proofAvailable);
   }
 
+  el('create-pairing').onclick=function(){createPairing().catch(function(e){message(e.message)})};
+  el('refresh-devices').onclick=function(){renderDevices().catch(function(e){message(e.message)})};
   el('save-settings').onclick=async function(){
     try{
       var config=JSON.parse(el('settings-json').value);
