@@ -42,7 +42,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            java.srcDir("../../android-pico-reference/src")
+            kotlin.srcDir("../../android-pico-reference/src")
             res.srcDir("../../android-pico-reference/res")
         }
     }
