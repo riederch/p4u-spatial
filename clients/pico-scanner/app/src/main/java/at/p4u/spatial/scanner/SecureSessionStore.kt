@@ -12,17 +12,23 @@ import javax.crypto.spec.GCMParameterSpec
 
 data class StoredSession(val refreshToken: String, val refreshExpiresAt: String)
 
-class SecureSessionStore(context: Context) {
-    private val prefs = context.getSharedPreferences("p4u-secure-session", Context.MODE_PRIVATE)
-    private val alias = "p4u-spatial-refresh-token"
+class SecureSessionStore(
+    context: Context,
+    profileId: String,
+) {
+    private val prefs = context.getSharedPreferences("p4u-secure-session-$profileId", Context.MODE_PRIVATE)
+    private val alias = "p4u-spatial-refresh-token-$profileId"
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(alias, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
+        generator.init(
+            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build(),
+        )
         return generator.generateKey()
     }
 
@@ -30,10 +36,13 @@ class SecureSessionStore(context: Context) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
-        check(prefs.edit()
-            .putString("token", Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString("expires", expiresAt).commit())
+        check(
+            prefs.edit()
+                .putString("token", Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+                .putString("expires", expiresAt)
+                .commit(),
+        )
     }
 
     fun read(): StoredSession? {
@@ -48,5 +57,7 @@ class SecureSessionStore(context: Context) {
         )
     }
 
-    fun clear() { prefs.edit().clear().commit() }
+    fun clear() {
+        prefs.edit().clear().commit()
+    }
 }

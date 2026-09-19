@@ -6,7 +6,8 @@ This is the first real Android application shell for the PICO headset.
 
 The app currently provides:
 
-- configurable P4U Bridge URL,
+- multiple named P4U Bridge profiles with an explicit active Bridge,
+- configurable P4U Bridge URLs,
 - bridge discovery through `/.well-known/open-spatial-interop`,
 - discovery of the `xr-app` update contract,
 - Stable-channel release lookup,
@@ -66,3 +67,21 @@ updates/  temporary verified APKs only
 ```
 
 Only `updates/` may be cleaned as part of update housekeeping.
+
+
+## Multiple Bridge instances
+
+The headset can store multiple named Bridge profiles and switch the active instance explicitly.
+
+The physical headset keeps one stable device identity, but trust and primary data are scoped to the Bridge profile:
+
+- each Bridge profile has its own URL and update channel;
+- refresh credentials are encrypted under a profile-specific Android Keystore alias;
+- scan outboxes live below `outbox/bridges/<profileId>/`;
+- switching the active Bridge never moves pending scans to another Bridge;
+- pairing/authorization is therefore performed independently for every Bridge instance;
+- application updates are checked against the active Bridge and its configured channel.
+
+The old single `bridge-url` preference is migrated to the first named profile on upgrade. The legacy preference is not used after migration.
+
+A Bridge profile must not be deleted together with its secure credentials or outbox until pending primary data has been handled. The current UI intentionally supports adding and switching profiles first; destructive profile removal should only be exposed together with an explicit pending-data guard.

@@ -10,8 +10,11 @@ import java.util.UUID
 
 data class OutboxScan(val scanId: String, val directory: File, val manifest: JSONObject)
 
-class ScanOutbox(context: Context) {
-    private val root = File(context.filesDir, "outbox/scans").apply { mkdirs() }
+class ScanOutbox(
+    context: Context,
+    profileId: String,
+) {
+    private val root = File(context.filesDir, "outbox/bridges/$profileId/scans").apply { mkdirs() }
 
     fun create(
         deviceId: String,
@@ -27,12 +30,25 @@ class ScanOutbox(context: Context) {
         val entries = JSONArray()
         for ((relative, bytes) in files) {
             require(relative.isNotBlank() && !relative.startsWith("/") && !relative.split('/').contains(".."))
-            val target = File(filesDir, relative); target.parentFile?.mkdirs(); target.writeBytes(bytes)
-            entries.put(JSONObject().put("path", relative).put("sha256", sha256(bytes)))
+            val target = File(filesDir, relative)
+            target.parentFile?.mkdirs()
+            target.writeBytes(bytes)
+            entries.put(
+                JSONObject()
+                    .put("path", relative)
+                    .put("sha256", sha256(bytes))
+                    .put("size", bytes.size),
+            )
         }
-        val manifest = JSONObject().put("schemaVersion", "1.0").put("scanId", scanId)
-            .put("device", JSONObject().put("deviceId", deviceId).put("platform", "android-pico").put("model", android.os.Build.MODEL))
-            .put("mode", mode).put("createdAt", Instant.now().toString())
+        val manifest = JSONObject()
+            .put("schemaVersion", "1.0")
+            .put("scanId", scanId)
+            .put("device", JSONObject()
+                .put("deviceId", deviceId)
+                .put("platform", "android-pico")
+                .put("model", android.os.Build.MODEL))
+            .put("mode", mode)
+            .put("createdAt", Instant.now().toString())
             .put("coordinateFrame", "scan:$scanId")
             .put("capabilities", JSONArray(capabilities))
             .put("files", entries)
@@ -41,10 +57,14 @@ class ScanOutbox(context: Context) {
         return OutboxScan(scanId, dir, manifest)
     }
 
-    fun pending(): List<OutboxScan> = root.listFiles().orEmpty().filter { it.isDirectory }.mapNotNull { dir ->
-        val file = File(dir, "manifest.json")
-        if (file.isFile) OutboxScan(dir.name, dir, JSONObject(file.readText())) else null
-    }.sortedBy { it.manifest.optString("createdAt") }
+    fun pending(): List<OutboxScan> =
+        root.listFiles().orEmpty()
+            .filter { it.isDirectory }
+            .mapNotNull { dir ->
+                val file = File(dir, "manifest.json")
+                if (file.isFile) OutboxScan(dir.name, dir, JSONObject(file.readText())) else null
+            }
+            .sortedBy { it.manifest.optString("createdAt") }
 
     fun file(scan: OutboxScan, relative: String): File {
         val base = File(scan.directory, "files").canonicalFile
@@ -53,7 +73,10 @@ class ScanOutbox(context: Context) {
         return candidate
     }
 
-    fun removeCommitted(scan: OutboxScan) { scan.directory.deleteRecursively() }
+    fun removeCommitted(scan: OutboxScan) {
+        scan.directory.deleteRecursively()
+    }
 
-    private fun sha256(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+    private fun sha256(bytes: ByteArray) =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

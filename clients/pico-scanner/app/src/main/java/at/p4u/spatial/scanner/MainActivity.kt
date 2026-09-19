@@ -4,7 +4,9 @@ import android.app.Activity
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.Spinner
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -19,11 +21,16 @@ import java.util.concurrent.Executors
 class MainActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var bridgeInput: EditText
+    private lateinit var bridgeNameInput: EditText
+    private lateinit var bridgeSpinner: Spinner
+    private lateinit var profiles: BridgeProfileStore
     private lateinit var status: TextView
     private lateinit var checkButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        profiles = BridgeProfileStore(this)
+        migrateLegacyBridge()
         setContentView(buildUi())
         showInstalledVersion()
     }
@@ -34,7 +41,6 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi(): ScrollView {
-        val prefs = getSharedPreferences("p4u-scanner", MODE_PRIVATE)
         val density = resources.displayMetrics.density
         val padding = (24 * density).toInt()
 
@@ -49,21 +55,50 @@ class MainActivity : Activity() {
             textSize = 28f
         }, fullWidth())
 
+        bridgeSpinner = Spinner(this)
+        column.addView(bridgeSpinner, fullWidth())
+
+        bridgeNameInput = EditText(this).apply {
+            hint = "Bridge-Name, z. B. Zuhause"
+            isSingleLine = true
+        }
+        column.addView(bridgeNameInput, fullWidth())
+
         bridgeInput = EditText(this).apply {
             hint = "Bridge URL, z. B. https://p4u.example"
-            setText(prefs.getString("bridge-url", ""))
             isSingleLine = true
         }
         column.addView(bridgeInput, fullWidth())
 
         val save = Button(this).apply {
-            text = "Bridge speichern"
+            text = "Bridge hinzufügen"
             setOnClickListener {
-                prefs.edit().putString("bridge-url", bridgeInput.text.toString().trim()).apply()
-                status.text = "Bridge gespeichert."
+                runCatching {
+                    profiles.upsert(name = bridgeNameInput.text.toString().trim(), baseUrl = bridgeInput.text.toString().trim())
+                }.onSuccess {
+                    profiles.setActive(it.profileId)
+                    refreshBridgeProfiles()
+                    status.text = "Bridge gespeichert und aktiviert: " + it.name
+                }.onFailure { error -> status.text = "Bridge konnte nicht gespeichert werden: " + error.message }
             }
         }
         column.addView(save, fullWidth())
+
+        val activate = Button(this).apply {
+            text = "Ausgewählte Bridge aktivieren"
+            setOnClickListener {
+                val all = profiles.list()
+                val selected = all.getOrNull(bridgeSpinner.selectedItemPosition)
+                if (selected != null) {
+                    profiles.setActive(selected.profileId)
+                    bridgeNameInput.setText(selected.name)
+                    bridgeInput.setText(selected.baseUrl)
+                    status.text = "Aktive Bridge: " + selected.name
+                }
+            }
+        }
+        column.addView(activate, fullWidth())
+        refreshBridgeProfiles()
 
         checkButton = Button(this).apply {
             text = "Auf Update prüfen"
@@ -78,6 +113,27 @@ class MainActivity : Activity() {
         column.addView(status, fullWidth())
 
         return ScrollView(this).apply { addView(column) }
+    }
+
+    private fun refreshBridgeProfiles() {
+        val all = profiles.list()
+        bridgeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, all.map { it.name })
+        val active = profiles.active()
+        if (active != null) {
+            val index = all.indexOfFirst { it.profileId == active.profileId }
+            if (index >= 0) bridgeSpinner.setSelection(index)
+            bridgeNameInput.setText(active.name)
+            bridgeInput.setText(active.baseUrl)
+        }
+    }
+
+    private fun migrateLegacyBridge() {
+        if (profiles.list().isNotEmpty()) return
+        val legacy = getSharedPreferences("p4u-scanner", MODE_PRIVATE)
+        val url = legacy.getString("bridge-url", null)?.trim().orEmpty()
+        if (url.startsWith("https://") || url.startsWith("http://")) {
+            profiles.upsert(name = "Bridge", baseUrl = url)
+        }
     }
 
     private fun fullWidth() = LinearLayout.LayoutParams(
@@ -96,11 +152,12 @@ class MainActivity : Activity() {
     }
 
     private fun checkForUpdate() {
-        val bridge = bridgeInput.text.toString().trim()
-        if (!bridge.startsWith("https://") && !bridge.startsWith("http://")) {
-            status.text = "Bitte eine gültige Bridge-URL eintragen."
+        val profile = profiles.active()
+        if (profile == null) {
+            status.text = "Bitte zuerst eine Bridge hinzufügen und aktivieren."
             return
         }
+        val bridge = profile.baseUrl
 
         checkButton.isEnabled = false
         status.text = "Prüfe Update …"
@@ -111,7 +168,7 @@ class MainActivity : Activity() {
                 val installed = inspector.installed()
                 val xrAppBase = BridgeDiscoveryClient().xrAppContract(bridge)
                 val releaseClient = BridgeReleaseClient(xrAppBase)
-                val release = releaseClient.latest("stable")
+                val release = releaseClient.latest(profile.updateChannel)
 
                 if (release.versionCode <= installed.versionCode) {
                     return@runCatching "Bereits aktuell: ${installed.versionName}."
