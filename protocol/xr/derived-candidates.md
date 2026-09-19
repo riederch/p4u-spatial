@@ -127,3 +127,20 @@ GET /api/v1/admin/xr/candidates/:candidateId/operation-draft
 ```
 
 Candidate submission requires the normal XR scan-write authorization and a durably committed source scan. Review and draft generation are administrator operations in v0.1. The operation-draft endpoint never executes the draft.
+
+## Explicit promotion
+
+The reference bridge may expose an administrator-only two-step promotion for writable local Spatial sources:
+
+```text
+GET  /api/v1/admin/xr/candidates/:candidateId/promotion-preview
+POST /api/v1/admin/xr/candidates/:candidateId/promote
+```
+
+The preview returns the exact Spatial operation and a `confirmationToken` derived from that operation. Promotion requires the unchanged token. If review target, payload or provenance changes, the old token no longer confirms the operation.
+
+The canonical payload records `provenance.xrCapture` with scan ID, candidate ID, derivation profile, evidence and reviewer metadata.
+
+Promotion uses a deterministic operation ID, so retrying the same confirmed promotion is idempotent through the normal Spatial operation ledger.
+
+This endpoint is unavailable when the local source is read-only. In particular, the default RCHKB profile does not permit direct promotion; accepted evidence must flow through the RCHKB source-of-truth workflow.

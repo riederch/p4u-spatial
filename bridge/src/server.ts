@@ -424,6 +424,60 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     return services.candidates.operationDraft(candidateId);
   });
 
+  app.get("/api/v1/admin/xr/candidates/:candidateId/promotion-preview", async (request) => {
+    requireAdmin(request, config);
+    const { candidateId } = request.params as { candidateId: string };
+    if (!config.spatialWritable) {
+      throw new BridgeError(
+        403,
+        "SOURCE_READ_ONLY",
+        config.repositoryProfile === "rchkb"
+          ? "RCHKB Spatial projection is read-only. Apply accepted candidate knowledge through the RCHKB workflow."
+          : "Spatial source is configured read-only.",
+      );
+    }
+    const preview = await services.candidates.promotionPreview(candidateId);
+    const operation = preview.operation as Record<string, unknown>;
+    const target = operation.target as Record<string, unknown>;
+    if (target.sourceId !== await services.spatial.sourceId()) {
+      throw new BridgeError(404, "SOURCE_NOT_FOUND", "Candidate promotion target is not the local Spatial source.");
+    }
+    return preview;
+  });
+
+  app.post("/api/v1/admin/xr/candidates/:candidateId/promote", async (request) => {
+    requireAdmin(request, config);
+    if (!config.spatialWritable) {
+      throw new BridgeError(
+        403,
+        "SOURCE_READ_ONLY",
+        config.repositoryProfile === "rchkb"
+          ? "RCHKB Spatial projection is read-only. Apply accepted candidate knowledge through the RCHKB workflow."
+          : "Spatial source is configured read-only.",
+      );
+    }
+
+    const { candidateId } = request.params as { candidateId: string };
+    const body = request.body as { confirmationToken?: unknown };
+    const preview = await services.candidates.assertPromotionConfirmation(
+      candidateId,
+      typeof body?.confirmationToken === "string" ? body.confirmationToken : "",
+    );
+    const operation = preview.operation as Record<string, unknown>;
+    const target = operation.target as Record<string, unknown>;
+    if (target.sourceId !== await services.spatial.sourceId()) {
+      throw new BridgeError(404, "SOURCE_NOT_FOUND", "Candidate promotion target is not the local Spatial source.");
+    }
+
+    const result = await services.spatialWrite.submit(operation);
+    await services.candidates.markPromoted(
+      candidateId,
+      preview.confirmationToken as string,
+      result as unknown as Record<string, unknown>,
+    );
+    return { candidateId, operation: result };
+  });
+
   app.post("/api/v1/admin/federation/retry", async (request) => {
     requireAdmin(request, config);
     if (!services.federation) throw new BridgeError(404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");

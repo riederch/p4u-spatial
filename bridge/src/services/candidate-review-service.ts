@@ -35,6 +35,12 @@ interface CandidateRecord {
     baseRevision?: string | null;
     payload?: JsonObject;
   };
+  promotion?: {
+    operationId: string;
+    confirmationToken: string;
+    promotedAt?: string;
+    result?: JsonObject;
+  };
 }
 
 interface CandidateState {
@@ -198,6 +204,88 @@ export class CandidateReviewService {
         return candidate;
       }
       candidate.review = nextReview;
+      return candidate;
+    });
+  }
+
+  private canonicalPayload(candidate: CandidateRecord): JsonObject {
+    const review = candidate.review;
+    const base = { ...(review.payload ?? candidate.proposal) };
+    const existingProvenance = isRecord(base.provenance) ? base.provenance : {};
+    return {
+      ...base,
+      provenance: {
+        ...existingProvenance,
+        xrCapture: {
+          scanId: candidate.scanId,
+          candidateId: candidate.candidateId,
+          derivationProfile: candidate.profile,
+          evidence: candidate.evidence,
+          reviewer: review.reviewer,
+          reviewedAt: review.reviewedAt,
+        },
+      },
+    };
+  }
+
+  async promotionPreview(candidateId: string): Promise<JsonObject> {
+    const candidate = await this.get(candidateId);
+    const review = candidate.review;
+    if (review.state !== "accepted" && review.state !== "edited") {
+      throw new BridgeError(409, "CANDIDATE_NOT_ACCEPTED", "Only accepted or edited candidates can be promoted.");
+    }
+    assertOrThrow(review.sourceId && review.collectionId, 500, "CANDIDATE_REVIEW_INVALID", "Accepted candidate is missing target metadata.");
+
+    const operationId = `candidate-promotion:${sha256(Buffer.from(candidate.candidateId)).slice(0, 32)}`;
+    const target: JsonObject = {
+      sourceId: review.sourceId,
+      collectionId: review.collectionId,
+    };
+    if (review.objectId) target.objectId = review.objectId;
+
+    const operation: JsonObject = {
+      operationId,
+      target,
+      action: review.objectId ? "update" : "create",
+      baseRevision: review.objectId ? review.baseRevision : null,
+      payload: this.canonicalPayload(candidate),
+    };
+    const confirmationToken = sha256(Buffer.from(stableStringify(operation)));
+
+    return {
+      candidateId: candidate.candidateId,
+      scanId: candidate.scanId,
+      confirmationToken,
+      operation,
+      alreadyPromoted: !!candidate.promotion?.result,
+      ...(candidate.promotion?.result ? { previousResult: candidate.promotion.result } : {}),
+    };
+  }
+
+  async assertPromotionConfirmation(candidateId: string, confirmationToken: string): Promise<JsonObject> {
+    const preview = await this.promotionPreview(candidateId);
+    assertOrThrow(
+      typeof confirmationToken === "string" && confirmationToken === preview.confirmationToken,
+      409,
+      "PROMOTION_CONFIRMATION_MISMATCH",
+      "Promotion confirmation token does not match the current reviewed operation.",
+    );
+    return preview;
+  }
+
+  async markPromoted(candidateId: string, confirmationToken: string, result: JsonObject): Promise<CandidateRecord> {
+    return this.store.mutate((state) => {
+      const candidate = state.candidates[candidateId];
+      if (!candidate) throw new BridgeError(404, "CANDIDATE_NOT_FOUND", "Derived candidate not found.");
+      const operationId = typeof result.operationId === "string"
+        ? result.operationId
+        : `candidate-promotion:${sha256(Buffer.from(candidateId)).slice(0, 32)}`;
+      candidate.promotion = {
+        operationId,
+        confirmationToken,
+        promotedAt: nowIso(),
+        result,
+      };
       return candidate;
     });
   }

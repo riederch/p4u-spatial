@@ -105,6 +105,83 @@ describe("XR candidate review pipeline", () => {
     });
 
     expect(await repository.readFile("spatial/model/rooms.jsonl")).toBeNull();
+
+    const localSource = (await app.inject({
+      method: "GET", url: "/spatial/v1/sources", headers: auth,
+    })).json() as { sources: Array<{ sourceId: string }> };
+
+    const secondId = "candidate:promotable-room";
+    const second = { ...candidate, candidateId: secondId };
+    expect((await app.inject({
+      method: "PUT", url: `/api/v1/scans/${scanId}/candidates/${encodeURIComponent(secondId)}`,
+      headers: auth, payload: second,
+    })).statusCode).toBe(200);
+
+    expect((await app.inject({
+      method: "PUT", url: `/api/v1/admin/xr/candidates/${encodeURIComponent(secondId)}/review`, headers: admin,
+      payload: {
+        decision: "accepted", reviewer: "admin:test",
+        sourceId: localSource.sources[0]!.sourceId, collectionId: "rooms",
+      },
+    })).statusCode).toBe(200);
+
+    const preview = await app.inject({
+      method: "GET",
+      url: `/api/v1/admin/xr/candidates/${encodeURIComponent(secondId)}/promotion-preview`,
+      headers: admin,
+    });
+    expect(preview.statusCode).toBe(200);
+    const promotion = preview.json() as {
+      confirmationToken: string;
+      operation: { operationId: string; payload: Record<string, unknown> };
+    };
+    expect(promotion.operation.payload).toMatchObject({
+      name: "Detected room",
+      provenance: {
+        xrCapture: {
+          scanId,
+          candidateId: secondId,
+          derivationProfile: "scene-v1",
+          reviewer: "admin:test",
+        },
+      },
+    });
+    expect(await repository.readFile("spatial/model/rooms.jsonl")).toBeNull();
+
+    const wrongConfirmation = await app.inject({
+      method: "POST",
+      url: `/api/v1/admin/xr/candidates/${encodeURIComponent(secondId)}/promote`,
+      headers: admin,
+      payload: { confirmationToken: "wrong" },
+    });
+    expect(wrongConfirmation.statusCode).toBe(409);
+    expect(await repository.readFile("spatial/model/rooms.jsonl")).toBeNull();
+
+    const promoted = await app.inject({
+      method: "POST",
+      url: `/api/v1/admin/xr/candidates/${encodeURIComponent(secondId)}/promote`,
+      headers: admin,
+      payload: { confirmationToken: promotion.confirmationToken },
+    });
+    expect(promoted.statusCode).toBe(200);
+    expect(promoted.json()).toMatchObject({
+      candidateId: secondId,
+      operation: { operationId: promotion.operation.operationId, state: "source-committed" },
+    });
+
+    const roomData = await repository.readFile("spatial/model/rooms.jsonl");
+    expect(roomData).not.toBeNull();
+    expect(Buffer.from(roomData!).toString("utf8")).toContain(secondId);
+
+    const promotedRetry = await app.inject({
+      method: "POST",
+      url: `/api/v1/admin/xr/candidates/${encodeURIComponent(secondId)}/promote`,
+      headers: admin,
+      payload: { confirmationToken: promotion.confirmationToken },
+    });
+    expect(promotedRetry.statusCode).toBe(200);
+    expect(promotedRetry.json()).toEqual(promoted.json());
+
     await app.close();
   });
 });
