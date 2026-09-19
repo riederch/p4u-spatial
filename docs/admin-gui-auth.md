@@ -1,58 +1,71 @@
 # Admin GUI authentication
 
-The P4U Bridge admin web interface uses WebAuthn/passkeys. The browser-facing administration plane shares the Bridge HTTP listener with the API; a second management port is not required.
+The P4U Bridge serves its administrator web interface on the same HTTP listener as the API. A second management port is not required.
 
-## Configuration
+## Authentication model
 
-Set both values:
+Each administrator has a persistent user identity.
 
-```text
-P4U_ADMIN_WEBAUTHN_RP_ID=p4u.example.at
-P4U_ADMIN_WEBAUTHN_ORIGIN=https://p4u.example.at
-```
+A user may enable either or both of these independent login methods:
 
-For a Cloudflare Tunnel deployment, use the public HTTPS hostname as the WebAuthn origin and its registrable/appropriate hostname as the RP ID. Do not configure the RP ID as an internal IP, Docker name or changing tunnel URL.
+1. **Passkey** — WebAuthn login without password or OTP.
+2. **Username + password + TOTP** — password alone is never a valid administrator login.
 
-## Bootstrap
+Multiple passkeys may be registered for the same administrator. Passkeys are bound to the administrator's stable user ID, not to the username.
 
-The first administrator passkey is a privileged bootstrap operation and requires the existing `X-P4U-Admin-Key`. There is no unauthenticated first-user registration path.
+If both methods are enabled, both remain valid in parallel until the administrator explicitly disables password + TOTP.
 
-After at least one passkey exists, additional passkeys require an authenticated passkey admin session. The admin key remains available for machine/API administration and recovery; it is not the intended browser GUI login mechanism.
+## First-run bootstrap
 
-## Endpoints
+A fresh Bridge installation enters setup mode when no usable administrator login exists.
 
-- `GET /api/v1/admin-auth/status`
-- `POST /api/v1/admin-auth/register/options`
-- `POST /api/v1/admin-auth/register/verify`
-- `POST /api/v1/admin-auth/login/options`
-- `POST /api/v1/admin-auth/login/verify`
+The Bridge generates a short-lived one-time setup proof and prints it to the process log. The administrator opens `/admin`, enters that proof, creates the initial administrator identity, and configures at least one permanent login method.
 
-The login verification creates a short-lived admin session plus a separate CSRF token. The eventual web GUI must keep the session in a Secure, HttpOnly, SameSite cookie and use the CSRF token for state-changing requests. Raw passkey credentials/private keys are never stored by the Bridge; only the WebAuthn public credential and counter are persisted.
+The setup proof is consumed once a permanent login method is configured. A permanent deployment-level `P4U_ADMIN_KEY` is not required by the target first-run flow.
 
-## Cloudflare
+`X-P4U-Admin-Key` may still exist as a technical compatibility/recovery mechanism when explicitly configured; it is not the normal browser login path.
 
-Publishing the single Bridge port through Cloudflare Tunnel is compatible with this model. WebAuthn verification is bound to the configured public HTTPS origin, while device/API authentication remains independent.
+## Browser session and CSRF
 
-Cloudflare Access may additionally protect browser administration, but interactive Access authentication must not be placed indiscriminately in front of headset/device API routes unless those routes have a non-interactive service-token design.
+A successful browser login creates a server-side administrator session.
 
-## Credential management UX
+The browser receives:
 
-The admin GUI has a dedicated `/admin/credentials` page. Credential management is always available there and is independent of any reminder banner.
+- `p4u_admin_session` — `Secure`, `HttpOnly`, `SameSite=Strict`;
+- `p4u_admin_csrf` — `Secure`, `SameSite=Strict`, readable by the GUI so it can send `X-P4U-CSRF` on state-changing requests.
 
-An administrator may register multiple passkeys. Each passkey can have a human-readable name, can be renamed, and can be removed. The last remaining passkey cannot be removed while passkey authentication is the only configured login path, preventing accidental lockout.
+State-changing administrator requests authenticated through the browser session require a valid CSRF token. Disabling an administrator revokes that user's active administrator sessions.
 
-Credential-management API:
+## Passkeys
 
-- `GET /api/v1/admin-auth/passkeys`
-- `PUT /api/v1/admin-auth/passkeys/{passkeyId}`
-- `DELETE /api/v1/admin-auth/passkeys/{passkeyId}`
-- the existing registration endpoints add further passkeys when an authenticated admin session is present.
+The Bridge stores only WebAuthn public credential material and counters. Private passkey keys never leave the authenticator.
 
-The planned authentication modes are:
+An administrator may register multiple passkeys. Each passkey can be named, renamed and removed. The final passkey may only be removed when another valid login method remains, currently password + TOTP.
 
-1. passkey only; or
-2. password + TOTP.
+## Password + TOTP
 
-Both may be enabled concurrently. Password without TOTP is not a supported administrator login mode.
+Password + TOTP is an optional full alternative to passkey login. Username, password and a current TOTP code are all required; password-only login is never accepted. Enrollment becomes active only after a valid TOTP confirmation.
 
-When both modes are enabled, the GUI may show a small friendly reminder suggesting passkey-only mode. The reminder only links to `/admin/credentials`; it never changes credentials directly. Closing it stores only a cosmetic browser cookie such as `p4u_passkey_only_reminder_dismissed=1`. The cookie does not alter authentication state, and the credential page remains permanently accessible through normal settings navigation.
+## Credential-management UX
+
+`/admin/credentials` is always available to an authenticated administrator.
+
+When both passkey and password + TOTP are active for the current user, the dashboard may show a small reminder suggesting passkey-only mode. The reminder only links to `/admin/credentials`, never changes credentials directly, and can be dismissed with the cosmetic cookie `p4u_passkey_only_reminder_dismissed=1`.
+
+## WebAuthn origin and Bridge configuration
+
+WebAuthn is bound to a stable RP ID and origin. For a Cloudflare Tunnel deployment, the public HTTPS hostname is the normal WebAuthn origin. Internal IP addresses, Docker names and temporary tunnel hostnames are unsuitable as long-lived WebAuthn origins.
+
+The RP ID and origin are operator-facing Bridge settings and are persisted through the Bridge configuration store. Environment variables remain migration/bootstrap compatibility only and must not become a parallel functional configuration model.
+
+## Relevant endpoints
+
+Setup: `GET /api/v1/setup/status`, `POST /api/v1/setup/admin`.
+
+Login/session: `GET /api/v1/admin-auth/status`, `GET /api/v1/admin-auth/me`, `POST /api/v1/admin-auth/login/options`, `POST /api/v1/admin-auth/login/verify`, `POST /api/v1/admin-auth/password-totp/login`, `POST /api/v1/admin-auth/logout`.
+
+Credential management: `POST /api/v1/admin-auth/register/options`, `POST /api/v1/admin-auth/register/verify`, `GET /api/v1/admin-auth/passkeys`, `PUT /api/v1/admin-auth/passkeys/{passkeyId}`, `DELETE /api/v1/admin-auth/passkeys/{passkeyId}`, `POST /api/v1/admin-auth/password-totp/setup`, `POST /api/v1/admin-auth/password-totp/setup/confirm`, `DELETE /api/v1/admin-auth/password-totp`.
+
+## Remaining product-level work
+
+The authentication backend and credential GUI are implemented. Full multi-user administration and user-to-device assignment still need their final operator-facing GUI workflows even though the backing APIs/data model exist.
