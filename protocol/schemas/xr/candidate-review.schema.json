@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/xr/candidate-review.schema.json",
+  "title": "XR Candidate Review",
+  "type": "object",
+  "required": [
+    "candidateId",
+    "decision",
+    "reviewer",
+    "reviewedAt"
+  ],
+  "properties": {
+    "candidateId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decision": {
+      "enum": [
+        "accepted",
+        "rejected",
+        "edited"
+      ]
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewedAt": {
+      "$ref": "../core/definitions.schema.json#/$defs/timestamp"
+    },
+    "note": {
+      "type": "string"
+    },
+    "target": {
+      "$ref": "../spatial/object-ref.schema.json"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

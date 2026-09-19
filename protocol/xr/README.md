@@ -75,6 +75,10 @@ For raw scan/capture evidence whose lifecycle is XR-specific, the XR upload API 
 
 Raw scanner evidence, coordinate frames, meshes, runtime anchors and promotion into canonical Spatial data are defined in [capture-package.md](capture-package.md).
 
+## Derived candidates and review
+
+Semantic interpretations of raw captures remain non-canonical until reviewed. Candidate identity, confidence, evidence provenance and explicit promotion are defined in [derived-candidates.md](derived-candidates.md).
+
 ## Application lifecycle
 
 Initial APK bootstrap and subsequent signed update behavior are defined in [app-lifecycle.md](app-lifecycle.md). Application release versions remain independent from protocol contract versions.

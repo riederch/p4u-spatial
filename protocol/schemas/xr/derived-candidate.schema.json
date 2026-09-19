@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.example/schema/xr/derived-candidate.schema.json",
+  "title": "XR Derived Candidate",
+  "type": "object",
+  "required": [
+    "candidateId",
+    "scanId",
+    "profile",
+    "kind",
+    "confidence",
+    "evidence",
+    "proposal",
+    "review"
+  ],
+  "properties": {
+    "candidateId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scanId": {
+      "$ref": "../core/definitions.schema.json#/$defs/uuid"
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "room",
+        "wall",
+        "door",
+        "window",
+        "asset",
+        "landmark"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scanId",
+          "path"
+        ],
+        "properties": {
+          "scanId": {
+            "$ref": "../core/definitions.schema.json#/$defs/uuid"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidenceId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "proposal": {
+      "type": "object"
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "pending",
+            "accepted",
+            "rejected",
+            "edited"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
