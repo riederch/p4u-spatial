@@ -92,8 +92,8 @@ code{word-break:break-all}
     <a href="/admin/credentials">Loginmethoden und Passkeys verwalten</a>
   </div>
   <div class="card">
-    <h2>PICO koppeln</h2>
-    <p class="muted">Erzeugt einen kurzlebigen QR-Code. Auf der PICO "QR scannen" wählen und anschließend die Anfrage hier freigeben.</p>
+    <h2>picoVrVr koppeln</h2>
+    <p class="muted">Erzeugt einen kurzlebigen QR-Code. Auf der picoVrVr "QR scannen" wählen und anschließend die Anfrage hier freigeben.</p>
     <div class="row"><button id="create-pairing">Pairing-QR erzeugen</button><span id="pairing-expiry" class="muted"></span></div>
     <div id="pairing-result" class="hidden">
       <div id="pairing-qr" class="qr" aria-label="Pairing QR-Code"></div>
@@ -283,7 +283,7 @@ code{word-break:break-all}
       var item=document.createElement('div');item.className='item';
       var top=document.createElement('div');top.className='row';
       var label=document.createElement('div');
-      var strong=document.createElement('strong');strong.textContent=c.descriptor.name||c.descriptor.model||'PICO';
+      var strong=document.createElement('strong');strong.textContent=c.descriptor.name||c.descriptor.model||'picoVrVr';
       var meta=document.createElement('div');meta.className='muted small';
       meta.textContent=c.descriptor.deviceId+' · '+(c.descriptor.model||c.descriptor.platform||'XR');
       label.append(strong,meta);
@@ -292,7 +292,7 @@ code{word-break:break-all}
       approve.onclick=async function(){
         try{
           await request('/api/v1/admin/pairing-claims/'+encodeURIComponent(c.claimId)+'/authorize',{method:'POST'});
-          message('PICO freigegeben.');await renderPairingClaims();await renderDevices();
+          message('picoVrVr freigegeben.');await renderPairingClaims();await renderDevices();
         }catch(e){message(e.message)}
       };
       var reject=document.createElement('button');reject.textContent='Ablehnen';reject.className='danger';

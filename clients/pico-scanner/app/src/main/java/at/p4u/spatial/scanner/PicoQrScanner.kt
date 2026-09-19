@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Minimal practical-test scanner. It intentionally uses Android Camera2 directly so the
- * PICO runtime can expose whichever camera it permits to normal Android applications.
+ * picoVrVr runtime can expose whichever camera it permits to normal Android applications.
  * If no camera is exposed, the UI reports that explicitly and the manual JSON fallback remains.
  */
 class PicoQrScanner(
@@ -47,7 +47,7 @@ class PicoQrScanner(
         val manager = activity.getSystemService(CameraManager::class.java)
         val cameraId = runCatching { manager.cameraIdList.firstOrNull() }.getOrNull()
         if (cameraId == null) {
-            fail("Keine Android-Kamera wurde vom PICO-System für diese App freigegeben.")
+            fail("Keine Android-Kamera wurde vom picoVrVr-System für diese App freigegeben.")
             return
         }
         reader = ImageReader.newInstance(1280, 720, ImageFormat.YUV_420_888, 2).also {
@@ -75,7 +75,7 @@ class PicoQrScanner(
                                 }
                             }
                             override fun onConfigureFailed(captureSession: CameraCaptureSession) {
-                                fail("PICO-Kamera konnte nicht konfiguriert werden.")
+                                fail("picoVrVr-Kamera konnte nicht konfiguriert werden.")
                             }
                         },
                         handler,
@@ -83,11 +83,11 @@ class PicoQrScanner(
                 }
                 override fun onDisconnected(device: CameraDevice) {
                     device.close()
-                    fail("PICO-Kamera wurde getrennt.")
+                    fail("picoVrVr-Kamera wurde getrennt.")
                 }
                 override fun onError(device: CameraDevice, error: Int) {
                     device.close()
-                    fail("PICO-Kamera meldet Fehler $error.")
+                    fail("picoVrVr-Kamera meldet Fehler $error.")
                 }
             }, handler)
         } catch (e: SecurityException) {

@@ -1,4 +1,4 @@
-# PICO Scanner release runbook
+# picoVrVr Scanner release runbook
 
 This runbook defines the build, signing and publication path for the P4U Spatial Scanner APK.
 
@@ -40,7 +40,7 @@ The resulting debug APK is for development sideloading only. It is not a product
 
 ## Production release
 
-Run the GitHub Actions workflow **Publish PICO Scanner APK** manually.
+Run the GitHub Actions workflow **Publish picoVrVr Scanner APK** manually.
 
 Inputs:
 
@@ -77,7 +77,7 @@ The request body is the generated `release-descriptor.json` unchanged.
 
 This is deliberately a separate administrative step. Building/signing an APK does not automatically expose it to production headsets.
 
-For a first deployment, publish to `beta`, validate on a test PICO, then create/promote an explicitly versioned `stable` release. Do not silently move a device between channels.
+For a first deployment, publish to `beta`, validate on a test picoVrVr, then create/promote an explicitly versioned `stable` release. Do not silently move a device between channels.
 
 ## First installation
 
@@ -86,7 +86,7 @@ The very first installation cannot use self-update because no trusted applicatio
 ```text
 signed APK
   -> verify digest/certificate
-  -> administrator-controlled PICO/Android sideload
+  -> administrator-controlled picoVrVr/Android sideload
   -> launch
   -> configure/discover Bridge
   -> QR pairing
@@ -97,7 +97,7 @@ After this bootstrap, normal newer-version delivery uses the Bridge `xr-app` con
 
 ## Self-update
 
-Once paired, the application discovers the Bridge update service, obtains the latest descriptor for its selected channel, downloads the APK from the descriptor URL, verifies size, SHA-256 and signing identity, and hands the verified APK to the Android/PICO installer.
+Once paired, the application discovers the Bridge update service, obtains the latest descriptor for its selected channel, downloads the APK from the descriptor URL, verifies size, SHA-256 and signing identity, and hands the verified APK to the Android/picoVrVr installer.
 
 The installed application's data directory is preserved. Pairing identity, refresh credentials and pending outbox data must survive the update.
 
@@ -109,7 +109,7 @@ Before a stable descriptor is published to production:
 - APK signature verification succeeds;
 - descriptor SHA-256 matches the exact published APK;
 - descriptor signing fingerprint matches the production signing certificate;
-- beta installation succeeds on a PICO 4 Ultra;
+- beta installation succeeds on a picoVrVr 4 Ultra;
 - application starts after update and reports the expected version code;
 - existing pairing still works;
 - pending offline/outbox data survives;
