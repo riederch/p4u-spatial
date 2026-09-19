@@ -14,6 +14,9 @@ FEDERATION_UPSTREAM_URL="$(bashio::config 'federation_upstream_url')"
 FEDERATION_TOKEN="$(bashio::config 'federation_token')"
 FEDERATION_ROUTE_ID="$(bashio::config 'federation_route_id')"
 SCAN_UPLOAD_RETENTION_SECONDS="$(bashio::config 'scan_upload_retention_seconds')"
+PAIRING_CLAIM_RATE_LIMIT="$(bashio::config 'pairing_claim_rate_limit')"
+SESSION_REFRESH_RATE_LIMIT="$(bashio::config 'session_refresh_rate_limit')"
+SCAN_REQUEST_RATE_LIMIT="$(bashio::config 'scan_request_rate_limit')"
 
 export P4U_HOST="0.0.0.0"
 export P4U_PORT="8787"
@@ -47,6 +50,9 @@ if [[ -n "${FEDERATION_TOKEN}" ]]; then
 fi
 export P4U_FEDERATION_ROUTE_ID="${FEDERATION_ROUTE_ID}"
 export P4U_SCAN_UPLOAD_RETENTION="${SCAN_UPLOAD_RETENTION_SECONDS}"
+export P4U_PAIRING_CLAIM_RATE_LIMIT="${PAIRING_CLAIM_RATE_LIMIT}"
+export P4U_SESSION_REFRESH_RATE_LIMIT="${SESSION_REFRESH_RATE_LIMIT}"
+export P4U_SCAN_REQUEST_RATE_LIMIT="${SCAN_REQUEST_RATE_LIMIT}"
 
 if [[ -n "${ADMIN_KEY}" ]]; then
   export P4U_ADMIN_KEY="${ADMIN_KEY}"

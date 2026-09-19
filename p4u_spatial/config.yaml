@@ -29,6 +29,9 @@ options:
   federation_token: ""
   federation_route_id: "upstream"
   scan_upload_retention_seconds: 604800
+  pairing_claim_rate_limit: 30
+  session_refresh_rate_limit: 60
+  scan_request_rate_limit: 600
 schema:
   admin_key: str
   source_title: str
@@ -44,3 +47,6 @@ schema:
   federation_token: password
   federation_route_id: str
   scan_upload_retention_seconds: int
+  pairing_claim_rate_limit: int
+  session_refresh_rate_limit: int
+  scan_request_rate_limit: int

@@ -20,6 +20,7 @@ import { SpatialReadService } from "./services/spatial-read-service.js";
 import { SpatialWriteService, type SpatialWriteAction } from "./services/spatial-write-service.js";
 import { XrAppReleaseService } from "./services/xr-app-release-service.js";
 import { CandidateReviewService } from "./services/candidate-review-service.js";
+import { FixedWindowRateLimiter } from "./services/rate-limiter.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
@@ -120,6 +121,10 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     maxFileBytes: config.scanMaxFileBytes,
     maxTotalBytes: config.scanMaxTotalBytes,
   }, config.scanUploadRetentionSeconds);
+  const pairingClaimLimiter = new FixedWindowRateLimiter(config.pairingClaimRateLimit, 60_000);
+  const sessionRefreshLimiter = new FixedWindowRateLimiter(config.sessionRefreshRateLimit, 60_000);
+  const scanRequestLimiter = new FixedWindowRateLimiter(config.scanRequestRateLimit, 60_000);
+
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
     identity: new InstanceIdentityService(config.stateDir),
@@ -554,6 +559,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/pairing/claim", async (request) => {
+    pairingClaimLimiter.consume(`ip:${request.ip}`);
     const body = request.body as { pairingId?: string; secret?: string; device?: DeviceDescriptor };
     assertOrThrow(body && typeof body === "object", 400, "INVALID_REQUEST", "JSON object required.");
     assertOrThrow(typeof body.pairingId === "string", 400, "INVALID_REQUEST", "pairingId is required.");
@@ -576,6 +582,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/session/refresh", async (request) => {
+    sessionRefreshLimiter.consume(`ip:${request.ip}`);
     const body = request.body as { refreshToken?: string };
     assertOrThrow(typeof body?.refreshToken === "string", 400, "INVALID_REQUEST", "refreshToken is required.");
     const refreshed = await services.sessions.refresh(body.refreshToken);
@@ -612,12 +619,14 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.put("/api/v1/scans/:scanId/manifest", async (request) => {
     const device = await authenticatedDevice(request, services, "xr.scan.write");
+    scanRequestLimiter.consume(`device:${device.deviceId}`);
     const { scanId } = request.params as { scanId: string };
     return services.scans.putManifest(device.deviceId, scanId, request.body);
   });
 
   app.put("/api/v1/scans/:scanId/files/*", async (request) => {
     const device = await authenticatedDevice(request, services, "xr.scan.write");
+    scanRequestLimiter.consume(`device:${device.deviceId}`);
     const params = request.params as { scanId: string; "*": string };
     assertOrThrow(Buffer.isBuffer(request.body), 400, "INVALID_REQUEST", "Binary request body required.");
     const header = request.headers["x-content-sha256"];
@@ -627,6 +636,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.post("/api/v1/scans/:scanId/commit", async (request) => {
     const device = await authenticatedDevice(request, services, "xr.scan.write");
+    scanRequestLimiter.consume(`device:${device.deviceId}`);
     const { scanId } = request.params as { scanId: string };
     return services.scans.commit(device.deviceId, scanId);
   });

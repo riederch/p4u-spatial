@@ -78,7 +78,10 @@ describe("XR scan upload limits", () => {
 
   it("removes only stale incomplete server staging", async () => {
     const root = await mkdtemp(join(tmpdir(), "p4u-scan-cleanup-"));
-    const cfg = { ...config(root), scanUploadRetentionSeconds: 60 };
+    const cfg = { ...config(root), scanUploadRetentionSeconds: 60 };,
+    pairingClaimRateLimit: 30,
+    sessionRefreshRateLimit: 60,
+    scanRequestRateLimit: 600
     const repository = new FilesystemRepositoryProvider(cfg.repositoryRoot);
     const app = buildServer(cfg, repository);
     const staleId = randomUUID();

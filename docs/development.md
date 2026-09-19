@@ -154,3 +154,17 @@ POST /api/v1/admin/xr/scans/cleanup
 ```
 
 Cleanup affects only incomplete data below the bridge state directory. It never deletes committed raw scans from the repository and does not alter the headset's durable offline outbox. A headset that still owns an outbox item can therefore restart the upload after server staging has expired.
+
+## XR API rate limits
+
+The bridge applies in-memory fixed-window limits to exposed XR operations. Defaults are per minute:
+
+```bash
+export P4U_PAIRING_CLAIM_RATE_LIMIT=30
+export P4U_SESSION_REFRESH_RATE_LIMIT=60
+export P4U_SCAN_REQUEST_RATE_LIMIT=600
+```
+
+Pairing claims and refresh requests are keyed by client IP. Authenticated scan manifest, file and commit requests are keyed by device ID. A rejected request returns HTTP 429 with error code `RATE_LIMITED` and `details.retryAfterSeconds`.
+
+The counters are deliberately ephemeral and reset when the bridge restarts. They protect the process from request bursts; they are not an authorization or accounting mechanism. Deployments behind a reverse proxy should ensure Fastify receives a trustworthy client IP before relying on the IP-keyed limits as an internet-edge control.

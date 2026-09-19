@@ -31,6 +31,9 @@ export interface BridgeConfig {
   scanMaxFileBytes: number;
   scanMaxTotalBytes: number;
   scanUploadRetentionSeconds: number;
+  pairingClaimRateLimit: number;
+  sessionRefreshRateLimit: number;
+  scanRequestRateLimit: number;
 }
 
 function boolEnv(name: string, fallback: boolean): boolean {
@@ -93,6 +96,9 @@ export function loadConfig(): BridgeConfig {
     scanMaxFileBytes: intEnv("P4U_SCAN_MAX_FILE_BYTES", 64 * 1024 * 1024),
     scanMaxTotalBytes: intEnv("P4U_SCAN_MAX_TOTAL_BYTES", 512 * 1024 * 1024),
     scanUploadRetentionSeconds: intEnv("P4U_SCAN_UPLOAD_RETENTION", 7 * 24 * 60 * 60),
+    pairingClaimRateLimit: intEnv("P4U_PAIRING_CLAIM_RATE_LIMIT", 30),
+    sessionRefreshRateLimit: intEnv("P4U_SESSION_REFRESH_RATE_LIMIT", 60),
+    scanRequestRateLimit: intEnv("P4U_SCAN_REQUEST_RATE_LIMIT", 600),
   };
 
   if (rchkbRoot) config.rchkbRoot = rchkbRoot;

@@ -17,6 +17,9 @@ function config(root: string): BridgeConfig {
     refreshTokenTtlSeconds: 86400, pairingTtlSeconds: 300,
     scanMaxFiles: 256, scanMaxFileBytes: 64 * 1024 * 1024, scanMaxTotalBytes: 512 * 1024 * 1024,
     scanUploadRetentionSeconds: 7 * 24 * 60 * 60,
+    pairingClaimRateLimit: 30,
+    sessionRefreshRateLimit: 60,
+    scanRequestRateLimit: 600
   };
 }
 
