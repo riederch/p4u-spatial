@@ -84,13 +84,19 @@ function adminSessionToken(request: FastifyRequest): string | undefined {
   return headerToken ?? cookieValue(request, "p4u_admin_session");
 }
 
-function setAdminSessionCookie(reply: FastifyReply, token: string, expiresAt: string): void {
+function setAdminSessionCookie(reply: FastifyReply, token: string, csrfToken: string, expiresAt: string): void {
   const maxAge = Math.max(0, Math.floor((Date.parse(expiresAt) - Date.now()) / 1000));
-  reply.header("Set-Cookie", `p4u_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Strict`);
+  reply.header("Set-Cookie", [
+    `p4u_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Strict`,
+    `p4u_admin_csrf=${encodeURIComponent(csrfToken)}; Path=/; Max-Age=${maxAge}; Secure; SameSite=Strict`,
+  ]);
 }
 
 function clearAdminSessionCookie(reply: FastifyReply): void {
-  reply.header("Set-Cookie", "p4u_admin_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict");
+  reply.header("Set-Cookie", [
+    "p4u_admin_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict",
+    "p4u_admin_csrf=; Path=/; Max-Age=0; Secure; SameSite=Strict",
+  ]);
 }
 
 async function requireAdmin(request: FastifyRequest, config: BridgeConfig, services: Services): Promise<AdminPrincipal> {
@@ -233,6 +239,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/api/v1/admin-auth/status", async () => ({
     passkeyEnabled: !!services.adminPasskeys,
     passkeyConfigured: services.adminPasskeys ? await services.adminPasskeys.configured() : false,
+    passwordTotpConfigured: await services.adminPasswordTotp.anyEnabled(),
   }));
 
   app.get("/api/v1/admin-auth/me", async (request) => {
@@ -283,7 +290,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const user = await services.adminUsers.get(authenticated.userId);
     assertOrThrow(user && user.status === "active", 403, "ADMIN_USER_DISABLED", "Administrator user is disabled.");
     const session = await services.adminSessions.issue(user.userId);
-    setAdminSessionCookie(reply, session.token, session.expiresAt);
+    setAdminSessionCookie(reply, session.token, session.csrfToken, session.expiresAt);
     return { user, csrfToken: session.csrfToken, expiresAt: session.expiresAt };
   });
 
@@ -315,7 +322,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const verified = await services.adminPasswordTotp.verify(user.userId, body.password, body.totp);
     assertOrThrow(verified, 401, "ADMIN_LOGIN_FAILED", "Invalid administrator credentials.");
     const session = await services.adminSessions.issue(user.userId);
-    setAdminSessionCookie(reply, session.token, session.expiresAt);
+    setAdminSessionCookie(reply, session.token, session.csrfToken, session.expiresAt);
     return { user, csrfToken: session.csrfToken, expiresAt: session.expiresAt };
   });
 
