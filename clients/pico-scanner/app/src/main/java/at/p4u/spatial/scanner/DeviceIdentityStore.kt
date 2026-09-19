@@ -13,4 +13,13 @@ class DeviceIdentityStore(context: Context) {
         check(prefs.edit().putString("device-id", created).commit()) { "Unable to persist device identity" }
         return created
     }
+
+    fun localName(): String = prefs.getString("local-name", null)?.takeIf { it.isNotBlank() }
+        ?: "PICO ${android.os.Build.MODEL}"
+
+    fun setLocalName(name: String) {
+        val normalized = name.trim()
+        require(normalized.isNotEmpty() && normalized.length <= 120) { "Device name must contain 1 to 120 characters" }
+        check(prefs.edit().putString("local-name", normalized).commit()) { "Unable to persist device name" }
+    }
 }

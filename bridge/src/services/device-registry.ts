@@ -45,6 +45,19 @@ export class DeviceRegistry {
     });
   }
 
+  async setGlobalName(deviceId: string, name: string): Promise<DeviceRecord> {
+    const normalized = name.trim();
+    if (!normalized || normalized.length > 120) {
+      throw new BridgeError(400, "DEVICE_NAME_INVALID", "Device name must contain 1 to 120 characters.");
+    }
+    return this.store.mutate((state) => {
+      const device = state.devices.find((d) => d.deviceId === deviceId);
+      if (!device) throw new BridgeError(404, "DEVICE_NOT_FOUND", "Device not found.");
+      device.globalName = normalized;
+      return device;
+    });
+  }
+
   async setScopes(deviceId: string, scopes: DeviceScope[]): Promise<DeviceRecord> {
     return this.store.mutate((state) => {
       const device = state.devices.find((d) => d.deviceId === deviceId);

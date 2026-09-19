@@ -126,3 +126,28 @@ The bridge URL is not itself a credential.
 The reference durable client state model is defined in [client-state.md](client-state.md).
 
 The device ID persists across normal application updates. The one-time pairing secret is discarded immediately after a successful claim. Access tokens may remain memory-only; refresh credentials are stored using OS-backed secure storage. Losing or revoking a session MUST NOT delete pending capture outbox data.
+
+
+## Human-readable names
+
+Opaque instance and device IDs remain the stable technical identities. User interfaces SHOULD prefer human-readable names.
+
+Two naming scopes are intentionally distinct:
+
+- **local Bridge name** — an alias stored only on a particular XR client for a Bridge profile;
+- **global Bridge name** — the Bridge instance name published by discovery and shared by all clients of that instance;
+- **local device name** — the headset name configured on the XR client and submitted as part of its device descriptor;
+- **global device name** — the administrative name assigned to that device by a Bridge.
+
+A local name does not change identity and MAY differ between clients. A global name does not replace `instanceId` or `deviceId`.
+
+Discovery MAY expose `instanceName` beside `instanceId`. The reference Bridge persists this name with its instance identity.
+
+The reference management API provides:
+
+```http
+PUT /api/v1/admin/instance/name
+PUT /api/v1/admin/devices/{deviceId}/name
+```
+
+When presenting a device, a Bridge SHOULD prefer the global device name, then the device-provided local name, then a platform/model fallback. Renaming MUST NOT invalidate pairing, sessions, pending outbox data or canonical identifiers.

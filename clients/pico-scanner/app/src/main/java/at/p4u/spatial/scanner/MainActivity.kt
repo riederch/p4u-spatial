@@ -23,13 +23,16 @@ class MainActivity : Activity() {
     private lateinit var bridgeInput: EditText
     private lateinit var bridgeNameInput: EditText
     private lateinit var bridgeSpinner: Spinner
+    private lateinit var deviceNameInput: EditText
     private lateinit var profiles: BridgeProfileStore
+    private lateinit var deviceIdentity: DeviceIdentityStore
     private lateinit var status: TextView
     private lateinit var checkButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         profiles = BridgeProfileStore(this)
+        deviceIdentity = DeviceIdentityStore(this)
         migrateLegacyBridge()
         setContentView(buildUi())
         showInstalledVersion()
@@ -53,6 +56,21 @@ class MainActivity : Activity() {
         column.addView(TextView(this).apply {
             text = "P4U Spatial Scanner"
             textSize = 28f
+        }, fullWidth())
+
+        deviceNameInput = EditText(this).apply {
+            hint = "Lokaler Brillenname, z. B. PICO Christoph"
+            setText(deviceIdentity.localName())
+            isSingleLine = true
+        }
+        column.addView(deviceNameInput, fullWidth())
+        column.addView(Button(this).apply {
+            text = "Brillenname speichern"
+            setOnClickListener {
+                runCatching { deviceIdentity.setLocalName(deviceNameInput.text.toString()) }
+                    .onSuccess { status.text = "Lokaler Brillenname gespeichert." }
+                    .onFailure { status.text = "Brillenname ungültig: " + it.message }
+            }
         }, fullWidth())
 
         bridgeSpinner = Spinner(this)
@@ -117,7 +135,7 @@ class MainActivity : Activity() {
 
     private fun refreshBridgeProfiles() {
         val all = profiles.list()
-        bridgeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, all.map { it.name })
+        bridgeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, all.map { profile -> if (profile.globalName.isNullOrBlank() || profile.globalName == profile.name) profile.name else profile.name + " · " + profile.globalName })
         val active = profiles.active()
         if (active != null) {
             val index = all.indexOfFirst { it.profileId == active.profileId }
@@ -166,8 +184,11 @@ class MainActivity : Activity() {
             runCatching {
                 val inspector = AndroidPackageInspector(this)
                 val installed = inspector.installed()
-                val xrAppBase = BridgeDiscoveryClient().xrAppContract(bridge)
-                val releaseClient = BridgeReleaseClient(xrAppBase)
+                val discovery = BridgeDiscoveryClient().discover(bridge)
+                if (!discovery.instanceName.isNullOrBlank() && discovery.instanceName != profile.globalName) {
+                    profiles.setGlobalName(profile.profileId, discovery.instanceName)
+                }
+                val releaseClient = BridgeReleaseClient(discovery.xrAppHref)
                 val release = releaseClient.latest(profile.updateChannel)
 
                 if (release.versionCode <= installed.versionCode) {

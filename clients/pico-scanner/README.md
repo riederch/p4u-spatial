@@ -85,3 +85,17 @@ The physical headset keeps one stable device identity, but trust and primary dat
 The old single `bridge-url` preference is migrated to the first named profile on upgrade. The legacy preference is not used after migration.
 
 A Bridge profile must not be deleted together with its secure credentials or outbox until pending primary data has been handled. The current UI intentionally supports adding and switching profiles first; destructive profile removal should only be exposed together with an explicit pending-data guard.
+
+
+## Naming
+
+IDs are technical identities and are not intended as the primary UI label.
+
+Each saved Bridge has both:
+
+- a **local alias** chosen on this headset;
+- a **global instance name** learned from Bridge discovery.
+
+The headset likewise has a **local device name** configured on the PICO. It is sent during pairing as the device-provided name. A Bridge administrator may independently assign a **global device name** to the paired device. The Bridge global name takes precedence in Bridge-side presentation without changing the PICO-local name.
+
+Renaming any of these labels never changes `instanceId`, `deviceId`, pairing credentials or outbox ownership.

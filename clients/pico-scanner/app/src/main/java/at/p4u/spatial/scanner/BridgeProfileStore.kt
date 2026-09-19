@@ -8,6 +8,7 @@ import java.util.UUID
 data class BridgeProfile(
     val profileId: String,
     val name: String,
+    val globalName: String? = null,
     val baseUrl: String,
     val updateChannel: String = "stable",
 )
@@ -25,6 +26,7 @@ class BridgeProfileStore(context: Context) {
                     BridgeProfile(
                         profileId = item.getString("profileId"),
                         name = item.getString("name"),
+                        globalName = item.optString("globalName").takeIf { it.isNotBlank() },
                         baseUrl = normalize(item.getString("baseUrl")),
                         updateChannel = item.optString("updateChannel", "stable"),
                     ),
@@ -43,13 +45,14 @@ class BridgeProfileStore(context: Context) {
         check(prefs.edit().putString("active-profile-id", profileId).commit())
     }
 
-    fun upsert(profileId: String? = null, name: String, baseUrl: String, updateChannel: String = "stable"): BridgeProfile {
+    fun upsert(profileId: String? = null, name: String, baseUrl: String, updateChannel: String = "stable", globalName: String? = null): BridgeProfile {
         require(updateChannel == "stable" || updateChannel == "beta")
         val normalizedUrl = normalize(baseUrl)
         require(normalizedUrl.startsWith("https://") || normalizedUrl.startsWith("http://")) { "Bridge URL must use HTTP(S)" }
         val profile = BridgeProfile(
             profileId = profileId ?: UUID.randomUUID().toString(),
-            name = name.ifBlank { normalizedUrl },
+            name = name.ifBlank { globalName ?: normalizedUrl },
+            globalName = globalName,
             baseUrl = normalizedUrl,
             updateChannel = updateChannel,
         )
@@ -59,6 +62,11 @@ class BridgeProfileStore(context: Context) {
         persist(profiles)
         if (active() == null || prefs.getString("active-profile-id", null) == null) setActive(profile.profileId)
         return profile
+    }
+
+    fun setGlobalName(profileId: String, globalName: String): BridgeProfile {
+        val current = list().firstOrNull { it.profileId == profileId } ?: error("Unknown bridge profile")
+        return upsert(current.profileId, current.name, current.baseUrl, current.updateChannel, globalName.trim().takeIf { it.isNotEmpty() })
     }
 
     fun remove(profileId: String): Boolean {
@@ -80,6 +88,7 @@ class BridgeProfileStore(context: Context) {
                 JSONObject()
                     .put("profileId", profile.profileId)
                     .put("name", profile.name)
+                    .put("globalName", profile.globalName)
                     .put("baseUrl", profile.baseUrl)
                     .put("updateChannel", profile.updateChannel),
             )

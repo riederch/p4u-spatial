@@ -184,10 +184,12 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.get("/.well-known/open-spatial-interop", async (request) => {
     const base = publicBridgeUrl(request, config);
+    const instance = await services.identity.getInfo();
     return {
       protocolId: "open-spatial-interop",
       coreVersion: "0.1",
-      instanceId: await services.identity.get(),
+      instanceId: instance.instanceId,
+      instanceName: instance.name,
       serverTime: new Date().toISOString(),
       roles: services.federation ? ["content-provider", "federation-provider"] : ["content-provider"],
       contracts: {
@@ -252,7 +254,9 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     return {
       principalId: principalId(device.deviceId),
       principalType: "device",
-      displayName: device.name ?? `${device.platform} ${device.model}`,
+      displayName: device.globalName ?? device.name ?? `${device.platform} ${device.model}`,
+      localDeviceName: device.name,
+      globalDeviceName: device.globalName,
       scopes: canonicalDeviceScopes(device.scopes),
       deviceContext: {
         deviceId: device.deviceId,
@@ -541,6 +545,21 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   app.get("/api/v1/admin/devices", async (request) => {
     requireAdmin(request, config);
     return { devices: await services.devices.list() };
+  });
+
+  app.put("/api/v1/admin/instance/name", async (request) => {
+    requireAdmin(request, config);
+    const body = request.body as { name?: unknown };
+    assertOrThrow(typeof body?.name === "string" && body.name.trim().length > 0 && body.name.trim().length <= 120, 400, "INVALID_REQUEST", "name must contain 1 to 120 characters.");
+    return { instance: await services.identity.setName(body.name) };
+  });
+
+  app.put("/api/v1/admin/devices/:deviceId/name", async (request) => {
+    requireAdmin(request, config);
+    const { deviceId } = request.params as { deviceId: string };
+    const body = request.body as { name?: unknown };
+    assertOrThrow(typeof body?.name === "string", 400, "INVALID_REQUEST", "name must be a string.");
+    return { device: await services.devices.setGlobalName(deviceId, body.name) };
   });
 
   app.get("/api/v1/admin/scopes", async (request) => {
