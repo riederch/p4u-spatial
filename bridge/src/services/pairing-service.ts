@@ -82,9 +82,26 @@ export class PairingService {
   }
 
   async getClaim(claimId: string): Promise<PairingRecord> {
-    const pairing = (await this.store.read()).pairings.find((p) => p.claimId === claimId);
-    if (!pairing) throw new BridgeError(404, "PAIRING_EXPIRED", "Pairing claim not found.");
-    return pairing;
+    return this.store.mutate((state) => {
+      const pairing = state.pairings.find((p) => p.claimId === claimId);
+      if (!pairing) throw new BridgeError(404, "PAIRING_EXPIRED", "Pairing claim not found.");
+      if ((pairing.state === "claimed" || pairing.state === "open") && Date.parse(pairing.expiresAt) <= Date.now()) {
+        pairing.state = "expired";
+      }
+      return pairing;
+    });
+  }
+
+  async listPending(): Promise<Array<{ claimId: string; pairingId: string; expiresAt: string; descriptor: DeviceDescriptor }>> {
+    const now = Date.now();
+    return (await this.store.read()).pairings
+      .filter((pairing) => pairing.state === "claimed" && pairing.claimId && pairing.descriptor && Date.parse(pairing.expiresAt) > now)
+      .map((pairing) => ({
+        claimId: pairing.claimId!,
+        pairingId: pairing.pairingId,
+        expiresAt: pairing.expiresAt,
+        descriptor: pairing.descriptor!,
+      }));
   }
 
   async pendingDescriptor(claimId: string): Promise<DeviceDescriptor> {

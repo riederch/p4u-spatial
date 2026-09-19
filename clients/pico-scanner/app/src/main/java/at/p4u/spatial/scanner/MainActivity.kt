@@ -30,6 +30,9 @@ class MainActivity : Activity() {
     private lateinit var deviceIdentity: DeviceIdentityStore
     private lateinit var status: TextView
     private lateinit var checkButton: Button
+    private lateinit var pairingInput: EditText
+    private lateinit var pairButton: Button
+    private lateinit var testUploadButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -139,6 +142,25 @@ class MainActivity : Activity() {
         column.addView(activate, fullWidth())
         refreshBridgeProfiles()
 
+        pairingInput = EditText(this).apply {
+            hint = "Pairing-QR JSON hier einfügen"
+            minLines = 4
+            maxLines = 8
+        }
+        column.addView(pairingInput, fullWidth())
+
+        pairButton = Button(this).apply {
+            text = "Mit Bridge koppeln"
+            setOnClickListener { startPairing() }
+        }
+        column.addView(pairButton, fullWidth())
+
+        testUploadButton = Button(this).apply {
+            text = "Testscan hochladen"
+            setOnClickListener { uploadTestScan() }
+        }
+        column.addView(testUploadButton, fullWidth())
+
         checkButton = Button(this).apply {
             text = "Auf Update prüfen"
             setOnClickListener { checkForUpdate() }
@@ -190,6 +212,132 @@ class MainActivity : Activity() {
             .onFailure { error ->
                 status.text = "Installierte Version konnte nicht gelesen werden: ${error.message}"
             }
+    }
+
+    private fun startPairing() {
+        val raw = pairingInput.text.toString().trim()
+        if (raw.isEmpty()) {
+            status.text = "Bitte zuerst den Pairing-QR-Inhalt einfügen."
+            return
+        }
+
+        pairButton.isEnabled = false
+        status.text = "Pairing wird gestartet …"
+        executor.execute {
+            runCatching<String> {
+                val client = PairingClient()
+                val qr = client.parseQr(raw)
+                val resolved = BridgeEndpointResolver().resolveForPairing(qr)
+                val existing = profiles.list().firstOrNull { it.instanceId == resolved.discovery.instanceId }
+                val profile = profiles.upsert(
+                    profileId = existing?.profileId,
+                    name = existing?.name ?: resolved.discovery.instanceName ?: "Bridge",
+                    baseUrl = resolved.baseUrl,
+                    updateChannel = existing?.updateChannel ?: "stable",
+                    globalName = resolved.discovery.instanceName,
+                    localUrl = qr.localUrl,
+                    publicUrl = qr.publicUrl,
+                    instanceId = resolved.discovery.instanceId,
+                )
+                profiles.setActive(profile.profileId)
+
+                val claimId = client.claim(
+                    resolved.baseUrl,
+                    qr,
+                    deviceIdentity.deviceId(),
+                    BuildConfig.VERSION_NAME,
+                    deviceIdentity.localName(),
+                )
+                runOnUiThread {
+                    status.text = "Pairing wartet auf Freigabe. Claim-ID: $claimId"
+                }
+
+                var completedMessage: String? = null
+                while (completedMessage == null) {
+                    when (val poll = client.poll(resolved.baseUrl, claimId)) {
+                        PairingPoll.Pending -> Thread.sleep(2_000)
+                        PairingPoll.Rejected -> error("Pairing wurde abgelehnt.")
+                        PairingPoll.Expired -> error("Pairing ist abgelaufen.")
+                        is PairingPoll.Authorized -> {
+                            AuthenticatedBridgeClient(
+                                resolved.baseUrl,
+                                SecureSessionStore(this, profile.profileId),
+                            ).acceptBootstrap(poll.session)
+                            completedMessage = "Pairing abgeschlossen: ${profile.name}"
+                        }
+                    }
+                }
+                completedMessage
+            }.onSuccess { message ->
+                runOnUiThread {
+                    refreshBridgeProfiles()
+                    status.text = message
+                    pairButton.isEnabled = true
+                }
+            }.onFailure { error ->
+                runOnUiThread {
+                    status.text = "Pairing fehlgeschlagen: ${error.message}"
+                    pairButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun uploadTestScan() {
+        val profile = profiles.active()
+        if (profile == null) {
+            status.text = "Bitte zuerst eine Bridge koppeln."
+            return
+        }
+
+        testUploadButton.isEnabled = false
+        status.text = "Testscan wird vorbereitet …"
+        executor.execute {
+            runCatching {
+                val resolved = BridgeEndpointResolver().resolve(profile)
+                if (profile.instanceId == null) {
+                    profiles.setAddresses(
+                        profile.profileId,
+                        profile.localUrl,
+                        profile.publicUrl,
+                        resolved.discovery.instanceId,
+                    )
+                }
+                val outbox = ScanOutbox(this, profile.profileId)
+                val sample = ("{\"t\":\"" + java.time.Instant.now().toString() +
+                    "\",\"position\":[0,0,0],\"orientation\":[0,0,0,1],\"tracking\":\"synthetic\"}\n")
+                    .toByteArray()
+                val scan = outbox.create(
+                    deviceId = deviceIdentity.deviceId(),
+                    mode = "site",
+                    files = mapOf("trajectory.jsonl" to sample),
+                    capture = CapturePackage.captureJson(
+                        CaptureIntent(
+                            purpose = "free-capture",
+                            precision = "relative-only",
+                            runtimeCapabilities = listOf("synthetic-practical-test"),
+                        ),
+                    ),
+                    capabilities = listOf("synthetic-practical-test"),
+                )
+                val bridge = AuthenticatedBridgeClient(
+                    resolved.baseUrl,
+                    SecureSessionStore(this, profile.profileId),
+                )
+                ScanOutboxUploader(outbox, bridge).upload(scan)
+                "Testscan ${scan.scanId} wurde committed."
+            }.onSuccess { message ->
+                runOnUiThread {
+                    status.text = message
+                    testUploadButton.isEnabled = true
+                }
+            }.onFailure { error ->
+                runOnUiThread {
+                    status.text = "Testscan blieb in der Outbox: ${error.message}"
+                    testUploadButton.isEnabled = true
+                }
+            }
+        }
     }
 
     private fun checkForUpdate() {
