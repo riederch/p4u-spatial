@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
 import { dirname, join } from "node:path";
 import { BridgeError } from "../errors.js";
 import { newId, resolveBelow, sha256 } from "../util.js";
@@ -26,6 +27,16 @@ export class FilesystemRepositoryProvider implements RepositoryProvider {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
       throw error;
+    }
+  }
+
+  async probe(): Promise<{ ready: boolean; detail?: string }> {
+    try {
+      await mkdir(this.root, { recursive: true });
+      await access(this.root, constants.R_OK | constants.W_OK);
+      return { ready: true };
+    } catch (error) {
+      return { ready: false, detail: String((error as Error).message) };
     }
   }
 

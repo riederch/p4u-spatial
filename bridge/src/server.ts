@@ -160,6 +160,25 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     federation: services.federation ? "configured" : "disabled",
   }));
 
+  app.get("/ready", async (_request, reply) => {
+    const checks: Record<string, { ready: boolean; detail?: string }> = {};
+    try {
+      await services.identity.get();
+      checks.state = { ready: true };
+    } catch (error) {
+      checks.state = { ready: false, detail: String((error as Error).message) };
+    }
+    checks.repository = await repository.probe();
+
+    const ready = Object.values(checks).every((check) => check.ready);
+    if (!ready) reply.status(503);
+    return {
+      status: ready ? "ready" : "not-ready",
+      checks,
+      federation: services.federation ? "configured-not-required" : "disabled",
+    };
+  });
+
   app.get("/.well-known/open-spatial-interop", async (request) => {
     const base = publicBridgeUrl(request, config);
     return {

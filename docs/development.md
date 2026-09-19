@@ -168,3 +168,14 @@ export P4U_SCAN_REQUEST_RATE_LIMIT=600
 Pairing claims and refresh requests are keyed by client IP. Authenticated scan manifest, file and commit requests are keyed by device ID. A rejected request returns HTTP 429 with error code `RATE_LIMITED` and `details.retryAfterSeconds`.
 
 The counters are deliberately ephemeral and reset when the bridge restarts. They protect the process from request bursts; they are not an authorization or accounting mechanism. Deployments behind a reverse proxy should ensure Fastify receives a trustworthy client IP before relying on the IP-keyed limits as an internet-edge control.
+
+## Liveness and readiness
+
+The bridge exposes two unauthenticated operational probes with different semantics:
+
+- `GET /health` is a process liveness probe. HTTP 200 means the HTTP process is responsive; it does not promise repository availability.
+- `GET /ready` is a serving-readiness probe. It checks persistent bridge state and the configured repository provider. It returns HTTP 503 while either mandatory dependency is unavailable.
+
+A configured federation upstream is intentionally not a readiness dependency. Federation already supports cached reads and durable relay, so an upstream outage must not take the local bridge out of service.
+
+The filesystem provider verifies that its repository root can be created and is readable/writable. The Git provider verifies initialization, refresh eligibility and a valid local HEAD without mutating repository content.

@@ -13,5 +13,6 @@ export interface RepositoryProvider {
   readonly kind: string;
   readFile(path: string): Promise<Uint8Array | null>;
   exists(path: string): Promise<boolean>;
+  probe(): Promise<{ ready: boolean; detail?: string }>;
   commitFiles(changes: FileChange[], message: string): Promise<CommitResult>;
 }

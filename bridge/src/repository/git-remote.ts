@@ -131,6 +131,19 @@ export class GitRemoteRepositoryProvider implements RepositoryProvider {
     return (await this.readFile(path)) !== null;
   }
 
+  async probe(): Promise<{ ready: boolean; detail?: string }> {
+    try {
+      await this.initialize();
+      await this.withGate(async () => {
+        await this.refresh(false);
+        await this.git(["rev-parse", "--verify", "HEAD"]);
+      });
+      return { ready: true };
+    } catch (error) {
+      return { ready: false, detail: String((error as Error).message) };
+    }
+  }
+
   private async assertPreconditions(change: FileChange): Promise<void> {
     const existing = await this.readLocal(change.path);
     if (change.ifAbsent && existing) {
