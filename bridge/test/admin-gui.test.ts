@@ -70,6 +70,21 @@ describe("administrator GUI authentication", () => {
     expect(page.headers["content-type"]).toContain("text/html");
     expect(page.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
     expect(page.body).toContain("/admin/credentials");
+    expect(page.body).toContain('id="create-pairing"');
+    expect(page.body).toContain('id="pairing-claims"');
+    expect(page.body).toContain('id="device-list"');
+
+    const pairing = await app.inject({
+      method: "POST",
+      url: "/api/v1/admin/pairings",
+      headers: { "x-p4u-admin-key": "bootstrap" },
+    });
+    expect(pairing.statusCode).toBe(200);
+    expect(pairing.json()).toMatchObject({
+      version: 1,
+      bridge: "https://bridge.test",
+    });
+    expect((pairing.json() as { qrSvg: string }).qrSvg).toContain("<svg");
 
     const created = await app.inject({
       method: "POST", url: "/api/v1/admin/users",
