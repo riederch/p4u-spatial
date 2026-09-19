@@ -1,5 +1,5 @@
 name: "P4U Spatial"
-version: "0.0.1"
+version: "0.0.2"
 slug: "p4u_spatial"
 description: "P4U Spatial Bridge for XR, GIS and interoperable spatial data."
 url: "https://github.com/riederch/p4u-spatial"

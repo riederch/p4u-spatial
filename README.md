@@ -54,6 +54,6 @@ This repository can be added directly to the Home Assistant app/add-on store:
 https://github.com/riederch/p4u-spatial
 ```
 
-The currently published Home Assistant app is **P4U Spatial 0.0.1**. Normal development on `main` does not publish a new image; releases are deliberately advanced through `ha-release`.
+The currently published Home Assistant app is **P4U Spatial 0.0.2**. Normal development on `main` does not publish a new image; releases are deliberately advanced through `ha-release`.
 
 See [Development](docs/development.md), [Architecture](docs/architecture.md), [Bridge API](protocol/api.md), [Standards](docs/standards.md) and [Repository layout](protocol/repository-layout.md).
