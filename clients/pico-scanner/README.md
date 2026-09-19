@@ -26,22 +26,20 @@ The project uses Android Gradle Plugin 9.4.1 with built-in Kotlin support.
 
 Required locally:
 
-- JDK 17,
+- JDK 17 or newer supported by Gradle,
 - Android SDK with API 36,
-- Gradle 9.6.x or Android Studio Quail 4.
+- Android Studio Quail 4 or another compatible Android Studio version.
 
-From this directory:
+The committed Gradle wrapper pins Gradle 9.7.1. Android Studio and CI therefore use the same tested Gradle version. From this directory:
 
 ```bash
-gradle :app:assembleDebug
+./gradlew :app:assembleDebug
 ```
-
-A Gradle wrapper binary is intentionally not committed yet; generate the wrapper once Gradle 9.6 is available in the Android build environment.
 
 Release version metadata can be supplied without editing the project:
 
 ```bash
-gradle :app:assembleRelease -PP4U_VERSION_NAME=0.1.1 -PP4U_VERSION_CODE=2
+./gradlew :app:assembleRelease -PP4U_VERSION_NAME=0.1.1 -PP4U_VERSION_CODE=2
 ```
 
 Release signing is injected through `P4U_ANDROID_KEYSTORE_PATH`, `P4U_ANDROID_KEYSTORE_PASSWORD`, `P4U_ANDROID_KEY_ALIAS` and `P4U_ANDROID_KEY_PASSWORD`. The keystore must never be committed.

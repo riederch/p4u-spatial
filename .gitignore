@@ -5,3 +5,6 @@ coverage/
 .p4u-sim-session.json
 *.log
 .DS_Store
+
+.idea/
+**/.gradle/
