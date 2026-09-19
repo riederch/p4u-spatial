@@ -15,6 +15,38 @@ Supported architectures:
 
 The app version in `p4u_spatial/config.yaml` is the authoritative release version.
 
+## Current published release
+
+As of 2026-09-19, the published Home Assistant app remains:
+
+```text
+0.0.1
+```
+
+Publication workflow run:
+
+```text
+35389004829
+```
+
+Published multi-architecture image:
+
+```text
+ghcr.io/riederch/p4u-spatial-ha:0.0.1
+```
+
+Published digest:
+
+```text
+sha256:1dee65ad46a1338e62ad0a9e01707a233bdb4075a91911b84780c5d33512d648
+```
+
+The earlier `404 manifest unknown` condition occurred before this tag existed and is no longer the known blocker.
+
+The repository does **not** yet contain a confirmed smoke-test result from the target Home Assistant installation showing that 0.0.1 started successfully. Do not bump to 0.0.2 merely to probe this; obtain a concrete startup log or smoke-test failure first.
+
+Development on `main` may advance independently. `ha-release` remains the deliberate publication pointer and must not be moved merely because `main` changed.
+
 ## On-demand publishing
 
 Publishing is intentionally not tied to normal `main` pushes.

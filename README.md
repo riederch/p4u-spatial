@@ -12,7 +12,7 @@ P4U Spatial connects XR scanners to a Git-backed spatial knowledge repository th
 - **XR Spatial Adapter** — OpenXR-first capability abstraction with vendor fallbacks where required.
 - **P4U Spatial Bridge** — pairing, device sessions, synchronization and repository abstraction.
 - **P4U Spatial HA App** — Home Assistant deployment of the bridge.
-- **Repository Providers** — filesystem reference backend, then Gitea and GitHub.
+- **Repository Providers** — filesystem reference backend plus a generic Git remote backend for GitHub and Gitea.
 - **Spatial Protocol** — provider- and headset-independent repository layout and schemas.
 - **Agent Interface** — optional higher-level processing of raw data into the canonical model.
 - **Scanner Simulator** — deterministic development client for bridge testing without XR hardware.
@@ -32,26 +32,19 @@ P4U Spatial connects XR scanners to a Git-backed spatial knowledge repository th
 11. Established standards are reused where practical instead of inventing proprietary equivalents.
 12. **AI is optional. Core capture, storage, sync, geometry, registration and display must work without an AI model.**
 
-## Implemented vertical slice
+## Implemented reference slices
 
-```text
-scanner simulator
-       |
-       v
-QR-style pairing + approval
-       |
-       v
-device/session registry
-       |
-       v
-retry-safe scan upload
-       |
-       v
-filesystem RepositoryProvider
-       |
-       v
-spatial/raw/scans/<scan-id>/
-```
+The bridge currently includes:
+
+- Core discovery, device pairing and device/session management,
+- Spatial Read with stable source identity and immutable snapshots,
+- Spatial Write with persistent source-wide idempotency and revision conflicts,
+- filesystem and generic Git remote repository providers,
+- GitHub/Gitea-backed repository operation without exposing repository credentials to XR clients,
+- Federation source discovery, read cache provenance and durable write relay,
+- retry-safe XR scan and observation persistence.
+
+The protocol contracts remain independent from these reference storage/deployment choices.
 
 ## Home Assistant repository
 
@@ -61,6 +54,6 @@ This repository can be added directly to the Home Assistant app/add-on store:
 https://github.com/riederch/p4u-spatial
 ```
 
-The initial **P4U Spatial 0.0.0** app is intentionally only a Hello World bootstrap. It verifies repository discovery, image build, installation and startup before the real bridge is packaged.
+The currently published Home Assistant app is **P4U Spatial 0.0.1**. Normal development on `main` does not publish a new image; releases are deliberately advanced through `ha-release`.
 
 See [Development](docs/development.md), [Architecture](docs/architecture.md), [Bridge API](protocol/api.md), [Standards](docs/standards.md) and [Repository layout](protocol/repository-layout.md).
