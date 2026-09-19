@@ -54,8 +54,8 @@ code{word-break:break-all}
   </div>
   <div id="bootstrap" class="card hidden">
     <h2>Ersteinrichtung</h2>
-    <p class="muted">Übergangsweise wird für die erste Administrator-Identität noch der technische Admin-Key verwendet.</p>
-    <div class="row"><input id="bootstrap-key" type="password" placeholder="Admin-Key"></div>
+    <p class="muted">Den einmaligen Setup-Code findest du im Startlog der Bridge. Er wird ungültig, sobald eine dauerhafte Loginmethode eingerichtet ist.</p>
+    <div class="row"><input id="bootstrap-proof" type="password" placeholder="Setup-Code"></div>
     <div class="row"><input id="bootstrap-username" placeholder="Username"><input id="bootstrap-display" placeholder="Anzeigename"></div>
     <button id="bootstrap-create">Administrator anlegen</button>
     <div id="bootstrap-methods" class="hidden">
@@ -246,12 +246,8 @@ code{word-break:break-all}
     show('fallback-enabled',state.me.loginMethods.passwordTotp);
     show('fallback-disabled',!state.me.loginMethods.passwordTotp);
   }
-  async function bootstrapRequest(path,body){
-    return request(path,{method:'POST',headers:{'X-P4U-Admin-Key':el('bootstrap-key').value},body:JSON.stringify(body)});
-  }
   async function bootstrapPasskey(){
-    var headers={'X-P4U-Admin-Key':el('bootstrap-key').value};
-    await addPasskey(headers,state.bootstrapUserId);
+    await addPasskey();
     location.reload();
   }
   async function renderSettings(){
@@ -264,6 +260,7 @@ code{word-break:break-all}
   }
   async function start(){
     state.status=await request('/api/v1/admin-auth/status');
+    state.setup=await request('/api/v1/setup/status');
     state.me=await loadMe();
     var credentialPage=location.pathname==='/admin/credentials';
     var settingsPage=location.pathname==='/admin/settings';
@@ -281,7 +278,7 @@ code{word-break:break-all}
     show('login',true);
     show('passkey-login-card',state.status.passkeyConfigured);
     show('password-login-card',state.status.passwordTotpConfigured);
-    show('bootstrap',!state.status.passkeyConfigured&&!state.status.passwordTotpConfigured);
+    show('bootstrap',state.setup.setupRequired&&state.setup.proofAvailable);
   }
 
   el('save-settings').onclick=async function(){
@@ -324,20 +321,20 @@ code{word-break:break-all}
   };
   el('bootstrap-create').onclick=async function(){
     try{
-      var data=await bootstrapRequest('/api/v1/admin/users',{username:el('bootstrap-username').value,displayName:el('bootstrap-display').value});
-      state.bootstrapUserId=data.user.userId;show('bootstrap-methods',true);message('Administrator angelegt. Jetzt Loginmethode einrichten.');
+      var data=await request('/api/v1/setup/admin',{method:'POST',body:JSON.stringify({proof:el('bootstrap-proof').value,username:el('bootstrap-username').value,displayName:el('bootstrap-display').value})});
+      state.bootstrapUserId=data.user.userId;show('nav',true);show('bootstrap-methods',true);message('Administrator-Session aktiv. Jetzt eine dauerhafte Loginmethode einrichten.');
     }catch(e){message(e.message)}
   };
   el('bootstrap-passkey').onclick=function(){bootstrapPasskey().catch(function(e){message(e.message)})};
   el('bootstrap-password-start').onclick=async function(){
     try{
-      var setup=await bootstrapRequest('/api/v1/admin-auth/password-totp/setup',{userId:state.bootstrapUserId,password:el('bootstrap-password').value});
+      var setup=await request('/api/v1/admin-auth/password-totp/setup',{method:'POST',body:JSON.stringify({password:el('bootstrap-password').value})});
       state.bootstrapSetupId=setup.setupId;el('bootstrap-secret').textContent=setup.secret;show('bootstrap-totp-confirm',true);
     }catch(e){message(e.message)}
   };
   el('bootstrap-confirm').onclick=async function(){
     try{
-      await bootstrapRequest('/api/v1/admin-auth/password-totp/setup/confirm',{setupId:state.bootstrapSetupId,code:el('bootstrap-code').value});
+      await request('/api/v1/admin-auth/password-totp/setup/confirm',{method:'POST',body:JSON.stringify({setupId:state.bootstrapSetupId,code:el('bootstrap-code').value})});
       message('Password + OTP eingerichtet. Du kannst dich jetzt anmelden.');location.reload();
     }catch(e){message(e.message)}
   };
