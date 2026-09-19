@@ -330,7 +330,10 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.post("/api/v1/admin-auth/logout", async (request, reply) => {
     const token = adminSessionToken(request);
-    if (token) await services.adminSessions.revoke(token);
+    if (token) {
+      await requireAdmin(request, config, services);
+      await services.adminSessions.revoke(token);
+    }
     clearAdminSessionCookie(reply);
     return { status: "logged-out" };
   });
@@ -800,10 +803,12 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const body = request.body as { displayName?: unknown; status?: unknown };
     assertOrThrow(body && typeof body === "object", 400, "INVALID_REQUEST", "JSON object required.");
     assertOrThrow(body.status === undefined || body.status === "active" || body.status === "disabled", 400, "INVALID_REQUEST", "status must be active or disabled.");
-    return { user: await services.adminUsers.update(userId, {
+    const user = await services.adminUsers.update(userId, {
       ...(typeof body.displayName === "string" ? { displayName: body.displayName } : {}),
       ...(body.status === "active" || body.status === "disabled" ? { status: body.status } : {}),
-    }) };
+    });
+    if (user.status === "disabled") await services.adminSessions.revokeUser(user.userId);
+    return { user };
   });
 
   app.put("/api/v1/admin/devices/:deviceId/user", async (request) => {
