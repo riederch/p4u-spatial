@@ -630,6 +630,11 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     };
   });
 
+  app.get("/api/v1/admin/pairing-claims", async (request) => {
+    requireAdmin(request, config);
+    return { claims: await services.pairings.listPending() };
+  });
+
   app.post("/api/v1/admin/pairings", async (request) => {
     requireAdmin(request, config);
     const publicUrl = config.publicBaseUrl?.replace(/\/$/, "") ?? publicBridgeUrl(request, config);
