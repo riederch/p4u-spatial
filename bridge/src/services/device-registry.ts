@@ -58,6 +58,16 @@ export class DeviceRegistry {
     });
   }
 
+  async assignUser(deviceId: string, userId?: string): Promise<DeviceRecord> {
+    return this.store.mutate((state) => {
+      const device = state.devices.find((d) => d.deviceId === deviceId);
+      if (!device) throw new BridgeError(404, "DEVICE_NOT_FOUND", "Device not found.");
+      if (userId) device.assignedUserId = userId;
+      else delete device.assignedUserId;
+      return device;
+    });
+  }
+
   async setScopes(deviceId: string, scopes: DeviceScope[]): Promise<DeviceRecord> {
     return this.store.mutate((state) => {
       const device = state.devices.find((d) => d.deviceId === deviceId);

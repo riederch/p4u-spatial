@@ -22,6 +22,7 @@ import { XrAppReleaseService } from "./services/xr-app-release-service.js";
 import { CandidateReviewService } from "./services/candidate-review-service.js";
 import { FixedWindowRateLimiter } from "./services/rate-limiter.js";
 import { AdminPasskeyService } from "./services/admin-passkey-service.js";
+import { AdminUserService } from "./services/admin-user-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
@@ -36,6 +37,7 @@ interface Services {
   candidates: CandidateReviewService;
   federation?: FederationService;
   adminPasskeys?: AdminPasskeyService;
+  adminUsers: AdminUserService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -145,6 +147,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     ),
     xrAppReleases: new XrAppReleaseService(config.stateDir),
     candidates: new CandidateReviewService(config.stateDir, (scanId) => scans.isCommitted(scanId)),
+    adminUsers: new AdminUserService(config.stateDir),
     ...(federation ? { federation } : {}),
     ...(config.adminWebauthnRpId && config.adminWebauthnOrigin
       ? { adminPasskeys: new AdminPasskeyService(config.stateDir, config.adminWebauthnRpId, config.adminWebauthnOrigin) }
@@ -655,6 +658,43 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const body = request.body as { name?: unknown };
     assertOrThrow(typeof body?.name === "string", 400, "INVALID_REQUEST", "name must be a string.");
     return { device: await services.devices.setGlobalName(deviceId, body.name) };
+  });
+
+  app.get("/api/v1/admin/users", async (request) => {
+    requireAdmin(request, config);
+    return { users: await services.adminUsers.list() };
+  });
+
+  app.post("/api/v1/admin/users", async (request) => {
+    requireAdmin(request, config);
+    const body = request.body as { username?: unknown; displayName?: unknown };
+    assertOrThrow(typeof body?.username === "string", 400, "INVALID_REQUEST", "username is required.");
+    return { user: await services.adminUsers.create(body.username, typeof body.displayName === "string" ? body.displayName : undefined) };
+  });
+
+  app.put("/api/v1/admin/users/:userId", async (request) => {
+    requireAdmin(request, config);
+    const { userId } = request.params as { userId: string };
+    const body = request.body as { displayName?: unknown; status?: unknown };
+    assertOrThrow(body && typeof body === "object", 400, "INVALID_REQUEST", "JSON object required.");
+    assertOrThrow(body.status === undefined || body.status === "active" || body.status === "disabled", 400, "INVALID_REQUEST", "status must be active or disabled.");
+    return { user: await services.adminUsers.update(userId, {
+      ...(typeof body.displayName === "string" ? { displayName: body.displayName } : {}),
+      ...(body.status === "active" || body.status === "disabled" ? { status: body.status } : {}),
+    }) };
+  });
+
+  app.put("/api/v1/admin/devices/:deviceId/user", async (request) => {
+    requireAdmin(request, config);
+    const { deviceId } = request.params as { deviceId: string };
+    const body = request.body as { userId?: unknown };
+    assertOrThrow(body?.userId === null || typeof body?.userId === "string", 400, "INVALID_REQUEST", "userId must be a user ID or null.");
+    if (typeof body.userId === "string") {
+      const user = await services.adminUsers.get(body.userId);
+      assertOrThrow(user, 404, "USER_NOT_FOUND", "User not found.");
+      assertOrThrow(user.status === "active", 409, "USER_DISABLED", "Disabled users cannot receive device assignments.");
+    }
+    return { device: await services.devices.assignUser(deviceId, typeof body.userId === "string" ? body.userId : undefined) };
   });
 
   app.get("/api/v1/admin/scopes", async (request) => {

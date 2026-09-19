@@ -85,6 +85,7 @@ export interface DeviceDescriptor {
 
 export interface DeviceRecord extends DeviceDescriptor {
   globalName?: string;
+  assignedUserId?: string;
   status: DeviceStatus;
   scopes: DeviceScope[];
   pairedAt: string;
