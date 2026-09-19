@@ -27,6 +27,11 @@ export class AdminUserService {
     return (await this.store.read()).users.find((u) => u.userId === userId) ?? null;
   }
 
+  async getByUsername(username: string): Promise<AdminUserRecord | null> {
+    const normalized = username.trim().toLowerCase();
+    return (await this.store.read()).users.find((u) => u.username === normalized) ?? null;
+  }
+
   async create(username: string, displayName?: string): Promise<AdminUserRecord> {
     const normalized = username.trim().toLowerCase();
     assertOrThrow(/^[a-z0-9._-]{3,64}$/.test(normalized), 400, "USERNAME_INVALID", "username must be 3 to 64 characters using letters, numbers, dot, underscore or hyphen.");
