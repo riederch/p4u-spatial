@@ -247,6 +247,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.get("/admin", sendAdminPage);
   app.get("/admin/credentials", sendAdminPage);
+  app.get("/admin/settings", sendAdminPage);
 
   app.get("/api/v1/admin-auth/status", async () => ({
     passkeyEnabled: !!services.adminPasskeys,
