@@ -37,6 +37,10 @@ P4U Spatial is public software. Do not add private site data, credentials, real 
 - Headset cache is disposable; headset outbox is durable until acknowledged.
 - Spatial uncertainty, provenance and coordinate-frame transforms must be explicit.
 - Site-specific paths must be configurable. Never hard-code RCHKB paths.
+- All operator-facing Bridge configuration is owned by the Bridge and managed through its persistent web UI.
+- Home Assistant, Docker Compose and other wrappers may provide lifecycle, storage mounts, networking and ingress, but MUST NOT define a second functional configuration model.
+- Do not add new `P4U_*` environment variables for repository, federation, Spatial, XR, RCHKB or other operator-facing application settings.
+- Home Assistant-specific code must remain packaging/integration glue and must not contain Bridge business logic.
 
 ## AI independence
 

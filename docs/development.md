@@ -39,6 +39,14 @@ export P4U_GIT_TOKEN=...
 
 The bridge keeps the credentials server-side, clones the configured branch into `P4U_REPOSITORY_ROOT`, refreshes from `origin`, commits repository mutations locally and pushes them with non-force Git semantics. GitHub and Gitea therefore use the same provider path; the protocol does not depend on either vendor API.
 
+## Configuration architecture
+
+The target architecture is **web-managed configuration** as defined by ADR 0018.
+
+Repository, federation, RCHKB, Spatial, XR, limits and credentials are operator-facing Bridge settings and belong in the Bridge web UI with persistent Bridge-owned storage. Home Assistant options and Docker environment variables are not a second application configuration model.
+
+The `P4U_*` environment variables still documented in this file are part of the current transitional implementation. They remain documented so the existing development build can be operated, but they MUST NOT be expanded with new operator-facing settings. As the web configuration store replaces them, this section should shrink rather than grow.
+
 ## Scanner simulator
 
 In another terminal:
