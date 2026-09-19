@@ -190,6 +190,10 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       coreVersion: "0.1",
       instanceId: instance.instanceId,
       instanceName: instance.name,
+      addresses: {
+        ...(config.localBaseUrl ? { localUrl: config.localBaseUrl } : {}),
+        ...(config.publicBaseUrl ? { publicUrl: config.publicBaseUrl } : {}),
+      },
       serverTime: new Date().toISOString(),
       roles: services.federation ? ["content-provider", "federation-provider"] : ["content-provider"],
       contracts: {
@@ -539,7 +543,12 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
 
   app.post("/api/v1/admin/pairings", async (request) => {
     requireAdmin(request, config);
-    return services.pairings.create(publicBridgeUrl(request, config));
+    const publicUrl = config.publicBaseUrl?.replace(/\/$/, "") ?? publicBridgeUrl(request, config);
+    const localUrl = config.localBaseUrl?.replace(/\/$/, "");
+    return services.pairings.create(publicUrl, {
+      ...(localUrl ? { localUrl } : {}),
+      ...(publicUrl ? { publicUrl } : {}),
+    });
   });
 
   app.get("/api/v1/admin/devices", async (request) => {

@@ -22,6 +22,8 @@ class MainActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var bridgeInput: EditText
     private lateinit var bridgeNameInput: EditText
+    private lateinit var bridgeLocalUrlInput: EditText
+    private lateinit var bridgePublicUrlInput: EditText
     private lateinit var bridgeSpinner: Spinner
     private lateinit var deviceNameInput: EditText
     private lateinit var profiles: BridgeProfileStore
@@ -88,11 +90,28 @@ class MainActivity : Activity() {
         }
         column.addView(bridgeInput, fullWidth())
 
+        bridgeLocalUrlInput = EditText(this).apply {
+            hint = "Lokale Adresse (optional)"
+            isSingleLine = true
+        }
+        column.addView(bridgeLocalUrlInput, fullWidth())
+
+        bridgePublicUrlInput = EditText(this).apply {
+            hint = "Public-Adresse (optional)"
+            isSingleLine = true
+        }
+        column.addView(bridgePublicUrlInput, fullWidth())
+
         val save = Button(this).apply {
             text = "Bridge hinzufügen"
             setOnClickListener {
                 runCatching {
-                    profiles.upsert(name = bridgeNameInput.text.toString().trim(), baseUrl = bridgeInput.text.toString().trim())
+                    profiles.upsert(
+                        name = bridgeNameInput.text.toString().trim(),
+                        baseUrl = bridgeInput.text.toString().trim(),
+                        localUrl = bridgeLocalUrlInput.text.toString().trim().takeIf { it.isNotEmpty() },
+                        publicUrl = bridgePublicUrlInput.text.toString().trim().takeIf { it.isNotEmpty() },
+                    )
                 }.onSuccess {
                     profiles.setActive(it.profileId)
                     refreshBridgeProfiles()
@@ -111,6 +130,8 @@ class MainActivity : Activity() {
                     profiles.setActive(selected.profileId)
                     bridgeNameInput.setText(selected.name)
                     bridgeInput.setText(selected.baseUrl)
+                    bridgeLocalUrlInput.setText(selected.localUrl.orEmpty())
+                    bridgePublicUrlInput.setText(selected.publicUrl.orEmpty())
                     status.text = "Aktive Bridge: " + selected.name
                 }
             }
@@ -142,6 +163,8 @@ class MainActivity : Activity() {
             if (index >= 0) bridgeSpinner.setSelection(index)
             bridgeNameInput.setText(active.name)
             bridgeInput.setText(active.baseUrl)
+            bridgeLocalUrlInput.setText(active.localUrl.orEmpty())
+            bridgePublicUrlInput.setText(active.publicUrl.orEmpty())
         }
     }
 

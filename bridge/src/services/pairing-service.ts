@@ -24,6 +24,10 @@ interface PairingStore {
 export interface PairingQrPayload {
   version: 1;
   bridge: string;
+  addresses: {
+    localUrl?: string;
+    publicUrl?: string;
+  };
   pairingId: string;
   secret: string;
   expiresAt: string;
@@ -36,7 +40,7 @@ export class PairingService {
     this.store = new AtomicJsonStore(join(stateDir, "pairings.json"), () => ({ pairings: [] }));
   }
 
-  async create(bridge: string): Promise<PairingQrPayload> {
+  async create(bridge: string, addresses: { localUrl?: string; publicUrl?: string } = {}): Promise<PairingQrPayload> {
     const pairingId = newId();
     const secret = randomSecret();
     const expiresAt = new Date(Date.now() + this.ttlSeconds * 1000).toISOString();
@@ -50,7 +54,7 @@ export class PairingService {
       });
     });
 
-    return { version: 1, bridge, pairingId, secret, expiresAt };
+    return { version: 1, bridge, addresses, pairingId, secret, expiresAt };
   }
 
   async claim(pairingId: string, secret: string, descriptor: DeviceDescriptor): Promise<string> {

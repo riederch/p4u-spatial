@@ -10,6 +10,9 @@ data class BridgeProfile(
     val name: String,
     val globalName: String? = null,
     val baseUrl: String,
+    val localUrl: String? = null,
+    val publicUrl: String? = null,
+    val instanceId: String? = null,
     val updateChannel: String = "stable",
 )
 
@@ -28,6 +31,9 @@ class BridgeProfileStore(context: Context) {
                         name = item.getString("name"),
                         globalName = item.optString("globalName").takeIf { it.isNotBlank() },
                         baseUrl = normalize(item.getString("baseUrl")),
+                        localUrl = item.optString("localUrl").takeIf { it.isNotBlank() }?.let(::normalize),
+                        publicUrl = item.optString("publicUrl").takeIf { it.isNotBlank() }?.let(::normalize),
+                        instanceId = item.optString("instanceId").takeIf { it.isNotBlank() },
                         updateChannel = item.optString("updateChannel", "stable"),
                     ),
                 )
@@ -45,7 +51,7 @@ class BridgeProfileStore(context: Context) {
         check(prefs.edit().putString("active-profile-id", profileId).commit())
     }
 
-    fun upsert(profileId: String? = null, name: String, baseUrl: String, updateChannel: String = "stable", globalName: String? = null): BridgeProfile {
+    fun upsert(profileId: String? = null, name: String, baseUrl: String, updateChannel: String = "stable", globalName: String? = null, localUrl: String? = null, publicUrl: String? = null, instanceId: String? = null): BridgeProfile {
         require(updateChannel == "stable" || updateChannel == "beta")
         val normalizedUrl = normalize(baseUrl)
         require(normalizedUrl.startsWith("https://") || normalizedUrl.startsWith("http://")) { "Bridge URL must use HTTP(S)" }
@@ -54,6 +60,9 @@ class BridgeProfileStore(context: Context) {
             name = name.ifBlank { globalName ?: normalizedUrl },
             globalName = globalName,
             baseUrl = normalizedUrl,
+            localUrl = localUrl?.takeIf { it.isNotBlank() }?.let(::normalize),
+            publicUrl = publicUrl?.takeIf { it.isNotBlank() }?.let(::normalize),
+            instanceId = instanceId,
             updateChannel = updateChannel,
         )
         val profiles = list().toMutableList()
@@ -66,7 +75,13 @@ class BridgeProfileStore(context: Context) {
 
     fun setGlobalName(profileId: String, globalName: String): BridgeProfile {
         val current = list().firstOrNull { it.profileId == profileId } ?: error("Unknown bridge profile")
-        return upsert(current.profileId, current.name, current.baseUrl, current.updateChannel, globalName.trim().takeIf { it.isNotEmpty() })
+        return upsert(current.profileId, current.name, current.baseUrl, current.updateChannel, globalName.trim().takeIf { it.isNotEmpty() }, current.localUrl, current.publicUrl, current.instanceId)
+    }
+
+    fun setAddresses(profileId: String, localUrl: String?, publicUrl: String?, instanceId: String? = null): BridgeProfile {
+        val current = list().firstOrNull { it.profileId == profileId } ?: error("Unknown bridge profile")
+        val preferred = publicUrl?.takeIf { it.isNotBlank() } ?: localUrl?.takeIf { it.isNotBlank() } ?: current.baseUrl
+        return upsert(current.profileId, current.name, preferred, current.updateChannel, current.globalName, localUrl, publicUrl, instanceId ?: current.instanceId)
     }
 
     fun remove(profileId: String): Boolean {
@@ -90,6 +105,9 @@ class BridgeProfileStore(context: Context) {
                     .put("name", profile.name)
                     .put("globalName", profile.globalName)
                     .put("baseUrl", profile.baseUrl)
+                    .put("localUrl", profile.localUrl)
+                    .put("publicUrl", profile.publicUrl)
+                    .put("instanceId", profile.instanceId)
                     .put("updateChannel", profile.updateChannel),
             )
         }

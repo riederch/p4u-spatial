@@ -5,7 +5,14 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class PairingQr(val bridge: String, val pairingId: String, val secret: String, val expiresAt: String)
+data class PairingQr(
+    val bridge: String,
+    val localUrl: String?,
+    val publicUrl: String?,
+    val pairingId: String,
+    val secret: String,
+    val expiresAt: String,
+)
 data class BootstrapSession(val accessToken: String, val refreshToken: String, val accessExpiresAt: String, val refreshExpiresAt: String)
 
 sealed interface PairingPoll {
@@ -19,7 +26,15 @@ class PairingClient {
     fun parseQr(raw: String): PairingQr {
         val json = JSONObject(raw)
         require(json.getInt("version") == 1)
-        return PairingQr(json.getString("bridge"), json.getString("pairingId"), json.getString("secret"), json.getString("expiresAt"))
+        val addresses = json.optJSONObject("addresses")
+        return PairingQr(
+            bridge = json.getString("bridge"),
+            localUrl = addresses?.optString("localUrl")?.takeIf { it.isNotBlank() },
+            publicUrl = addresses?.optString("publicUrl")?.takeIf { it.isNotBlank() },
+            pairingId = json.getString("pairingId"),
+            secret = json.getString("secret"),
+            expiresAt = json.getString("expiresAt"),
+        )
     }
 
     fun claim(qr: PairingQr, deviceId: String, appVersion: String, localName: String? = null): String {

@@ -39,7 +39,11 @@ Example QR payload:
 ```json
 {
   "version": 1,
-  "bridge": "https://spatial.example.local",
+  "bridge": "https://spatial.example.example",
+  "addresses": {
+    "localUrl": "https://spatial.example.local",
+    "publicUrl": "https://spatial.example.example"
+  },
   "pairingId": "019...",
   "secret": "...",
   "expiresAt": "2026-09-18T13:00:00Z"
@@ -151,3 +155,19 @@ PUT /api/v1/admin/devices/{deviceId}/name
 ```
 
 When presenting a device, a Bridge SHOULD prefer the global device name, then the device-provided local name, then a platform/model fallback. Renaming MUST NOT invalidate pairing, sessions, pending outbox data or canonical identifiers.
+
+
+## Local and public Bridge addresses
+
+A Bridge MAY configure two client-facing addresses:
+
+- `localUrl` — preferred when the client can reach the Bridge on its local/private network;
+- `publicUrl` — externally reachable address.
+
+The reference Bridge reads these from `P4U_LOCAL_BASE_URL` and `P4U_PUBLIC_BASE_URL`. Pairing QR payloads include both configured values in `addresses`. The legacy/top-level `bridge` field remains the bootstrap endpoint for v1 compatibility and normally uses the public address when configured.
+
+An XR client stores both addresses in the paired Bridge profile. After pairing, the user MAY override either address locally on that client. Such an override changes routing only; it MUST NOT create a new Bridge identity, pairing or outbox.
+
+Before accepting an alternate address as the same Bridge, a client SHOULD discover it and verify that its `instanceId` equals the stored paired `instanceId`. A mismatching instance ID MUST be treated as a different Bridge rather than as an address change.
+
+Bridge discovery MAY also expose the configured `addresses` object so clients can refresh defaults without overwriting explicit local overrides.
