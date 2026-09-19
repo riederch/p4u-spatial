@@ -86,3 +86,42 @@ export P4U_FEDERATION_ROUTE_ID=upstream
 If no token is configured, the route uses `anonymous` upstream access. With a token it uses `service` access.
 
 The bridge preserves the upstream `sourceId` and `operationId`. Read results are cached with delivery provenance, and writes to an unavailable upstream are durably retained with state `relay-durable` until a later retry reaches a terminal upstream state.
+
+
+## RCHKB repository profile
+
+RCHKB is integrated as a profile over the generic repository provider rather than as a vendor-specific storage backend. Git remains an implementation detail and RCHKB remains the source of truth.
+
+Example for a Gitea-hosted RCHKB knowledge base:
+
+```bash
+export P4U_REPOSITORY_PROVIDER=git
+export P4U_REPOSITORY_PROFILE=rchkb
+export P4U_GIT_REMOTE_URL=https://gitea.example.invalid/owner/rchkb.git
+export P4U_GIT_BRANCH=main
+export P4U_GIT_USERNAME=p4u-spatial
+export P4U_GIT_TOKEN=...
+export P4U_RCHKB_ROOT='Feuerwehr/Pogoeriach'
+```
+
+The selected knowledge-base root is projected from:
+
+```text
+<RCHKB_ROOT>/_agents/spatial/model/
+├── buildings.jsonl
+├── floors.jsonl
+├── rooms.jsonl
+├── assets.jsonl
+├── landmarks.jsonl
+└── relations.jsonl
+```
+
+Only files that exist are exposed as collections. This matches the RCHKB rule that each subject-specific knowledge base owns its local `_agents/spatial/` projection.
+
+Direct P4U Spatial writes are **disabled by default** for the RCHKB profile. RCHKB's human-readable canonical pages, histories and primary sources remain authoritative; changing only the derived Spatial projection would bypass that workflow. An installation may explicitly enable direct projection writes with:
+
+```bash
+export P4U_RCHKB_ALLOW_SPATIAL_WRITES=true
+```
+
+That opt-in should only be used where an external workflow also maintains the canonical RCHKB knowledge and provenance. Normal RCHKB knowledge changes should be applied through the RCHKB workflow first and then reflected in the local Spatial projection.

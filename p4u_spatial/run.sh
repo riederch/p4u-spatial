@@ -3,6 +3,9 @@
 SOURCE_TITLE="$(bashio::config 'source_title')"
 ADMIN_KEY="$(bashio::config 'admin_key')"
 REPOSITORY_PROVIDER="$(bashio::config 'repository_provider')"
+REPOSITORY_PROFILE="$(bashio::config 'repository_profile')"
+RCHKB_ROOT="$(bashio::config 'rchkb_root')"
+RCHKB_ALLOW_SPATIAL_WRITES="$(bashio::config 'rchkb_allow_spatial_writes')"
 GIT_REMOTE_URL="$(bashio::config 'git_remote_url')"
 GIT_BRANCH="$(bashio::config 'git_branch')"
 GIT_USERNAME="$(bashio::config 'git_username')"
@@ -18,7 +21,13 @@ export P4U_REPOSITORY_ROOT="/data/repository"
 export P4U_SPATIAL_ROOT="spatial"
 export P4U_SPATIAL_SOURCE_TITLE="${SOURCE_TITLE}"
 export P4U_REPOSITORY_PROVIDER="${REPOSITORY_PROVIDER}"
+export P4U_REPOSITORY_PROFILE="${REPOSITORY_PROFILE}"
 export P4U_GIT_BRANCH="${GIT_BRANCH}"
+
+if [[ "${REPOSITORY_PROFILE}" == "rchkb" ]]; then
+  export P4U_RCHKB_ROOT="${RCHKB_ROOT}"
+  export P4U_RCHKB_ALLOW_SPATIAL_WRITES="${RCHKB_ALLOW_SPATIAL_WRITES}"
+fi
 
 if [[ -n "${GIT_REMOTE_URL}" ]]; then
   export P4U_GIT_REMOTE_URL="${GIT_REMOTE_URL}"
@@ -46,7 +55,10 @@ mkdir -p "${P4U_STATE_DIR}" "${P4U_REPOSITORY_ROOT}"
 bashio::log.info "Starting P4U Spatial ${P4U_APP_VERSION:-0.0.1}"
 bashio::log.info "Bridge API listening on port ${P4U_PORT}"
 bashio::log.info "Persistent state: ${P4U_STATE_DIR}"
-bashio::log.info "Spatial repository: ${P4U_REPOSITORY_ROOT} (${P4U_REPOSITORY_PROVIDER})"
+bashio::log.info "Spatial repository: ${P4U_REPOSITORY_ROOT} (${P4U_REPOSITORY_PROVIDER}, profile=${REPOSITORY_PROFILE})"
+if [[ "${REPOSITORY_PROFILE}" == "rchkb" ]]; then
+  bashio::log.info "RCHKB root: ${RCHKB_ROOT}; direct Spatial writes: ${RCHKB_ALLOW_SPATIAL_WRITES}"
+fi
 if [[ -n "${FEDERATION_UPSTREAM_URL}" ]]; then
   bashio::log.info "Federation upstream configured: ${FEDERATION_UPSTREAM_URL}"
 fi

@@ -18,6 +18,9 @@ options:
   admin_key: ""
   source_title: "P4U Spatial"
   repository_provider: "filesystem"
+  repository_profile: "generic"
+  rchkb_root: ""
+  rchkb_allow_spatial_writes: false
   git_remote_url: ""
   git_branch: "main"
   git_username: ""
@@ -29,6 +32,9 @@ schema:
   admin_key: str
   source_title: str
   repository_provider: list(filesystem|git)
+  repository_profile: list(generic|rchkb)
+  rchkb_root: str
+  rchkb_allow_spatial_writes: bool
   git_remote_url: str
   git_branch: str
   git_username: str

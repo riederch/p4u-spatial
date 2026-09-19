@@ -322,7 +322,18 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const body = request.body as Record<string, unknown>;
     const target = body.target as Record<string, unknown> | undefined;
     const sourceId = typeof target?.sourceId === "string" ? target.sourceId : "";
-    if (sourceId === await services.spatial.sourceId()) return services.spatialWrite.submit(request.body);
+    if (sourceId === await services.spatial.sourceId()) {
+      if (!config.spatialWritable) {
+        throw new BridgeError(
+          403,
+          "SOURCE_READ_ONLY",
+          config.repositoryProfile === "rchkb"
+            ? "RCHKB Spatial projection is read-only. Apply knowledge changes through the RCHKB workflow."
+            : "Spatial source is configured read-only.",
+        );
+      }
+      return services.spatialWrite.submit(request.body);
+    }
     if (services.federation) return services.federation.submitOperation(request.body, publicBridgeUrl(request, config));
     throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
