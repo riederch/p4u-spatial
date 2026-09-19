@@ -13,46 +13,8 @@ image: "ghcr.io/riederch/p4u-spatial-ha"
 ports:
   8787/tcp: 8787
 ports_description:
-  8787/tcp: "P4U Spatial Bridge API"
+  8787/tcp: "P4U Spatial Bridge UI/API"
 options:
   admin_key: ""
-  source_title: "P4U Spatial"
-  repository_provider: "filesystem"
-  repository_profile: "generic"
-  rchkb_root: ""
-  rchkb_allow_spatial_writes: false
-  git_remote_url: ""
-  git_branch: "main"
-  git_username: ""
-  git_token: ""
-  federation_upstream_url: ""
-  federation_token: ""
-  federation_route_id: "upstream"
-  scan_upload_retention_seconds: 604800
-  pairing_claim_rate_limit: 30
-  session_refresh_rate_limit: 60
-  scan_request_rate_limit: 600
-  federation_retry_base_seconds: 5
-  federation_retry_max_seconds: 300
-  federation_relay_retention_seconds: 604800
 schema:
-  admin_key: str
-  source_title: str
-  repository_provider: list(filesystem|git)
-  repository_profile: list(generic|rchkb)
-  rchkb_root: str
-  rchkb_allow_spatial_writes: bool
-  git_remote_url: str
-  git_branch: str
-  git_username: str
-  git_token: password
-  federation_upstream_url: str
-  federation_token: password
-  federation_route_id: str
-  scan_upload_retention_seconds: int
-  pairing_claim_rate_limit: int
-  session_refresh_rate_limit: int
-  scan_request_rate_limit: int
-  federation_retry_base_seconds: int
-  federation_retry_max_seconds: int
-  federation_relay_retention_seconds: int
+  admin_key: password
