@@ -42,12 +42,12 @@ android {
 
     sourceSets {
         getByName("main") {
-            java.srcDir("../../android-pico-reference/src")
+            kotlin.srcDir("../../android-pico-reference/src")
             res.srcDir("../../android-pico-reference/res")
         }
     }
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.core:core-ktx:1.17.0")
 }

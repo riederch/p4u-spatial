@@ -33,7 +33,8 @@ export class AdminPasskeyService {
     const v = await verifyRegistrationResponse({ response, expectedChallenge: ceremony.challenge, expectedOrigin: this.expectedOrigin, expectedRPID: this.rpID, requireUserVerification: true });
     assertOrThrow(v.verified && v.registrationInfo, 400, "PASSKEY_REGISTRATION_FAILED", "Passkey registration failed.");
     const c = v.registrationInfo.credential;
-    const record: PasskeyRecord = { id: c.id, publicKey: Buffer.from(c.publicKey).toString("base64url"), counter: c.counter, transports: c.transports as string[] | undefined, createdAt: nowIso(), ...(name?.trim() ? { name: name.trim().slice(0,120) } : {}) };
+    const transports = c.transports as string[] | undefined;
+    const record: PasskeyRecord = { id: c.id, publicKey: Buffer.from(c.publicKey).toString("base64url"), counter: c.counter, createdAt: nowIso(), ...(transports ? { transports } : {}), ...(name?.trim() ? { name: name.trim().slice(0,120) } : {}) };
     await this.store.mutate(s => { const old=s.passkeys.find(p=>p.id===record.id); if(old) Object.assign(old,record); else s.passkeys.push(record); });
     return record;
   }
