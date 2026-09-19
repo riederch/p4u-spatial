@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://p4u-spatial.local/schemas/xr/app-release.schema.json",
+  "title": "XR Application Release",
+  "type": "object",
+  "required": [
+    "releaseId",
+    "version",
+    "versionCode",
+    "channel",
+    "platform",
+    "package",
+    "compatibility",
+    "mandatory"
+  ],
+  "properties": {
+    "releaseId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "versionCode": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "channel": {
+      "enum": [
+        "stable",
+        "beta"
+      ]
+    },
+    "platform": {
+      "const": "android-pico"
+    },
+    "mandatory": {
+      "type": "boolean"
+    },
+    "releaseNotes": {
+      "type": "string"
+    },
+    "compatibility": {
+      "type": "object",
+      "required": [
+        "core",
+        "xr"
+      ],
+      "properties": {
+        "core": {
+          "type": "string",
+          "minLength": 1
+        },
+        "xr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spatial": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "package": {
+      "type": "object",
+      "required": [
+        "href",
+        "size",
+        "sha256",
+        "signingCertificateSha256"
+      ],
+      "properties": {
+        "href": {
+          "type": "string",
+          "format": "uri"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "signingCertificateSha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

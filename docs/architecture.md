@@ -101,7 +101,7 @@ Canonical XR scopes include:
 - `xr.task.read`
 - `xr.task.answer`
 
-Detailed lifecycle rules are in [device-management.md](device-management.md).
+Detailed device authorization rules are in [device-management.md](device-management.md). Signed XR application bootstrap/update rules are in [XR Application Lifecycle](../protocol/xr/app-lifecycle.md).
 
 ## Offline model
 
