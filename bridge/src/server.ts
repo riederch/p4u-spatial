@@ -19,6 +19,7 @@ import { SessionService } from "./services/session-service.js";
 import { SpatialReadService } from "./services/spatial-read-service.js";
 import { SpatialWriteService, type SpatialWriteAction } from "./services/spatial-write-service.js";
 import { XrAppReleaseService } from "./services/xr-app-release-service.js";
+import { CandidateReviewService } from "./services/candidate-review-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
@@ -30,6 +31,7 @@ interface Services {
   spatial: SpatialReadService;
   spatialWrite: SpatialWriteService;
   xrAppReleases: XrAppReleaseService;
+  candidates: CandidateReviewService;
   federation?: FederationService;
 }
 
@@ -113,12 +115,13 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       })
     : undefined;
 
+  const scans = new ScanUploadService(config.stateDir, repository, config.spatialRoot);
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
     identity: new InstanceIdentityService(config.stateDir),
     pairings: new PairingService(config.stateDir, config.pairingTtlSeconds),
     sessions: new SessionService(config.stateDir, config.accessTokenTtlSeconds, config.refreshTokenTtlSeconds),
-    scans: new ScanUploadService(config.stateDir, repository, config.spatialRoot),
+    scans,
     spatial,
     spatialWrite: new SpatialWriteService(
       config.stateDir,
@@ -127,6 +130,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       () => spatial.sourceId(),
     ),
     xrAppReleases: new XrAppReleaseService(config.stateDir),
+    candidates: new CandidateReviewService(config.stateDir, (scanId) => scans.isCommitted(scanId)),
     ...(federation ? { federation } : {}),
   };
 
@@ -381,6 +385,43 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       if (!(error instanceof BridgeError) || error.code !== "OPERATION_NOT_FOUND" || !services.federation) throw error;
       return services.federation.getOperation(operationId);
     }
+  });
+
+  app.put("/api/v1/scans/:scanId/candidates/:candidateId", async (request) => {
+    const device = await authenticatedDevice(request, services, "xr.scan.write");
+    const { scanId, candidateId } = request.params as { scanId: string; candidateId: string };
+    const body = request.body as Record<string, unknown>;
+    assertOrThrow(body && typeof body === "object" && !Array.isArray(body), 400, "CANDIDATE_INVALID", "Candidate JSON object required.");
+    if ("candidateId" in body) {
+      assertOrThrow(body.candidateId === candidateId, 400, "CANDIDATE_INVALID", "Body candidateId must match URL candidateId.");
+    } else {
+      body.candidateId = candidateId;
+    }
+    return { candidate: await services.candidates.submit(scanId, principalId(device.deviceId), body) };
+  });
+
+  app.get("/api/v1/admin/xr/candidates", async (request) => {
+    requireAdmin(request, config);
+    const query = request.query as { state?: string };
+    return { candidates: await services.candidates.list(query.state) };
+  });
+
+  app.get("/api/v1/admin/xr/candidates/:candidateId", async (request) => {
+    requireAdmin(request, config);
+    const { candidateId } = request.params as { candidateId: string };
+    return { candidate: await services.candidates.get(candidateId) };
+  });
+
+  app.put("/api/v1/admin/xr/candidates/:candidateId/review", async (request) => {
+    requireAdmin(request, config);
+    const { candidateId } = request.params as { candidateId: string };
+    return { candidate: await services.candidates.review(candidateId, request.body) };
+  });
+
+  app.get("/api/v1/admin/xr/candidates/:candidateId/operation-draft", async (request) => {
+    requireAdmin(request, config);
+    const { candidateId } = request.params as { candidateId: string };
+    return services.candidates.operationDraft(candidateId);
   });
 
   app.post("/api/v1/admin/federation/retry", async (request) => {

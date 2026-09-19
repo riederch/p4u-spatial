@@ -149,6 +149,10 @@ export class ScanUploadService {
     return { scanId, state: "uploading", manifestSha256: sha256(stableStringify(manifest)), verifiedFiles, missingFiles };
   }
 
+  async isCommitted(scanId: string): Promise<boolean> {
+    return (await this.repository.readFile(`${this.repoBase(scanId)}/_commit.json`)) !== null;
+  }
+
   async commit(deviceId: string, scanId: string): Promise<UploadStatus> {
     const manifest = await this.loadManifest(scanId);
     if (manifest.device.deviceId !== deviceId) throw new BridgeError(403, "DEVICE_MISMATCH", "Scan belongs to a different device.");

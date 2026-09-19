@@ -113,3 +113,17 @@ The normal flow is:
 4. verify the repository commit.
 
 Direct projection writes remain disabled by default.
+
+## Reference Bridge API
+
+The reference bridge exposes the review boundary as:
+
+```text
+PUT /api/v1/scans/:scanId/candidates/:candidateId
+GET /api/v1/admin/xr/candidates?state=pending
+GET /api/v1/admin/xr/candidates/:candidateId
+PUT /api/v1/admin/xr/candidates/:candidateId/review
+GET /api/v1/admin/xr/candidates/:candidateId/operation-draft
+```
+
+Candidate submission requires the normal XR scan-write authorization and a durably committed source scan. Review and draft generation are administrator operations in v0.1. The operation-draft endpoint never executes the draft.
