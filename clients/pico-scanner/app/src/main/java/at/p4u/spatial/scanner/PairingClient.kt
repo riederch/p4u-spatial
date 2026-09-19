@@ -37,12 +37,12 @@ class PairingClient {
         )
     }
 
-    fun claim(qr: PairingQr, deviceId: String, appVersion: String, localName: String? = null): String {
+    fun claim(baseUrl: String, qr: PairingQr, deviceId: String, appVersion: String, localName: String? = null): String {
         val payload = JSONObject().put("pairingId", qr.pairingId).put("secret", qr.secret)
             .put("device", JSONObject().put("deviceId", deviceId).put("platform", "android-pico")
                 .put("model", Build.MODEL).put("name", localName ?: "PICO ${Build.MODEL}").put("runtime", "Android ${Build.VERSION.RELEASE}")
                 .put("appVersion", appVersion).put("capabilities", org.json.JSONArray()))
-        return request("${qr.bridge.trimEnd('/')}/api/v1/pairing/claim", "POST", payload).getString("claimId")
+        return request("${baseUrl.trimEnd('/')}/api/v1/pairing/claim", "POST", payload).getString("claimId")
     }
 
     fun poll(bridge: String, claimId: String): PairingPoll {
