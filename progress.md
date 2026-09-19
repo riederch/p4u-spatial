@@ -36,8 +36,8 @@ Diese Teile sind eigenständige Programme, installierbare Anwendungen oder betre
 | Programm / Anwendung | Wofür ist das da? | Fortschritt | Status | Nachgewiesener Stand | Verbleibende Lücken |
 | --- | --- | ---: | --- | --- | --- |
 | P4U Spatial Scanner | Android-/XR-Anwendung auf dem Headset für Aufnahme, Offline-Outbox, Sync und Darstellung. | 48 % | Teilweise implementiert | Buildbares Android-Projekt; Bridge- und Update-Discovery, Pairing-/Session-Klassen, Secure Session Store, dauerhafte Scan-Outbox, Resume-Upload, Capture-Package- und Candidate-Helfer sind vorhanden. | Echte MR/OpenXR-Capture-Oberfläche, Runtime-Sensoranbindung, durchgängige Scan-UX, Darstellung kanonischer Spatial-Daten und Hardwarevalidierung auf PICO 4 Ultra. |
-| P4U Spatial Bridge | Eigenständig betreibbarer Node-Dienst und Trust-/Sync-/Repository-Grenze zwischen XR-Geräten und Spatial-Quellen. | 88 % | Weitgehend implementiert | Core/XR Discovery, Pairing, Sessions, Device Registry, Spatial Read/Write, Federation, Git-/Filesystem-Provider, XR-Scan-Ingestion, Limits/Retention, Candidate Review und bestätigte Promotion sind als Dienste und HTTP-Pfade vorhanden. | Betriebs-Härtung, vollständige Admin-/Management-UI, breitere Auth-Provider, produktive Observability und reale Langzeit-/Hardwaretests. |
-| P4U Spatial HA App | Installierbares Home-Assistant-Paket der Bridge mit persistenter Datenhaltung. | 72 % | In Arbeit | Version 0.0.1 ist veröffentlicht, Multi-Arch-Image und Releaseworkflow sind definiert; Bridge läuft als App-Prozess mit persistentem `/data`. | Bestätigter Smoke-Test auf der Zielinstallation, reale Updatevalidierung, Bedien-/Admin-Flächen und Betriebsbeobachtung. |
+| P4U Spatial Bridge | Eigenständig betreibbarer Node-Dienst und Trust-/Sync-/Repository-Grenze zwischen XR-Geräten und Spatial-Quellen. | 86 % | Weitgehend implementiert | Core/XR Discovery, Pairing, Sessions, Device Registry, Spatial Read/Write, Federation, Git-/Filesystem-Provider, XR-Scan-Ingestion, Limits/Retention, Candidate Review und bestätigte Promotion sind als Dienste und HTTP-Pfade vorhanden. Die Zielgrenze für HA-unabhängige, webverwaltete Konfiguration ist per ADR festgelegt. | Persistenter Settings-Store und vollständige Web-Konfiguration ersetzen die aktuelle ENV-/HA-Options-Konfiguration noch nicht; zusätzlich fehlen Betriebs-Härtung, vollständige Admin-/Management-UI, breitere Auth-Provider, produktive Observability und reale Langzeit-/Hardwaretests. |
+| P4U Spatial HA App | Installierbare Home-Assistant-Deploymenthülle der Bridge; keine eigene Bridge-Logik. | 68 % | In Arbeit | Version 0.0.1 ist veröffentlicht, Multi-Arch-Image und Releaseworkflow sind definiert; Bridge läuft als App-Prozess mit persistentem `/data`. | Die heutigen HA-Optionen tragen noch funktionale Bridge-Konfiguration und müssen zugunsten der Bridge-Web-GUI entfallen; zusätzlich fehlen bestätigter Smoke-Test, reale Updatevalidierung und Ingress-/Betriebsvalidierung. |
 | Scanner Simulator | Eigenständiges Entwicklungswerkzeug zum Ausüben von Bridge-Pfaden ohne XR-Hardware. | 78 % | Nutzbar | Pairing, Device-Abfrage und Demo-Upload können zentrale Bridge-Pfade ohne Brille ausüben. | Breitere Simulation echter Capture-Pakete, Offline-/Retry-Fehlerbilder und Candidate-/Promotion-Flows. |
 
 ### Bibliotheken und interne Komponenten
@@ -108,10 +108,11 @@ Hier stehen offene Verträge sowie externe Normen und Konventionen. Bei externen
 
 ## P4U Spatial HA App
 
-- `p4u_spatial/` enthält die Home-Assistant-App.
+- `p4u_spatial/` enthält die Home-Assistant-Deploymenthülle der Bridge; sie soll keine eigene Bridge-Fachlogik besitzen.
 - Version `0.0.1` ist als Multi-Arch-Image veröffentlicht.
-- Persistenter Zustand und Repositorydaten liegen unter Home-Assistant-App-Storage.
+- Persistenter Zustand und Repositorydaten liegen unter Home-Assistant-App-Storage. Zielarchitektur: auch die funktionale Konfiguration liegt als Bridge-eigener persistenter Zustand dort und wird ausschließlich über die Bridge-Web-GUI verwaltet.
 - Veröffentlichung ist bewusst vom normalen `main`-Entwicklungsfluss getrennt und wird über `ha-release` bzw. manuelles Dispatch gesteuert.
+- Die aktuelle HA-App mappt noch zahlreiche `config.yaml`-Optionen über `bashio` in `P4U_*`-Variablen. Das ist ein dokumentierter Übergangszustand und nicht die Zielarchitektur.
 - Das Repository dokumentiert aktuell noch keinen erfolgreichen Smoke-Test der Zielinstallation; damit ist die reale Installations-/Startvalidierung offen.
 
 ## Repository Providers
@@ -167,6 +168,7 @@ Hier stehen offene Verträge sowie externe Normen und Konventionen. Bei externen
 - Koordinatenrahmen und Unsicherheit müssen explizit bleiben. Site-Mapping darf Long-Range-Drift nicht als exakte globale Pose behandeln.
 - Installation/Update und Geräte-Pairing sind getrennte Trust-Flows.
 - RCHKB-spezifische Pfade oder privates Sitewissen dürfen nicht in das öffentliche Repository eingebaut werden.
+- ADR 0018 legt fest, dass sämtliche operatorseitige Bridge-Konfiguration über eine persistente Bridge-Web-GUI erfolgt; Home Assistant und Docker bleiben reine Deploymenthüllen.
 
 ## Pflegeanweisung für Aktualisierungen
 
