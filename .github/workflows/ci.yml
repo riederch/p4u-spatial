@@ -29,26 +29,6 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Prepare lockfile when repository has none
-        id: lockfile
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f package-lock.json ]; then
-            echo "generated=false" >> "$GITHUB_OUTPUT"
-          else
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-            echo "generated=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Preserve generated lockfile for review
-        if: steps.lockfile.outputs.generated == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
