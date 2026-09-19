@@ -14,7 +14,5 @@ ports:
   8787/tcp: 8787
 ports_description:
   8787/tcp: "P4U Spatial Bridge UI/API"
-options:
-  admin_key: ""
-schema:
-  admin_key: password
+options: {}
+schema: {}

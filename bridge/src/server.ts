@@ -28,6 +28,7 @@ import { AdminPasswordTotpService } from "./services/admin-password-totp-service
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 import { adminPage } from "./web/admin-page.js";
 import type { BridgeConfigStore } from "./services/bridge-config-store.js";
+import { SetupBootstrapService } from "./services/setup-bootstrap-service.js";
 
 interface Services {
   devices: DeviceRegistry;
@@ -44,6 +45,7 @@ interface Services {
   adminUsers: AdminUserService;
   adminSessions: AdminSessionService;
   adminPasswordTotp: AdminPasswordTotpService;
+  setupBootstrap: SetupBootstrapService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -221,6 +223,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     adminUsers: new AdminUserService(config.stateDir),
     adminSessions: new AdminSessionService(config.stateDir),
     adminPasswordTotp: new AdminPasswordTotpService(config.stateDir),
+    setupBootstrap: new SetupBootstrapService(config.stateDir),
     ...(federation ? { federation } : {}),
     ...(config.adminWebauthnRpId && config.adminWebauthnOrigin
       ? { adminPasskeys: new AdminPasskeyService(config.stateDir, config.adminWebauthnRpId, config.adminWebauthnOrigin) }
@@ -236,6 +239,42 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     }
     request.log.error(error);
     return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error.", requestId } });
+  });
+
+  app.get("/api/v1/setup/status", async () => {
+    const users = await services.adminUsers.list();
+    const passkeyConfigured = services.adminPasskeys ? await services.adminPasskeys.configured() : false;
+    const passwordTotpConfigured = await services.adminPasswordTotp.anyEnabled();
+    const bootstrap = await services.setupBootstrap.status();
+    return {
+      setupRequired: users.length === 0 || (!passkeyConfigured && !passwordTotpConfigured),
+      proofAvailable: bootstrap.available,
+      userCount: users.length,
+    };
+  });
+
+  app.post("/api/v1/setup/admin", async (request, reply) => {
+    const body = request.body as { proof?: unknown; username?: unknown; displayName?: unknown };
+    assertOrThrow(typeof body?.proof === "string", 400, "INVALID_REQUEST", "proof is required.");
+    await services.setupBootstrap.verify(body.proof);
+
+    const users = await services.adminUsers.list();
+    const anyPasskey = services.adminPasskeys ? await services.adminPasskeys.configured() : false;
+    const anyPasswordTotp = await services.adminPasswordTotp.anyEnabled();
+    assertOrThrow(!anyPasskey && !anyPasswordTotp, 409, "SETUP_COMPLETE", "A permanent administrator login method already exists.");
+
+    let user;
+    if (users.length === 0) {
+      assertOrThrow(typeof body.username === "string", 400, "INVALID_REQUEST", "username is required.");
+      user = await services.adminUsers.create(body.username, typeof body.displayName === "string" ? body.displayName : undefined);
+    } else {
+      assertOrThrow(users.length === 1, 409, "SETUP_STATE_INVALID", "First-run setup cannot select between multiple administrator users.");
+      user = users[0]!;
+    }
+
+    const session = await services.adminSessions.issue(user.userId);
+    setAdminSessionCookie(reply, session.token, session.csrfToken, session.expiresAt);
+    return { user, csrfToken: session.csrfToken, expiresAt: session.expiresAt };
   });
 
   const sendAdminPage = (_request: FastifyRequest, reply: FastifyReply) => {
@@ -285,6 +324,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const body = request.body as { ceremonyId?: unknown; response?: unknown; name?: unknown };
     assertOrThrow(typeof body?.ceremonyId === "string" && body.response && typeof body.response === "object", 400, "INVALID_REQUEST", "ceremonyId and response are required.");
     const passkey = await services.adminPasskeys.verifyRegistration(body.ceremonyId, body.response as any, typeof body.name === "string" ? body.name : undefined);
+    await services.setupBootstrap.consume();
     return { passkey: { id: passkey.id, name: passkey.name, createdAt: passkey.createdAt } };
   });
 
@@ -322,6 +362,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     const body = request.body as { setupId?: unknown; code?: unknown };
     assertOrThrow(typeof body?.setupId === "string" && typeof body.code === "string", 400, "INVALID_REQUEST", "setupId and code are required.");
     await services.adminPasswordTotp.confirmSetup(body.setupId, body.code);
+    await services.setupBootstrap.consume();
     return { enabled: true };
   });
 
