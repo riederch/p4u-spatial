@@ -110,6 +110,17 @@ export interface ScanManifest {
   createdAt: string;
   coordinateFrame?: string;
   capabilities?: string[];
+  capture?: {
+    purpose: "room-survey" | "building-survey" | "asset-registration" | "registration" | "drift-test" | "free-capture";
+    precision: "relative-only" | "local-metric" | "registered";
+    subject?: { sourceId: string; objectId: string };
+    runtimeCapabilities?: string[];
+    registration?: {
+      sourceId: string;
+      method: "anchor" | "landmarks" | "manual" | "external";
+      confidence?: number;
+    };
+  };
   files: ScanFile[];
 }
 

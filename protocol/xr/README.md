@@ -71,6 +71,10 @@ For a normal canonical feature mutation, Spatial Write is preferred.
 
 For raw scan/capture evidence whose lifecycle is XR-specific, the XR upload API remains appropriate.
 
+## Capture package
+
+Raw scanner evidence, coordinate frames, meshes, runtime anchors and promotion into canonical Spatial data are defined in [capture-package.md](capture-package.md).
+
 ## Application lifecycle
 
 Initial APK bootstrap and subsequent signed update behavior are defined in [app-lifecycle.md](app-lifecycle.md). Application release versions remain independent from protocol contract versions.

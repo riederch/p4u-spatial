@@ -12,50 +12,87 @@
     "files"
   ],
   "properties": {
-    "schemaVersion": {"const": "1.0"},
+    "schemaVersion": {
+      "const": "1.0"
+    },
     "scanId": {
       "$ref": "../core/definitions.schema.json#/$defs/uuid"
     },
     "device": {
       "type": "object",
-      "required": ["deviceId", "platform", "model"],
+      "required": [
+        "deviceId",
+        "platform",
+        "model"
+      ],
       "properties": {
         "deviceId": {
           "$ref": "../core/definitions.schema.json#/$defs/uuid"
         },
-        "platform": {"type": "string"},
-        "model": {"type": "string"},
-        "runtime": {"type": "string"},
-        "appVersion": {"type": "string"}
+        "platform": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string"
+        },
+        "appVersion": {
+          "type": "string"
+        }
       },
       "additionalProperties": true
     },
     "mode": {
-      "enum": ["indoor", "site", "registration", "drift-test"]
+      "enum": [
+        "indoor",
+        "site",
+        "registration",
+        "drift-test"
+      ]
     },
     "createdAt": {
       "$ref": "../core/definitions.schema.json#/$defs/timestamp"
     },
-    "coordinateFrame": {"type": "string"},
+    "coordinateFrame": {
+      "type": "string"
+    },
     "capabilities": {
       "type": "array",
-      "items": {"type": "string"}
+      "items": {
+        "type": "string"
+      }
     },
     "files": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "sha256"],
+        "required": [
+          "path",
+          "sha256"
+        ],
         "properties": {
-          "path": {"type": "string", "minLength": 1},
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
           "sha256": {
             "$ref": "../core/definitions.schema.json#/$defs/sha256"
           },
-          "size": {"type": "integer", "minimum": 0},
-          "mediaType": {"type": "string"}
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mediaType": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       }
+    },
+    "capture": {
+      "$ref": "capture-metadata.schema.json"
     }
   },
   "additionalProperties": true

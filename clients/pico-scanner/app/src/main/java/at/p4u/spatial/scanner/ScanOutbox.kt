@@ -13,7 +13,13 @@ data class OutboxScan(val scanId: String, val directory: File, val manifest: JSO
 class ScanOutbox(context: Context) {
     private val root = File(context.filesDir, "outbox/scans").apply { mkdirs() }
 
-    fun create(deviceId: String, mode: String, files: Map<String, ByteArray>): OutboxScan {
+    fun create(
+        deviceId: String,
+        mode: String,
+        files: Map<String, ByteArray>,
+        capture: JSONObject? = null,
+        capabilities: List<String> = emptyList(),
+    ): OutboxScan {
         require(mode in setOf("indoor", "site", "registration", "drift-test"))
         val scanId = UUID.randomUUID().toString()
         val dir = File(root, scanId).apply { mkdirs() }
@@ -26,7 +32,11 @@ class ScanOutbox(context: Context) {
         }
         val manifest = JSONObject().put("schemaVersion", "1.0").put("scanId", scanId)
             .put("device", JSONObject().put("deviceId", deviceId).put("platform", "android-pico").put("model", android.os.Build.MODEL))
-            .put("mode", mode).put("createdAt", Instant.now().toString()).put("files", entries)
+            .put("mode", mode).put("createdAt", Instant.now().toString())
+            .put("coordinateFrame", "scan:$scanId")
+            .put("capabilities", JSONArray(capabilities))
+            .put("files", entries)
+        capture?.let { manifest.put("capture", it) }
         File(dir, "manifest.json").writeText(manifest.toString(2))
         return OutboxScan(scanId, dir, manifest)
     }
