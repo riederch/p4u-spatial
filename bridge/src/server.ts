@@ -23,6 +23,8 @@ import { CandidateReviewService } from "./services/candidate-review-service.js";
 import { FixedWindowRateLimiter } from "./services/rate-limiter.js";
 import { AdminPasskeyService } from "./services/admin-passkey-service.js";
 import { AdminUserService } from "./services/admin-user-service.js";
+import { AdminSessionService } from "./services/admin-session-service.js";
+import { AdminPasswordTotpService } from "./services/admin-password-totp-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
@@ -38,6 +40,8 @@ interface Services {
   federation?: FederationService;
   adminPasskeys?: AdminPasskeyService;
   adminUsers: AdminUserService;
+  adminSessions: AdminSessionService;
+  adminPasswordTotp: AdminPasswordTotpService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -58,11 +62,69 @@ async function authenticatedDevice(request: FastifyRequest, services: Services, 
   return device;
 }
 
-function requireAdmin(request: FastifyRequest, config: BridgeConfig): void {
-  if (!config.adminKey) throw new BridgeError(503, "ADMIN_API_DISABLED", "P4U_ADMIN_KEY is not configured.");
+interface AdminPrincipal {
+  via: "key" | "session";
+  userId?: string;
+  sessionToken?: string;
+}
+
+function cookieValue(request: FastifyRequest, name: string): string | undefined {
+  const header = request.headers.cookie;
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) return decodeURIComponent(rawValue.join("="));
+  }
+  return undefined;
+}
+
+function adminSessionToken(request: FastifyRequest): string | undefined {
+  const supplied = request.headers["x-p4u-admin-session"];
+  const headerToken = Array.isArray(supplied) ? supplied[0] : supplied;
+  return headerToken ?? cookieValue(request, "p4u_admin_session");
+}
+
+function setAdminSessionCookie(reply: FastifyReply, token: string, expiresAt: string): void {
+  const maxAge = Math.max(0, Math.floor((Date.parse(expiresAt) - Date.now()) / 1000));
+  reply.header("Set-Cookie", `p4u_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Strict`);
+}
+
+function clearAdminSessionCookie(reply: FastifyReply): void {
+  reply.header("Set-Cookie", "p4u_admin_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict");
+}
+
+async function requireAdmin(request: FastifyRequest, config: BridgeConfig, services: Services): Promise<AdminPrincipal> {
   const supplied = request.headers["x-p4u-admin-key"];
-  const value = Array.isArray(supplied) ? supplied[0] : supplied;
-  if (!value || !safeEqual(config.adminKey, value)) throw new BridgeError(401, "ADMIN_UNAUTHORIZED", "Invalid admin key.");
+  const adminKey = Array.isArray(supplied) ? supplied[0] : supplied;
+  if (config.adminKey && adminKey && safeEqual(config.adminKey, adminKey)) return { via: "key" };
+
+  const token = adminSessionToken(request);
+  if (!token) throw new BridgeError(401, "ADMIN_UNAUTHORIZED", "Administrator authentication required.");
+  const userId = await services.adminSessions.userId(token);
+  if (!userId) throw new BridgeError(401, "ADMIN_SESSION_EXPIRED", "Administrator session is invalid or expired.");
+  const user = await services.adminUsers.get(userId);
+  if (!user || user.status !== "active") throw new BridgeError(403, "ADMIN_USER_DISABLED", "Administrator user is disabled.");
+
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    const suppliedCsrf = request.headers["x-p4u-csrf"];
+    const csrf = Array.isArray(suppliedCsrf) ? suppliedCsrf[0] : suppliedCsrf;
+    assertOrThrow(csrf && await services.adminSessions.verifyCsrf(token, csrf), 403, "CSRF_INVALID", "Valid CSRF token required.");
+  }
+
+  return { via: "session", userId, sessionToken: token };
+}
+
+async function credentialUserId(principal: AdminPrincipal, requestedUserId: unknown, services: Services): Promise<string> {
+  if (principal.userId) {
+    if (typeof requestedUserId === "string" && requestedUserId !== principal.userId) {
+      throw new BridgeError(403, "ADMIN_USER_MISMATCH", "Credential management is limited to the signed-in user.");
+    }
+    return principal.userId;
+  }
+  assertOrThrow(typeof requestedUserId === "string", 400, "USER_ID_REQUIRED", "userId is required for administrator-key credential management.");
+  const user = await services.adminUsers.get(requestedUserId);
+  assertOrThrow(user && user.status === "active", 404, "USER_NOT_FOUND", "Active administrator user not found.");
+  return user.userId;
 }
 
 function publicBridgeUrl(request: FastifyRequest, config: BridgeConfig): string {
@@ -131,6 +193,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   const pairingClaimLimiter = new FixedWindowRateLimiter(config.pairingClaimRateLimit, 60_000);
   const sessionRefreshLimiter = new FixedWindowRateLimiter(config.sessionRefreshRateLimit, 60_000);
   const scanRequestLimiter = new FixedWindowRateLimiter(config.scanRequestRateLimit, 60_000);
+  const adminLoginLimiter = new FixedWindowRateLimiter(10, 60_000);
 
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
@@ -148,6 +211,8 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     xrAppReleases: new XrAppReleaseService(config.stateDir),
     candidates: new CandidateReviewService(config.stateDir, (scanId) => scans.isCommitted(scanId)),
     adminUsers: new AdminUserService(config.stateDir),
+    adminSessions: new AdminSessionService(config.stateDir),
+    adminPasswordTotp: new AdminPasswordTotpService(config.stateDir),
     ...(federation ? { federation } : {}),
     ...(config.adminWebauthnRpId && config.adminWebauthnOrigin
       ? { adminPasskeys: new AdminPasskeyService(config.stateDir, config.adminWebauthnRpId, config.adminWebauthnOrigin) }
@@ -166,84 +231,139 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/api/v1/admin-auth/status", async () => ({
-    enabled: !!services.adminPasskeys,
-    configured: services.adminPasskeys ? await services.adminPasskeys.configured() : false,
+    passkeyEnabled: !!services.adminPasskeys,
+    passkeyConfigured: services.adminPasskeys ? await services.adminPasskeys.configured() : false,
   }));
+
+  app.get("/api/v1/admin-auth/me", async (request) => {
+    const principal = await requireAdmin(request, config, services);
+    assertOrThrow(principal.userId, 401, "ADMIN_SESSION_REQUIRED", "A signed-in administrator session is required.");
+    const user = await services.adminUsers.get(principal.userId);
+    assertOrThrow(user, 401, "ADMIN_UNAUTHORIZED", "Administrator user no longer exists.");
+    return {
+      user,
+      loginMethods: {
+        passkey: services.adminPasskeys ? await services.adminPasskeys.configured(user.userId) : false,
+        passwordTotp: await services.adminPasswordTotp.enabled(user.userId),
+      },
+    };
+  });
 
   app.post("/api/v1/admin-auth/register/options", async (request) => {
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
-    if (await services.adminPasskeys.configured()) {
-      const supplied = request.headers["x-p4u-admin-session"];
-      const token = Array.isArray(supplied) ? supplied[0] : supplied;
-      assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
-      const csrf = request.headers["x-p4u-csrf"];
-      const csrfToken = Array.isArray(csrf) ? csrf[0] : csrf;
-      assertOrThrow(csrfToken && await services.adminPasskeys.verifyCsrf(token, csrfToken), 403, "CSRF_INVALID", "Valid CSRF token required.");
-    } else {
-      requireAdmin(request, config);
-    }
-    return services.adminPasskeys.registrationOptions();
+    const body = request.body as { userId?: unknown };
+    const principal = await requireAdmin(request, config, services);
+    const userId = await credentialUserId(principal, body?.userId, services);
+    const user = await services.adminUsers.get(userId);
+    assertOrThrow(user && user.status === "active", 404, "USER_NOT_FOUND", "Active administrator user not found.");
+    return services.adminPasskeys.registrationOptions(user);
   });
 
   app.post("/api/v1/admin-auth/register/verify", async (request) => {
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    await requireAdmin(request, config, services);
     const body = request.body as { ceremonyId?: unknown; response?: unknown; name?: unknown };
     assertOrThrow(typeof body?.ceremonyId === "string" && body.response && typeof body.response === "object", 400, "INVALID_REQUEST", "ceremonyId and response are required.");
-    if (await services.adminPasskeys.configured()) {
-      const supplied = request.headers["x-p4u-admin-session"];
-      const token = Array.isArray(supplied) ? supplied[0] : supplied;
-      assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
-    } else {
-      requireAdmin(request, config);
-    }
     const passkey = await services.adminPasskeys.verifyRegistration(body.ceremonyId, body.response as any, typeof body.name === "string" ? body.name : undefined);
     return { passkey: { id: passkey.id, name: passkey.name, createdAt: passkey.createdAt } };
   });
 
-  app.post("/api/v1/admin-auth/login/options", async () => {
+  app.post("/api/v1/admin-auth/login/options", async (request) => {
+    adminLoginLimiter.consume(`ip:${request.ip}:passkey-options`);
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
     return services.adminPasskeys.authenticationOptions();
   });
 
-  app.post("/api/v1/admin-auth/login/verify", async (request) => {
+  app.post("/api/v1/admin-auth/login/verify", async (request, reply) => {
+    adminLoginLimiter.consume(`ip:${request.ip}:passkey-verify`);
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
     const body = request.body as { ceremonyId?: unknown; response?: unknown };
     assertOrThrow(typeof body?.ceremonyId === "string" && body.response && typeof body.response === "object", 400, "INVALID_REQUEST", "ceremonyId and response are required.");
-    return services.adminPasskeys.verifyAuthentication(body.ceremonyId, body.response as any);
+    const authenticated = await services.adminPasskeys.verifyAuthentication(body.ceremonyId, body.response as any);
+    const user = await services.adminUsers.get(authenticated.userId);
+    assertOrThrow(user && user.status === "active", 403, "ADMIN_USER_DISABLED", "Administrator user is disabled.");
+    const session = await services.adminSessions.issue(user.userId);
+    setAdminSessionCookie(reply, session.token, session.expiresAt);
+    return { user, csrfToken: session.csrfToken, expiresAt: session.expiresAt };
+  });
+
+  app.post("/api/v1/admin-auth/password-totp/setup", async (request) => {
+    const principal = await requireAdmin(request, config, services);
+    const body = request.body as { userId?: unknown; password?: unknown };
+    assertOrThrow(typeof body?.password === "string", 400, "INVALID_REQUEST", "password is required.");
+    const userId = await credentialUserId(principal, body.userId, services);
+    const user = await services.adminUsers.get(userId);
+    assertOrThrow(user && user.status === "active", 404, "USER_NOT_FOUND", "Active administrator user not found.");
+    return services.adminPasswordTotp.beginSetup(user.userId, user.username, body.password);
+  });
+
+  app.post("/api/v1/admin-auth/password-totp/setup/confirm", async (request) => {
+    await requireAdmin(request, config, services);
+    const body = request.body as { setupId?: unknown; code?: unknown };
+    assertOrThrow(typeof body?.setupId === "string" && typeof body.code === "string", 400, "INVALID_REQUEST", "setupId and code are required.");
+    await services.adminPasswordTotp.confirmSetup(body.setupId, body.code);
+    return { enabled: true };
+  });
+
+  app.post("/api/v1/admin-auth/password-totp/login", async (request, reply) => {
+    adminLoginLimiter.consume(`ip:${request.ip}:password-totp`);
+    const body = request.body as { username?: unknown; password?: unknown; totp?: unknown };
+    assertOrThrow(typeof body?.username === "string" && typeof body.password === "string" && typeof body.totp === "string", 400, "INVALID_REQUEST", "username, password and totp are required.");
+    adminLoginLimiter.consume(`user:${body.username.trim().toLowerCase()}`);
+    const user = await services.adminUsers.getByUsername(body.username);
+    assertOrThrow(user && user.status === "active", 401, "ADMIN_LOGIN_FAILED", "Invalid administrator credentials.");
+    const verified = await services.adminPasswordTotp.verify(user.userId, body.password, body.totp);
+    assertOrThrow(verified, 401, "ADMIN_LOGIN_FAILED", "Invalid administrator credentials.");
+    const session = await services.adminSessions.issue(user.userId);
+    setAdminSessionCookie(reply, session.token, session.expiresAt);
+    return { user, csrfToken: session.csrfToken, expiresAt: session.expiresAt };
+  });
+
+  app.delete("/api/v1/admin-auth/password-totp", async (request) => {
+    const principal = await requireAdmin(request, config, services);
+    const body = request.body as { userId?: unknown } | undefined;
+    const userId = await credentialUserId(principal, body?.userId, services);
+    assertOrThrow(services.adminPasskeys && await services.adminPasskeys.configured(userId), 409, "LOGIN_METHOD_REQUIRED", "Register a passkey before disabling password + TOTP.");
+    await services.adminPasswordTotp.disable(userId);
+    return { enabled: false };
+  });
+
+  app.post("/api/v1/admin-auth/logout", async (request, reply) => {
+    const token = adminSessionToken(request);
+    if (token) {
+      await requireAdmin(request, config, services);
+      await services.adminSessions.revoke(token);
+    }
+    clearAdminSessionCookie(reply);
+    return { status: "logged-out" };
   });
 
   app.get("/api/v1/admin-auth/passkeys", async (request) => {
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
-    const supplied = request.headers["x-p4u-admin-session"];
-    const token = Array.isArray(supplied) ? supplied[0] : supplied;
-    assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
-    return { passkeys: await services.adminPasskeys.listPasskeys() };
+    const principal = await requireAdmin(request, config, services);
+    const query = request.query as { userId?: unknown };
+    const userId = await credentialUserId(principal, query?.userId, services);
+    return { passkeys: await services.adminPasskeys.listPasskeys(userId) };
   });
 
   app.put("/api/v1/admin-auth/passkeys/:passkeyId", async (request) => {
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
-    const supplied = request.headers["x-p4u-admin-session"];
-    const token = Array.isArray(supplied) ? supplied[0] : supplied;
-    const csrf = request.headers["x-p4u-csrf"];
-    const csrfToken = Array.isArray(csrf) ? csrf[0] : csrf;
-    assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
-    assertOrThrow(csrfToken && await services.adminPasskeys.verifyCsrf(token, csrfToken), 403, "CSRF_INVALID", "Valid CSRF token required.");
+    const principal = await requireAdmin(request, config, services);
     const { passkeyId } = request.params as { passkeyId: string };
-    const body = request.body as { name?: unknown };
+    const body = request.body as { name?: unknown; userId?: unknown };
     assertOrThrow(typeof body?.name === "string", 400, "INVALID_REQUEST", "name is required.");
-    return { passkey: await services.adminPasskeys.renamePasskey(passkeyId, body.name) };
+    const userId = await credentialUserId(principal, body.userId, services);
+    return { passkey: await services.adminPasskeys.renamePasskey(userId, passkeyId, body.name) };
   });
 
   app.delete("/api/v1/admin-auth/passkeys/:passkeyId", async (request) => {
     assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
-    const supplied = request.headers["x-p4u-admin-session"];
-    const token = Array.isArray(supplied) ? supplied[0] : supplied;
-    const csrf = request.headers["x-p4u-csrf"];
-    const csrfToken = Array.isArray(csrf) ? csrf[0] : csrf;
-    assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
-    assertOrThrow(csrfToken && await services.adminPasskeys.verifyCsrf(token, csrfToken), 403, "CSRF_INVALID", "Valid CSRF token required.");
+    const principal = await requireAdmin(request, config, services);
     const { passkeyId } = request.params as { passkeyId: string };
-    return { removed: await services.adminPasskeys.removePasskey(passkeyId) };
+    const body = request.body as { userId?: unknown } | undefined;
+    const userId = await credentialUserId(principal, body?.userId, services);
+    const fallbackEnabled = await services.adminPasswordTotp.enabled(userId);
+    return { removed: await services.adminPasskeys.removePasskey(userId, passkeyId, fallbackEnabled) };
   });
 
   app.get("/health", async () => ({
@@ -330,7 +450,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.put("/api/v1/admin/xr-app/releases/:releaseId", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { releaseId } = request.params as { releaseId: string };
     const body = request.body as Record<string, unknown>;
     assertOrThrow(body && typeof body === "object" && !Array.isArray(body), 400, "XR_APP_RELEASE_INVALID", "Release descriptor JSON object required.");
@@ -529,31 +649,31 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/api/v1/admin/xr/candidates", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const query = request.query as { state?: string };
     return { candidates: await services.candidates.list(query.state) };
   });
 
   app.get("/api/v1/admin/xr/candidates/:candidateId", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { candidateId } = request.params as { candidateId: string };
     return { candidate: await services.candidates.get(candidateId) };
   });
 
   app.put("/api/v1/admin/xr/candidates/:candidateId/review", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { candidateId } = request.params as { candidateId: string };
     return { candidate: await services.candidates.review(candidateId, request.body) };
   });
 
   app.get("/api/v1/admin/xr/candidates/:candidateId/operation-draft", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { candidateId } = request.params as { candidateId: string };
     return services.candidates.operationDraft(candidateId);
   });
 
   app.get("/api/v1/admin/xr/candidates/:candidateId/promotion-preview", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { candidateId } = request.params as { candidateId: string };
     if (!config.spatialWritable) {
       throw new BridgeError(
@@ -574,7 +694,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/admin/xr/candidates/:candidateId/promote", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     if (!config.spatialWritable) {
       throw new BridgeError(
         403,
@@ -607,36 +727,36 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/admin/xr/scans/cleanup", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     return services.scans.cleanupStale();
   });
 
   app.post("/api/v1/admin/federation/retry", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     if (!services.federation) throw new BridgeError(404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");
     return services.federation.retryPending();
   });
 
   app.post("/api/v1/admin/federation/cleanup", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     if (!services.federation) throw new BridgeError(404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");
     return services.federation.cleanupRelays();
   });
 
   app.get("/api/v1/admin/metrics", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     return {
       federation: services.federation ? await services.federation.metrics() : null,
     };
   });
 
   app.get("/api/v1/admin/pairing-claims", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     return { claims: await services.pairings.listPending() };
   });
 
   app.post("/api/v1/admin/pairings", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const publicUrl = config.publicBaseUrl?.replace(/\/$/, "") ?? publicBridgeUrl(request, config);
     const localUrl = config.localBaseUrl?.replace(/\/$/, "");
     return services.pairings.create(publicUrl, {
@@ -646,19 +766,19 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/api/v1/admin/devices", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     return { devices: await services.devices.list() };
   });
 
   app.put("/api/v1/admin/instance/name", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const body = request.body as { name?: unknown };
     assertOrThrow(typeof body?.name === "string" && body.name.trim().length > 0 && body.name.trim().length <= 120, 400, "INVALID_REQUEST", "name must contain 1 to 120 characters.");
     return { instance: await services.identity.setName(body.name) };
   });
 
   app.put("/api/v1/admin/devices/:deviceId/name", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { deviceId } = request.params as { deviceId: string };
     const body = request.body as { name?: unknown };
     assertOrThrow(typeof body?.name === "string", 400, "INVALID_REQUEST", "name must be a string.");
@@ -666,31 +786,33 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/api/v1/admin/users", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     return { users: await services.adminUsers.list() };
   });
 
   app.post("/api/v1/admin/users", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const body = request.body as { username?: unknown; displayName?: unknown };
     assertOrThrow(typeof body?.username === "string", 400, "INVALID_REQUEST", "username is required.");
     return { user: await services.adminUsers.create(body.username, typeof body.displayName === "string" ? body.displayName : undefined) };
   });
 
   app.put("/api/v1/admin/users/:userId", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { userId } = request.params as { userId: string };
     const body = request.body as { displayName?: unknown; status?: unknown };
     assertOrThrow(body && typeof body === "object", 400, "INVALID_REQUEST", "JSON object required.");
     assertOrThrow(body.status === undefined || body.status === "active" || body.status === "disabled", 400, "INVALID_REQUEST", "status must be active or disabled.");
-    return { user: await services.adminUsers.update(userId, {
+    const user = await services.adminUsers.update(userId, {
       ...(typeof body.displayName === "string" ? { displayName: body.displayName } : {}),
       ...(body.status === "active" || body.status === "disabled" ? { status: body.status } : {}),
-    }) };
+    });
+    if (user.status === "disabled") await services.adminSessions.revokeUser(user.userId);
+    return { user };
   });
 
   app.put("/api/v1/admin/devices/:deviceId/user", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { deviceId } = request.params as { deviceId: string };
     const body = request.body as { userId?: unknown };
     assertOrThrow(body?.userId === null || typeof body?.userId === "string", 400, "INVALID_REQUEST", "userId must be a user ID or null.");
@@ -703,12 +825,12 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.get("/api/v1/admin/scopes", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     return { scopes: CANONICAL_DEVICE_SCOPES };
   });
 
   app.put("/api/v1/admin/devices/:deviceId/scopes", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { deviceId } = request.params as { deviceId: string };
     const body = request.body as { scopes?: unknown };
     assertOrThrow(Array.isArray(body?.scopes) && body.scopes.every(isDeviceScope), 400, "INVALID_REQUEST", "scopes must be an array of supported scopes.");
@@ -716,7 +838,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/admin/pairing-claims/:claimId/authorize", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { claimId } = request.params as { claimId: string };
     const descriptor = await services.pairings.pendingDescriptor(claimId);
     const device = await services.devices.authorize(descriptor);
@@ -726,26 +848,26 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
   });
 
   app.post("/api/v1/admin/pairing-claims/:claimId/reject", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { claimId } = request.params as { claimId: string };
     await services.pairings.reject(claimId);
     return { status: "rejected" };
   });
 
   app.post("/api/v1/admin/devices/:deviceId/enable", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { deviceId } = request.params as { deviceId: string };
     return { device: await services.devices.setStatus(deviceId, "authorized") };
   });
 
   app.post("/api/v1/admin/devices/:deviceId/disable", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { deviceId } = request.params as { deviceId: string };
     return { device: await services.devices.setStatus(deviceId, "disabled") };
   });
 
   app.post("/api/v1/admin/devices/:deviceId/revoke", async (request) => {
-    requireAdmin(request, config);
+    await requireAdmin(request, config, services);
     const { deviceId } = request.params as { deviceId: string };
     const device = await services.devices.setStatus(deviceId, "revoked");
     await services.sessions.revokeDevice(deviceId);
