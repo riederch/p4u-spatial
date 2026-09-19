@@ -5,6 +5,8 @@ export interface BridgeConfig {
   port: number;
   publicBaseUrl?: string;
   localBaseUrl?: string;
+  adminWebauthnRpId?: string;
+  adminWebauthnOrigin?: string;
   adminKey?: string;
   stateDir: string;
   repositoryRoot: string;
@@ -111,6 +113,8 @@ export function loadConfig(): BridgeConfig {
   if (rchkbRoot) config.rchkbRoot = rchkbRoot;
   if (process.env.P4U_PUBLIC_BASE_URL) config.publicBaseUrl = process.env.P4U_PUBLIC_BASE_URL.replace(/\/$/, "");
   if (process.env.P4U_LOCAL_BASE_URL) config.localBaseUrl = process.env.P4U_LOCAL_BASE_URL.replace(/\/$/, "");
+  if (process.env.P4U_ADMIN_WEBAUTHN_RP_ID) config.adminWebauthnRpId = process.env.P4U_ADMIN_WEBAUTHN_RP_ID;
+  if (process.env.P4U_ADMIN_WEBAUTHN_ORIGIN) config.adminWebauthnOrigin = process.env.P4U_ADMIN_WEBAUTHN_ORIGIN.replace(/\/$/, "");
   if (process.env.P4U_GIT_REMOTE_URL) config.gitRemoteUrl = process.env.P4U_GIT_REMOTE_URL;
   if (process.env.P4U_GIT_USERNAME) config.gitUsername = process.env.P4U_GIT_USERNAME;
   if (process.env.P4U_GIT_TOKEN) config.gitToken = process.env.P4U_GIT_TOKEN;

@@ -21,6 +21,7 @@ import { SpatialWriteService, type SpatialWriteAction } from "./services/spatial
 import { XrAppReleaseService } from "./services/xr-app-release-service.js";
 import { CandidateReviewService } from "./services/candidate-review-service.js";
 import { FixedWindowRateLimiter } from "./services/rate-limiter.js";
+import { AdminPasskeyService } from "./services/admin-passkey-service.js";
 import { normalizeRelativePath, safeEqual, sha256, stableStringify } from "./util.js";
 
 interface Services {
@@ -34,6 +35,7 @@ interface Services {
   xrAppReleases: XrAppReleaseService;
   candidates: CandidateReviewService;
   federation?: FederationService;
+  adminPasskeys?: AdminPasskeyService;
 }
 
 function bearer(request: FastifyRequest): string {
@@ -144,6 +146,9 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     xrAppReleases: new XrAppReleaseService(config.stateDir),
     candidates: new CandidateReviewService(config.stateDir, (scanId) => scans.isCommitted(scanId)),
     ...(federation ? { federation } : {}),
+    ...(config.adminWebauthnRpId && config.adminWebauthnOrigin
+      ? { adminPasskeys: new AdminPasskeyService(config.stateDir, config.adminWebauthnRpId, config.adminWebauthnOrigin) }
+      : {}),
   };
 
   app.setErrorHandler((error, request, reply) => {
@@ -155,6 +160,53 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     }
     request.log.error(error);
     return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error.", requestId } });
+  });
+
+  app.get("/api/v1/admin-auth/status", async () => ({
+    enabled: !!services.adminPasskeys,
+    configured: services.adminPasskeys ? await services.adminPasskeys.configured() : false,
+  }));
+
+  app.post("/api/v1/admin-auth/register/options", async (request) => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    if (await services.adminPasskeys.configured()) {
+      const supplied = request.headers["x-p4u-admin-session"];
+      const token = Array.isArray(supplied) ? supplied[0] : supplied;
+      assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
+      const csrf = request.headers["x-p4u-csrf"];
+      const csrfToken = Array.isArray(csrf) ? csrf[0] : csrf;
+      assertOrThrow(csrfToken && await services.adminPasskeys.verifyCsrf(token, csrfToken), 403, "CSRF_INVALID", "Valid CSRF token required.");
+    } else {
+      requireAdmin(request, config);
+    }
+    return services.adminPasskeys.registrationOptions();
+  });
+
+  app.post("/api/v1/admin-auth/register/verify", async (request) => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    const body = request.body as { ceremonyId?: unknown; response?: unknown; name?: unknown };
+    assertOrThrow(typeof body?.ceremonyId === "string" && body.response && typeof body.response === "object", 400, "INVALID_REQUEST", "ceremonyId and response are required.");
+    if (await services.adminPasskeys.configured()) {
+      const supplied = request.headers["x-p4u-admin-session"];
+      const token = Array.isArray(supplied) ? supplied[0] : supplied;
+      assertOrThrow(token && await services.adminPasskeys.verifySession(token), 401, "ADMIN_UNAUTHORIZED", "Passkey admin session required.");
+    } else {
+      requireAdmin(request, config);
+    }
+    const passkey = await services.adminPasskeys.verifyRegistration(body.ceremonyId, body.response as any, typeof body.name === "string" ? body.name : undefined);
+    return { passkey: { id: passkey.id, name: passkey.name, createdAt: passkey.createdAt } };
+  });
+
+  app.post("/api/v1/admin-auth/login/options", async () => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    return services.adminPasskeys.authenticationOptions();
+  });
+
+  app.post("/api/v1/admin-auth/login/verify", async (request) => {
+    assertOrThrow(services.adminPasskeys, 503, "PASSKEY_DISABLED", "Passkey authentication is not configured.");
+    const body = request.body as { ceremonyId?: unknown; response?: unknown };
+    assertOrThrow(typeof body?.ceremonyId === "string" && body.response && typeof body.response === "object", 400, "INVALID_REQUEST", "ceremonyId and response are required.");
+    return services.adminPasskeys.verifyAuthentication(body.ceremonyId, body.response as any);
   });
 
   app.get("/health", async () => ({
