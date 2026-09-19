@@ -113,6 +113,9 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         routeId: config.federationRouteId,
         accessMode: config.federationToken ? "service" : "anonymous",
         ...(config.federationToken ? { token: config.federationToken } : {}),
+        retryBaseSeconds: config.federationRetryBaseSeconds,
+        retryMaxSeconds: config.federationRetryMaxSeconds,
+        relayRetentionSeconds: config.federationRelayRetentionSeconds,
       })
     : undefined;
 
@@ -515,6 +518,19 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     requireAdmin(request, config);
     if (!services.federation) throw new BridgeError(404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");
     return services.federation.retryPending();
+  });
+
+  app.post("/api/v1/admin/federation/cleanup", async (request) => {
+    requireAdmin(request, config);
+    if (!services.federation) throw new BridgeError(404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");
+    return services.federation.cleanupRelays();
+  });
+
+  app.get("/api/v1/admin/metrics", async (request) => {
+    requireAdmin(request, config);
+    return {
+      federation: services.federation ? await services.federation.metrics() : null,
+    };
   });
 
   app.post("/api/v1/admin/pairings", async (request) => {

@@ -179,3 +179,29 @@ The bridge exposes two unauthenticated operational probes with different semanti
 A configured federation upstream is intentionally not a readiness dependency. Federation already supports cached reads and durable relay, so an upstream outage must not take the local bridge out of service.
 
 The filesystem provider verifies that its repository root can be created and is readable/writable. The Git provider verifies initialization, refresh eligibility and a valid local HEAD without mutating repository content.
+
+## Federation relay backoff, retention and metrics
+
+Durable federation relays use exponential retry backoff. Defaults are a 5 second initial delay, capped at 5 minutes:
+
+```bash
+export P4U_FEDERATION_RETRY_BASE=5
+export P4U_FEDERATION_RETRY_MAX=300
+export P4U_FEDERATION_RELAY_RETENTION=604800
+```
+
+A failed retry records the attempt count and `nextAttemptAt`. Manual retry skips entries whose backoff window has not elapsed instead of hammering an unavailable upstream. Terminal `source-committed`, `conflict` and `rejected` relay records are retained for the configured period and can then be removed with:
+
+```text
+POST /api/v1/admin/federation/cleanup
+```
+
+Pending relays are never removed by retention cleanup.
+
+Administrator-visible operational counters are available from:
+
+```text
+GET /api/v1/admin/metrics
+```
+
+The federation section reports cached source/read counts plus pending, terminal and currently deferred relay counts. These are operational state counters, not Prometheus time-series metrics.

@@ -41,7 +41,10 @@ describe("bridge vertical slice", () => {
       scanUploadRetentionSeconds: 7 * 24 * 60 * 60,
     pairingClaimRateLimit: 30,
     sessionRefreshRateLimit: 60,
-    scanRequestRateLimit: 600
+    scanRequestRateLimit: 600,
+    federationRetryBaseSeconds: 5,
+    federationRetryMaxSeconds: 300,
+    federationRelayRetentionSeconds: 604800,
     };
 
     const repository = new FilesystemRepositoryProvider(config.repositoryRoot);

@@ -16,6 +16,9 @@ interface RelayEntry {
   requestHash: string;
   status: JsonObject;
   updatedAt: string;
+  attempts: number;
+  nextAttemptAt?: string;
+  terminalAt?: string;
 }
 
 interface FederationState {
@@ -30,6 +33,9 @@ export interface FederationConfig {
   routeId: string;
   accessMode: "anonymous" | "service";
   token?: string;
+  retryBaseSeconds?: number;
+  retryMaxSeconds?: number;
+  relayRetentionSeconds?: number;
 }
 
 export interface FederatedReadResult {
@@ -251,7 +257,13 @@ export class FederationService {
     }
   }
 
-  private relayDurable(operation: JsonObject, sourceId: string, operationId: string): JsonObject {
+  private retryDelaySeconds(attempts: number): number {
+    const base = this.config.retryBaseSeconds ?? 5;
+    const max = this.config.retryMaxSeconds ?? 300;
+    return Math.min(max, base * (2 ** Math.max(0, attempts - 1)));
+  }
+
+  private relayDurable(operation: JsonObject, sourceId: string, operationId: string, entry?: RelayEntry): JsonObject {
     return {
       operationId,
       sourceId,
@@ -260,6 +272,8 @@ export class FederationService {
       relay: {
         routeId: this.config.routeId,
         accessMode: this.config.accessMode,
+        attempts: entry?.attempts ?? 0,
+        ...(entry?.nextAttemptAt ? { nextAttemptAt: entry.nextAttemptAt } : {}),
       },
     };
   }
@@ -269,7 +283,9 @@ export class FederationService {
       && (body.state === "source-committed" || body.state === "conflict" || body.state === "rejected");
   }
 
-  private async tryDeliver(entry: RelayEntry): Promise<JsonObject> {
+  private async tryDeliver(entry: RelayEntry, nowMs = Date.now()): Promise<JsonObject> {
+    entry.attempts = (entry.attempts ?? 0) + 1;
+    delete entry.nextAttemptAt;
     try {
       const { body } = await this.jsonRequest("/spatial/v1/operations", {
         method: "POST",
@@ -277,8 +293,11 @@ export class FederationService {
       });
       if (this.isTerminal(body)) {
         entry.status = body;
+        entry.terminalAt = nowIso();
       } else {
-        entry.status = this.relayDurable(entry.operation, entry.sourceId, entry.operationId);
+        const delay = this.retryDelaySeconds(entry.attempts);
+        entry.nextAttemptAt = new Date(nowMs + delay * 1000).toISOString();
+        entry.status = this.relayDurable(entry.operation, entry.sourceId, entry.operationId, entry);
       }
     } catch (error) {
       if (error instanceof BridgeError && error.statusCode < 500) {
@@ -289,8 +308,11 @@ export class FederationService {
           updatedAt: nowIso(),
           error: { code: error.code, message: error.message },
         };
+        entry.terminalAt = nowIso();
       } else {
-        entry.status = this.relayDurable(entry.operation, entry.sourceId, entry.operationId);
+        const delay = this.retryDelaySeconds(entry.attempts);
+        entry.nextAttemptAt = new Date(nowMs + delay * 1000).toISOString();
+        entry.status = this.relayDurable(entry.operation, entry.sourceId, entry.operationId, entry);
       }
     }
     entry.updatedAt = nowIso();
@@ -325,9 +347,11 @@ export class FederationService {
         operationId,
         operation: raw,
         requestHash: hash,
-        status: this.relayDurable(raw, sourceId, operationId),
+        status: {},
         updatedAt: nowIso(),
+        attempts: 0,
       };
+      entry.status = this.relayDurable(raw, sourceId, operationId, entry);
       await this.store.mutate((next) => {
         next.relays[key] = entry;
       });
@@ -348,18 +372,71 @@ export class FederationService {
     });
   }
 
-  async retryPending(): Promise<{ attempted: number; terminal: number }> {
+  async retryPending(nowMs = Date.now()): Promise<{ attempted: number; terminal: number; deferred: number }> {
     return this.withGate(async () => {
       const state = await this.store.read();
       let attempted = 0;
       let terminal = 0;
+      let deferred = 0;
       for (const entry of Object.values(state.relays)) {
         if (this.isTerminal(entry.status)) continue;
+        if (entry.nextAttemptAt && Date.parse(entry.nextAttemptAt) > nowMs) {
+          deferred += 1;
+          continue;
+        }
         attempted += 1;
-        const status = await this.tryDeliver(entry);
+        const status = await this.tryDeliver(entry, nowMs);
         if (this.isTerminal(status)) terminal += 1;
       }
-      return { attempted, terminal };
+      return { attempted, terminal, deferred };
     });
+  }
+
+  async cleanupRelays(nowMs = Date.now()): Promise<{ removed: number; kept: number }> {
+    const retentionMs = (this.config.relayRetentionSeconds ?? 7 * 24 * 60 * 60) * 1000;
+    let removed = 0;
+    let kept = 0;
+    await this.store.mutate((state) => {
+      for (const [key, entry] of Object.entries(state.relays)) {
+        const terminal = this.isTerminal(entry.status);
+        const terminalTime = entry.terminalAt ? Date.parse(entry.terminalAt) : Date.parse(entry.updatedAt);
+        if (terminal && Number.isFinite(terminalTime) && nowMs - terminalTime >= retentionMs) {
+          delete state.relays[key];
+          removed += 1;
+        } else {
+          kept += 1;
+        }
+      }
+    });
+    return { removed, kept };
+  }
+
+  async metrics(): Promise<{
+    cachedSources: number;
+    cachedReads: number;
+    relaysPending: number;
+    relaysTerminal: number;
+    relaysDeferred: number;
+  }> {
+    const state = await this.store.read();
+    const nowMs = Date.now();
+    let relaysPending = 0;
+    let relaysTerminal = 0;
+    let relaysDeferred = 0;
+    for (const entry of Object.values(state.relays)) {
+      if (this.isTerminal(entry.status)) {
+        relaysTerminal += 1;
+      } else {
+        relaysPending += 1;
+        if (entry.nextAttemptAt && Date.parse(entry.nextAttemptAt) > nowMs) relaysDeferred += 1;
+      }
+    }
+    return {
+      cachedSources: Object.keys(state.sources).length,
+      cachedReads: Object.keys(state.reads).length,
+      relaysPending,
+      relaysTerminal,
+      relaysDeferred,
+    };
   }
 }

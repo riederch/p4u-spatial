@@ -19,6 +19,9 @@ function config(root: string): BridgeConfig {
     scanMaxFiles: 256, scanMaxFileBytes: 64 * 1024 * 1024, scanMaxTotalBytes: 512 * 1024 * 1024,
     scanUploadRetentionSeconds: 7 * 24 * 60 * 60,
     pairingClaimRateLimit: 30, sessionRefreshRateLimit: 60, scanRequestRateLimit: 600,
+    federationRetryBaseSeconds: 5,
+    federationRetryMaxSeconds: 300,
+    federationRelayRetentionSeconds: 604800,
   };
 }
 

@@ -17,6 +17,9 @@ SCAN_UPLOAD_RETENTION_SECONDS="$(bashio::config 'scan_upload_retention_seconds')
 PAIRING_CLAIM_RATE_LIMIT="$(bashio::config 'pairing_claim_rate_limit')"
 SESSION_REFRESH_RATE_LIMIT="$(bashio::config 'session_refresh_rate_limit')"
 SCAN_REQUEST_RATE_LIMIT="$(bashio::config 'scan_request_rate_limit')"
+FEDERATION_RETRY_BASE_SECONDS="$(bashio::config 'federation_retry_base_seconds')"
+FEDERATION_RETRY_MAX_SECONDS="$(bashio::config 'federation_retry_max_seconds')"
+FEDERATION_RELAY_RETENTION_SECONDS="$(bashio::config 'federation_relay_retention_seconds')"
 
 export P4U_HOST="0.0.0.0"
 export P4U_PORT="8787"
@@ -53,6 +56,9 @@ export P4U_SCAN_UPLOAD_RETENTION="${SCAN_UPLOAD_RETENTION_SECONDS}"
 export P4U_PAIRING_CLAIM_RATE_LIMIT="${PAIRING_CLAIM_RATE_LIMIT}"
 export P4U_SESSION_REFRESH_RATE_LIMIT="${SESSION_REFRESH_RATE_LIMIT}"
 export P4U_SCAN_REQUEST_RATE_LIMIT="${SCAN_REQUEST_RATE_LIMIT}"
+export P4U_FEDERATION_RETRY_BASE="${FEDERATION_RETRY_BASE_SECONDS}"
+export P4U_FEDERATION_RETRY_MAX="${FEDERATION_RETRY_MAX_SECONDS}"
+export P4U_FEDERATION_RELAY_RETENTION="${FEDERATION_RELAY_RETENTION_SECONDS}"
 
 if [[ -n "${ADMIN_KEY}" ]]; then
   export P4U_ADMIN_KEY="${ADMIN_KEY}"

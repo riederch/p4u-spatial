@@ -32,6 +32,9 @@ options:
   pairing_claim_rate_limit: 30
   session_refresh_rate_limit: 60
   scan_request_rate_limit: 600
+  federation_retry_base_seconds: 5
+  federation_retry_max_seconds: 300
+  federation_relay_retention_seconds: 604800
 schema:
   admin_key: str
   source_title: str
@@ -50,3 +53,6 @@ schema:
   pairing_claim_rate_limit: int
   session_refresh_rate_limit: int
   scan_request_rate_limit: int
+  federation_retry_base_seconds: int
+  federation_retry_max_seconds: int
+  federation_relay_retention_seconds: int

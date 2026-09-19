@@ -34,6 +34,9 @@ export interface BridgeConfig {
   pairingClaimRateLimit: number;
   sessionRefreshRateLimit: number;
   scanRequestRateLimit: number;
+  federationRetryBaseSeconds: number;
+  federationRetryMaxSeconds: number;
+  federationRelayRetentionSeconds: number;
 }
 
 function boolEnv(name: string, fallback: boolean): boolean {
@@ -99,6 +102,9 @@ export function loadConfig(): BridgeConfig {
     pairingClaimRateLimit: intEnv("P4U_PAIRING_CLAIM_RATE_LIMIT", 30),
     sessionRefreshRateLimit: intEnv("P4U_SESSION_REFRESH_RATE_LIMIT", 60),
     scanRequestRateLimit: intEnv("P4U_SCAN_REQUEST_RATE_LIMIT", 600),
+    federationRetryBaseSeconds: intEnv("P4U_FEDERATION_RETRY_BASE", 5),
+    federationRetryMaxSeconds: intEnv("P4U_FEDERATION_RETRY_MAX", 5 * 60),
+    federationRelayRetentionSeconds: intEnv("P4U_FEDERATION_RELAY_RETENTION", 7 * 24 * 60 * 60),
   };
 
   if (rchkbRoot) config.rchkbRoot = rchkbRoot;

@@ -91,6 +91,9 @@ describe("FederationService", () => {
       routeId: "relay",
       accessMode: "service",
       token: "server-only-token",
+      retryBaseSeconds: 1,
+      retryMaxSeconds: 4,
+      relayRetentionSeconds: 60,
     });
 
     const sources = await service.listSources("https://relay.test");
@@ -132,17 +135,36 @@ describe("FederationService", () => {
       routeId: "relay",
       accessMode: "service",
       token: "server-only-token",
+      retryBaseSeconds: 1,
+      retryMaxSeconds: 4,
+      relayRetentionSeconds: 60,
     });
     expect(await restarted.getOperation(operation.operationId)).toMatchObject({ state: "relay-durable" });
 
+    const deferred = await restarted.retryPending();
+    expect(deferred).toEqual({ attempted: 0, terminal: 0, deferred: 1 });
+
     const second = await listen(first.port);
-    const retry = await restarted.retryPending();
-    expect(retry).toEqual({ attempted: 1, terminal: 1 });
+    const retry = await restarted.retryPending(Date.now() + 10_000);
+    expect(retry).toEqual({ attempted: 1, terminal: 1, deferred: 0 });
     expect(await restarted.getOperation(operation.operationId)).toMatchObject({
       state: "source-committed",
       sourceId: SOURCE_ID,
       operationId: operation.operationId,
     });
+    const metrics = await restarted.metrics();
+    expect(metrics).toMatchObject({
+      cachedSources: 1,
+      cachedReads: 1,
+      relaysPending: 0,
+      relaysTerminal: 1,
+      relaysDeferred: 0,
+    });
+
+    const cleanupEarly = await restarted.cleanupRelays(Date.now() + 30_000);
+    expect(cleanupEarly).toEqual({ removed: 0, kept: 1 });
+    const cleanupLate = await restarted.cleanupRelays(Date.now() + 120_000);
+    expect(cleanupLate).toEqual({ removed: 1, kept: 0 });
     await close(second.server);
   });
 });
