@@ -99,7 +99,7 @@ class MainActivity : Activity() {
         }, fullWidth())
 
         deviceNameInput = EditText(this).apply {
-            hint = "Lokaler Brillenname, z. B. picoVrVr Christoph"
+            hint = "Lokaler Brillenname, z. B. picoVr Christoph"
             setText(deviceIdentity.localName())
             isSingleLine = true
         }
@@ -266,7 +266,7 @@ class MainActivity : Activity() {
 
     private fun startQrScan() {
         scanQrButton.isEnabled = false
-        status.text = "QR-Scanner startet … QR-Code vor die picoVrVr-Kamera halten."
+        status.text = "QR-Scanner startet … QR-Code vor die picoVr-Kamera halten."
         qrScanner?.close()
         qrScanner = PicoQrScanner(
             activity = this,
@@ -463,7 +463,7 @@ class MainActivity : Activity() {
 
                 when (AndroidInteractiveInstaller(this).launch(apk)) {
                     InstallLaunchResult.UserActionRequired ->
-                        "APK verifiziert. Android/picoVrVr-Installation wurde geöffnet."
+                        "APK verifiziert. Android/picoVr-Installation wurde geöffnet."
                     InstallLaunchResult.UnknownSourcePermissionRequired ->
                         "Bitte Installation aus dieser Quelle erlauben und danach erneut auf Update prüfen."
                 }

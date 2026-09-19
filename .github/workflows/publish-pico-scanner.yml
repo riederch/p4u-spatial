@@ -1,4 +1,4 @@
-name: Publish PICO Scanner APK
+name: Publish picoVr Scanner APK
 
 on:
   workflow_dispatch:
@@ -28,6 +28,11 @@ on:
         description: Optional release notes
         required: false
         type: string
+      publish_to_bridge:
+        description: Publish the release descriptor to the configured Bridge for OTA delivery
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -173,7 +178,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$TAG_NAME"             "$RUNNER_TEMP/${{ steps.metadata.outputs.asset_name }}"             "$RUNNER_TEMP/release-descriptor.json"             --title "P4U Spatial Scanner ${{ inputs.version_name }} (${{ inputs.channel }})"             --notes "${{ inputs.release_notes || format('P4U Spatial Scanner {0} ({1})', inputs.version_name, inputs.channel) }}"             ${{ inputs.channel == 'stable' && '--latest' || '--prerelease' }}
+          gh release create "$TAG_NAME"             "$RUNNER_TEMP/${{ steps.metadata.outputs.asset_name }}"             "$RUNNER_TEMP/release-descriptor.json"             --title "P4U Spatial picoVr Scanner ${{ inputs.version_name }} (${{ inputs.channel }})"             --notes "${{ inputs.release_notes || format('P4U Spatial picoVr Scanner {0} ({1})', inputs.version_name, inputs.channel) }}"             ${{ inputs.channel == 'stable' && '--latest' || '--prerelease' }}
+
+      - name: Publish release to Bridge
+        if: ${{ inputs.publish_to_bridge }}
+        shell: bash
+        env:
+          BRIDGE_URL: ${{ secrets.P4U_BRIDGE_URL }}
+          BRIDGE_ADMIN_KEY: ${{ secrets.P4U_BRIDGE_ADMIN_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BRIDGE_URL" ] || [ -z "$BRIDGE_ADMIN_KEY" ]; then
+            echo "P4U_BRIDGE_URL and P4U_BRIDGE_ADMIN_KEY are required when publish_to_bridge=true."
+            exit 1
+          fi
+          BRIDGE_URL="${BRIDGE_URL%/}"
+          curl --fail-with-body --show-error --silent \
+            -X PUT \
+            -H "X-P4U-Admin-Key: $BRIDGE_ADMIN_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary "@$RUNNER_TEMP/release-descriptor.json" \
+            "$BRIDGE_URL/api/v1/admin/xr-app/releases/$RELEASE_ID"
+          echo
+          echo "Published $RELEASE_ID to $BRIDGE_URL"
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
