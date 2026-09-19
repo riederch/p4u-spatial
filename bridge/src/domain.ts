@@ -93,6 +93,7 @@ export interface DeviceRecord extends DeviceDescriptor {
 export interface ScanFile {
   path: string;
   sha256: string;
+  size?: number;
   mediaType?: string;
 }
 

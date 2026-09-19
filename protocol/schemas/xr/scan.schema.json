@@ -82,14 +82,16 @@
           },
           "size": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 67108864
           },
           "mediaType": {
             "type": "string"
           }
         },
         "additionalProperties": false
-      }
+      },
+      "maxItems": 256
     },
     "capture": {
       "$ref": "capture-metadata.schema.json"

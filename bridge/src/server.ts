@@ -115,7 +115,11 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       })
     : undefined;
 
-  const scans = new ScanUploadService(config.stateDir, repository, config.spatialRoot);
+  const scans = new ScanUploadService(config.stateDir, repository, config.spatialRoot, {
+    maxFiles: config.scanMaxFiles,
+    maxFileBytes: config.scanMaxFileBytes,
+    maxTotalBytes: config.scanMaxTotalBytes,
+  });
   const services: Services = {
     devices: new DeviceRegistry(config.stateDir),
     identity: new InstanceIdentityService(config.stateDir),

@@ -34,7 +34,10 @@ describe("bridge vertical slice", () => {
       spatialOperationRetentionSeconds: 86400,
       accessTokenTtlSeconds: 1800,
       refreshTokenTtlSeconds: 86400,
-      pairingTtlSeconds: 300
+      pairingTtlSeconds: 300,
+      scanMaxFiles: 256,
+      scanMaxFileBytes: 64 * 1024 * 1024,
+      scanMaxTotalBytes: 512 * 1024 * 1024
     };
 
     const repository = new FilesystemRepositoryProvider(config.repositoryRoot);

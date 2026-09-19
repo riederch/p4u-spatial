@@ -27,6 +27,9 @@ export interface BridgeConfig {
   accessTokenTtlSeconds: number;
   refreshTokenTtlSeconds: number;
   pairingTtlSeconds: number;
+  scanMaxFiles: number;
+  scanMaxFileBytes: number;
+  scanMaxTotalBytes: number;
 }
 
 function boolEnv(name: string, fallback: boolean): boolean {
@@ -85,6 +88,9 @@ export function loadConfig(): BridgeConfig {
     accessTokenTtlSeconds: intEnv("P4U_ACCESS_TOKEN_TTL", 30 * 60),
     refreshTokenTtlSeconds: intEnv("P4U_REFRESH_TOKEN_TTL", 30 * 24 * 60 * 60),
     pairingTtlSeconds: intEnv("P4U_PAIRING_TTL", 5 * 60),
+    scanMaxFiles: intEnv("P4U_SCAN_MAX_FILES", 256),
+    scanMaxFileBytes: intEnv("P4U_SCAN_MAX_FILE_BYTES", 64 * 1024 * 1024),
+    scanMaxTotalBytes: intEnv("P4U_SCAN_MAX_TOTAL_BYTES", 512 * 1024 * 1024),
   };
 
   if (rchkbRoot) config.rchkbRoot = rchkbRoot;

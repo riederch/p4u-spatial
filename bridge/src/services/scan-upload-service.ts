@@ -34,6 +34,7 @@ export class ScanUploadService {
     stateDir: string,
     private readonly repository: RepositoryProvider,
     private readonly spatialRoot: string,
+    private readonly limits: { maxFiles: number; maxFileBytes: number; maxTotalBytes: number },
   ) {
     this.uploadRoot = join(stateDir, "uploads");
   }
@@ -61,10 +62,24 @@ export class ScanUploadService {
     assertOrThrow(isScanManifest(input), 400, "UNSUPPORTED_SCHEMA", "Invalid or unsupported scan manifest.");
     assertOrThrow(input.scanId === scanId, 400, "SCAN_ID_MISMATCH", "URL scan ID does not match manifest.");
     assertOrThrow(input.device.deviceId === deviceId, 403, "DEVICE_MISMATCH", "Manifest belongs to a different device.");
+    assertOrThrow(input.files.length <= this.limits.maxFiles, 413, "SCAN_TOO_LARGE", "Scan declares too many files.");
+
+    const normalizedPaths = input.files.map((file) => normalizeRelativePath(file.path));
+    assertOrThrow(new Set(normalizedPaths).size === normalizedPaths.length, 400, "DUPLICATE_SCAN_FILE", "Scan manifest contains duplicate file paths.");
+
+    let declaredTotal = 0;
+    for (const file of input.files) {
+      if (file.size !== undefined) {
+        assertOrThrow(Number.isSafeInteger(file.size) && file.size >= 0, 400, "UNSUPPORTED_SCHEMA", "Scan file size must be a non-negative safe integer.");
+        assertOrThrow(file.size <= this.limits.maxFileBytes, 413, "SCAN_FILE_TOO_LARGE", "Scan file exceeds configured size limit.");
+        declaredTotal += file.size;
+        assertOrThrow(declaredTotal <= this.limits.maxTotalBytes, 413, "SCAN_TOO_LARGE", "Scan exceeds configured total size limit.");
+      }
+    }
 
     const manifest: ScanManifest = {
       ...input,
-      files: input.files.map((file) => ({ ...file, path: normalizeRelativePath(file.path) })),
+      files: input.files.map((file, index) => ({ ...file, path: normalizedPaths[index]! })),
     };
     const manifestHash = sha256(stableStringify(manifest));
 
@@ -105,6 +120,10 @@ export class ScanUploadService {
     const path = normalizeRelativePath(rawPath);
     const expected = manifest.files.find((f) => f.path === path);
     if (!expected) throw new BridgeError(400, "UNDECLARED_SCAN_FILE", "File is not declared in scan manifest.");
+    assertOrThrow(content.byteLength <= this.limits.maxFileBytes, 413, "SCAN_FILE_TOO_LARGE", "Uploaded file exceeds configured size limit.");
+    if (expected.size !== undefined) {
+      assertOrThrow(content.byteLength === expected.size, 400, "SIZE_MISMATCH", "Uploaded content does not match manifest size.");
+    }
 
     const actual = sha256(content);
     if (declaredSha256 && declaredSha256.toLowerCase() !== actual) throw new BridgeError(400, "HASH_MISMATCH", "Uploaded content does not match request hash.");
