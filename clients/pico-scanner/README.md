@@ -37,11 +37,21 @@ gradle :app:assembleDebug
 
 A Gradle wrapper binary is intentionally not committed yet; generate the wrapper once Gradle 9.6 is available in the Android build environment.
 
+Release version metadata can be supplied without editing the project:
+
+```bash
+gradle :app:assembleRelease -PP4U_VERSION_NAME=0.1.1 -PP4U_VERSION_CODE=2
+```
+
+Release signing is injected through `P4U_ANDROID_KEYSTORE_PATH`, `P4U_ANDROID_KEYSTORE_PASSWORD`, `P4U_ANDROID_KEY_ALIAS` and `P4U_ANDROID_KEY_PASSWORD`. The keystore must never be committed.
+
 ## Install
 
 The debug APK can be installed using the normal administrator-controlled PICO/Android sideload path for development.
 
 Production releases must be signed with the long-lived P4U Scanner signing key. Update descriptors must contain the SHA-256 fingerprint of that same certificate.
+
+The canonical production procedure is documented in [the PICO Scanner release runbook](../../docs/pico-scanner-release.md). GitHub Actions workflow `Publish PICO Scanner APK` builds, signs, verifies and publishes the APK plus `release-descriptor.json`. Publishing that descriptor to a Bridge remains an explicit administrator action.
 
 ## Persistence boundary
 
