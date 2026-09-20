@@ -29,6 +29,7 @@ import com.pico.spatial.ui.foundation.material.backgroundMaterial
 class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        SystemDiagnostics.dump(this)
         launch {
             DefaultWindowContainer {
                 val context = LocalContext.current
