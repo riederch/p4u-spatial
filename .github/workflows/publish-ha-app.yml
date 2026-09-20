@@ -4,7 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - ha-release
+      - main
+    paths:
+      - "p4u_spatial/**"
+      - "bridge/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/publish-ha-app.yml"
 
 permissions:
   contents: read
