@@ -1,6 +1,6 @@
 package at.p4u.spatial.scanner
 
-import android.app.Activity
+import com.pico.spatial.ui.platform.stub.SpatialLaunchActivity
 import android.os.Bundle
 import android.Manifest
 import android.content.pm.PackageManager
@@ -35,7 +35,7 @@ import at.p4u.spatial.update.InstallLaunchResult
 import at.p4u.spatial.update.VerifiedApkStore
 import java.util.concurrent.Executors
 
-class MainActivity : Activity() {
+class MainActivity : SpatialLaunchActivity() {
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var bridgeInput: EditText
     private lateinit var bridgeNameInput: EditText

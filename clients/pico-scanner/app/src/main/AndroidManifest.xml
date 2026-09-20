@@ -17,11 +17,28 @@
 
         <activity
             android:name=".MainActivity"
+            android:configChanges="screenLayout|screenSize|smallestScreenSize|orientation"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <meta-data
+                android:name="pico.spatial.windowcontainer.id"
+                android:value="Home" />
+            <meta-data
+                android:name="pico.spatial.windowcontainer.resizetype"
+                android:value="0" />
+            <meta-data
+                android:name="pico.spatial.windowcontainer.style"
+                android:value="1" />
+            <meta-data
+                android:name="pico.spatial.windowcontainer.defaultsize"
+                android:value="960x720" />
+            <meta-data
+                android:name="pico.spatial.windowcontainer.materialbackground"
+                android:value="0" />
         </activity>
 
         <provider

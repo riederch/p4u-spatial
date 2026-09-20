@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "at.p4u.spatial.scanner"
-        minSdk = 29
+        minSdk = 31
         targetSdk = 36
         versionCode = releaseVersionCode
         versionName = releaseVersionName
@@ -54,6 +54,9 @@ dependencies {
     implementation("com.pico.spatial.core:core")
     implementation("com.pico.spatial.ml:securemr")
     implementation("com.pico.spatial.ml:readback")
+    implementation("com.pico.spatial.ui:foundation")
+    implementation("com.pico.spatial.ui:platform")
+    implementation("com.pico.spatial.ui:design")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.google.zxing:core:3.5.3")
 }
