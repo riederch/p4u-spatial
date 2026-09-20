@@ -15,6 +15,9 @@
         <meta-data
             android:name="pico.spatial.use_experimental_api"
             android:value="1" />
+        <meta-data
+            android:name="pvr.app.secure_mr"
+            android:value="1" />
 
         <activity
             android:name=".MainActivity"
