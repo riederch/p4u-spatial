@@ -123,6 +123,13 @@ void ReadbackCheck::Tick() {
       auto result = new XrReadbackTensorBufferPICO();
       if (mReadbackController->TryAcquireReadbackBuffer(*mCurrentReadbackRequest, result)) {
         mCurrentReadbackRequest = nullptr;
+        static uint64_t readbackFrameCount = 0;
+        ++readbackFrameCount;
+        if (readbackFrameCount == 1 || readbackFrameCount % 30 == 0) {
+          LOGI("QR RGB readback frame %llu capacity=%llu",
+               static_cast<unsigned long long>(readbackFrameCount),
+               static_cast<unsigned long long>(result->bufferCapacityInput));
+        }
         OutputReadbackBufferToFile(result, "");
         delete[] reinterpret_cast<char*>(result->buffer);
       }
@@ -153,6 +160,7 @@ void ReadbackCheck::RunPipelines() {
 }
 
 void ReadbackCheck::RequestPermission(struct android_app* app) {
+  LOGI("QR scanner requesting CAMERA permission");
   ReadbackCheck::gapp = app;
   JNIEnv* env = nullptr;
   app->activity->vm->AttachCurrentThread(&env, nullptr);
@@ -200,6 +208,17 @@ void ReadbackCheck::OutputReadbackBufferToFile(
           reinterpret_cast<const jbyte*>(tensorBuffer->buffer));
       env->CallVoidMethod(activity, mid, frame, mConfig.w, mConfig.h);
       env->DeleteLocalRef(frame);
+    }
+    if (env->ExceptionCheck()) {
+      LOGE("Exception while delivering RGB frame to Java");
+      env->ExceptionDescribe();
+      env->ExceptionClear();
+    }
+  } else {
+    LOGE("JNI onRgbFrame method not found");
+    if (env->ExceptionCheck()) {
+      env->ExceptionDescribe();
+      env->ExceptionClear();
     }
   }
   env->DeleteLocalRef(cls);
