@@ -16,6 +16,14 @@
             android:name="pico.spatial.use_experimental_api"
             android:value="1" />
 
+        <!-- PICO OS must classify the process as an XR app so the OpenMR runtime is attached. -->
+        <meta-data
+            android:name="pvr.app.type"
+            android:value="vr" />
+        <meta-data
+            android:name="pvr.display.orientation"
+            android:value="180" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="screenLayout|screenSize|smallestScreenSize|orientation"
