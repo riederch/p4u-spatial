@@ -21,13 +21,6 @@ android {
         }
     }
 
-    buildTypes {
-        debug {
-            isDebuggable = true
-            isJniDebuggable = true
-        }
-    }
-
     buildFeatures {
         prefab = true
     }
