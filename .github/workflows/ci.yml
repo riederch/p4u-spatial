@@ -68,12 +68,22 @@ jobs:
           echo "===== P4U Spatial dependencies ====="
           grep -E "com\\.pico\\.spatial|openmr|securemr|readback|foundation|platform|design" /tmp/p4u-deps.txt || true
           echo "===== Search resolved artifacts for missing runtime classes ====="
-          find "$HOME/.gradle/caches/modules-2/files-2.1" -type f \\( -name "*.jar" -o -name "*.aar" \\) -print0 | while IFS= read -r -d '' f; do
+          while IFS= read -r -d '' f; do
             if unzip -l "$f" 2>/dev/null | grep -Eq "StatisticsReporter|SSMRConnection"; then
               echo "FOUND-IN: $f"
               unzip -l "$f" 2>/dev/null | grep -E "StatisticsReporter|SSMRConnection" || true
             fi
-          done
+          done < <(find "$HOME/.gradle/caches/modules-2/files-2.1" -type f -name "*.jar" -print0)
+          while IFS= read -r -d '' f; do
+            tmpdir="$(mktemp -d)"
+            if unzip -p "$f" classes.jar > "$tmpdir/classes.jar" 2>/dev/null; then
+              if unzip -l "$tmpdir/classes.jar" 2>/dev/null | grep -Eq "StatisticsReporter|SSMRConnection"; then
+                echo "FOUND-IN-AAR: $f"
+                unzip -l "$tmpdir/classes.jar" 2>/dev/null | grep -E "StatisticsReporter|SSMRConnection" || true
+              fi
+            fi
+            rm -rf "$tmpdir"
+          done < <(find "$HOME/.gradle/caches/modules-2/files-2.1" -type f -name "*.aar" -print0)
 
       - name: Build debug APK
         working-directory: clients/pico-scanner
