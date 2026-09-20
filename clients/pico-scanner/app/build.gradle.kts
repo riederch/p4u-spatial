@@ -65,7 +65,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation(platform("com.pico.spatial:bom:6.1.9"))
     implementation("com.pico.spatial.core:core")
-    implementation("com.pico.spatial.foundation:foundation-extensions")
     implementation("com.pico.spatial.ml:securemr")
     implementation("com.pico.spatial.ml:readback")
     implementation("com.pico.spatial.ui:foundation")
