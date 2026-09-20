@@ -3,6 +3,7 @@ package at.p4u.spatial.scanner
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.pm.PackageInfo
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Build
@@ -38,9 +39,12 @@ object SystemDiagnostics {
         memoryAndStorage(context)
         packageFeatures(context)
         cameraInfo(context)
+        openMrPackageDiagnostics(context)
         spatialClasses()
-        systemProperties()
-        section("END picoVr startup diagnostics")
+        Thread {
+            systemProperties()
+            section("END picoVr startup diagnostics")
+        }.apply { name = "picoVr-system-properties" }.start()
     }
 
     private fun basicBuild() {
@@ -172,6 +176,103 @@ object SystemDiagnostics {
                 line("camera[" + id + "].capabilities", c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)?.joinToString())
             }
         }.onFailure { error("cameras", it) }
+    }
+
+    private fun openMrPackageDiagnostics(context: Context) {
+        section("OPENMR PACKAGE")
+        val packageName = "com.bytedance.pico.openmr"
+        val pm = context.packageManager
+
+        val flags =
+            PackageManager.PackageInfoFlags.of(
+                (
+                    PackageManager.GET_ACTIVITIES or
+                        PackageManager.GET_SERVICES or
+                        PackageManager.GET_PROVIDERS or
+                        PackageManager.GET_RECEIVERS or
+                        PackageManager.GET_PERMISSIONS or
+                        PackageManager.GET_META_DATA
+                ).toLong()
+            )
+
+        val info: PackageInfo? =
+            runCatching { pm.getPackageInfo(packageName, flags) }
+                .onFailure { error("openmr.packageInfo", it) }
+                .getOrNull()
+
+        if (info == null) {
+            line("openmr.package", "NOT_VISIBLE")
+            return
+        }
+
+        val app = info.applicationInfo
+        line("openmr.versionName", info.versionName)
+        line("openmr.versionCode", info.longVersionCode)
+        line("openmr.firstInstallTime", info.firstInstallTime)
+        line("openmr.lastUpdateTime", info.lastUpdateTime)
+        line("openmr.application.enabled", app?.enabled)
+        line("openmr.application.flags", app?.flags)
+        line("openmr.application.uid", app?.uid)
+        line("openmr.application.processName", app?.processName)
+        line("openmr.application.sourceDir", app?.sourceDir)
+        line("openmr.application.publicSourceDir", app?.publicSourceDir)
+        line("openmr.application.nativeLibraryDir", app?.nativeLibraryDir)
+        line("openmr.application.sharedLibraryFiles", app?.sharedLibraryFiles?.joinToString())
+        line("openmr.application.metaData", app?.metaData?.keySet()?.sorted()?.joinToString())
+
+        info.requestedPermissions?.sorted()?.forEach { line("openmr.permission", it) }
+
+        info.activities?.sortedBy { it.name }?.forEach {
+            line(
+                "openmr.activity",
+                it.name + "|exported=" + it.exported + "|permission=" + it.permission + "|process=" + it.processName
+            )
+        }
+        info.services?.sortedBy { it.name }?.forEach {
+            line(
+                "openmr.service",
+                it.name + "|exported=" + it.exported + "|permission=" + it.permission + "|process=" + it.processName
+            )
+        }
+        info.providers?.sortedBy { it.name }?.forEach {
+            line(
+                "openmr.provider",
+                it.name + "|authority=" + it.authority + "|exported=" + it.exported +
+                    "|readPermission=" + it.readPermission + "|writePermission=" + it.writePermission +
+                    "|process=" + it.processName
+            )
+        }
+        info.receivers?.sortedBy { it.name }?.forEach {
+            line(
+                "openmr.receiver",
+                it.name + "|exported=" + it.exported + "|permission=" + it.permission + "|process=" + it.processName
+            )
+        }
+
+        section("OPENMR FOREIGN CLASSLOADER PROBE")
+        runCatching {
+            val foreign =
+                context.createPackageContext(
+                    packageName,
+                    Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY,
+                )
+            line("openmr.foreignContext.packageName", foreign.packageName)
+            line("openmr.foreignContext.classLoader", foreign.classLoader.javaClass.name)
+
+            listOf(
+                "com.bytedance.pico.openmr.spatial.pack.SSMRConnection",
+                "com.bytedance.pico.openmr.spatial.pack.SSMRConnection$Companion",
+            ).forEach { name ->
+                val probe = runCatching { foreign.classLoader.loadClass(name) }
+                val state =
+                    if (probe.isSuccess) {
+                        "FOUND in " + (probe.getOrNull()?.protectionDomain?.codeSource?.location ?: "foreign package")
+                    } else {
+                        "MISSING: " + probe.exceptionOrNull()?.javaClass?.simpleName
+                    }
+                line("openmr.foreignClass[" + name + "]", state)
+            }
+        }.onFailure { error("openmr.foreignContext", it) }
     }
 
     private fun spatialClasses() {
