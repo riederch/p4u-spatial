@@ -61,6 +61,20 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Diagnose PICO Spatial runtime dependencies
+        working-directory: clients/pico-scanner
+        run: |
+          ./gradlew :app:dependencies --configuration debugRuntimeClasspath > /tmp/p4u-deps.txt
+          echo "===== P4U Spatial dependencies ====="
+          grep -E "com\\.pico\\.spatial|openmr|securemr|readback|foundation|platform|design" /tmp/p4u-deps.txt || true
+          echo "===== Search resolved artifacts for missing runtime classes ====="
+          find "$HOME/.gradle/caches/modules-2/files-2.1" -type f \\( -name "*.jar" -o -name "*.aar" \\) -print0 | while IFS= read -r -d '' f; do
+            if unzip -l "$f" 2>/dev/null | grep -Eq "StatisticsReporter|SSMRConnection"; then
+              echo "FOUND-IN: $f"
+              unzip -l "$f" 2>/dev/null | grep -E "StatisticsReporter|SSMRConnection" || true
+            fi
+          done
+
       - name: Build debug APK
         working-directory: clients/pico-scanner
         run: ./gradlew :app:assembleDebug
