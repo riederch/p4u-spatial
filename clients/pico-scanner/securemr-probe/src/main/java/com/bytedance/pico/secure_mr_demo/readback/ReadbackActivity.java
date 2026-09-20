@@ -20,9 +20,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ReadbackActivity extends NativeActivity {
-    private static final String TAG = "picoVr-SecureMR-QR";
+    private static final String TAG = "p4u-SecureMR-QR";
     private static final int REQ_CAMERA = 1001;
     private static final String ACTION_RESULT = "at.p4u.spatial.scanner.SECUREMR_QR_RESULT";
     private static final String RESULT_PACKAGE = "at.p4u.spatial.scanner";
@@ -31,6 +32,7 @@ public class ReadbackActivity extends NativeActivity {
     private final ExecutorService decoder = Executors.newSingleThreadExecutor();
     private final AtomicBoolean decodeInFlight = new AtomicBoolean(false);
     private final AtomicBoolean completed = new AtomicBoolean(false);
+    private final AtomicInteger frameCount = new AtomicInteger(0);
 
     static {
         System.loadLibrary("securemrprobe");
@@ -46,7 +48,10 @@ public class ReadbackActivity extends NativeActivity {
     }
 
     public void requestCameraFromNative() {
-        if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        boolean granted =
+                checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        Log.i(TAG, "Camera permission before request: " + granted);
+        if (!granted) {
             requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQ_CAMERA);
         } else {
             nativeSetPermission(android.Manifest.permission.CAMERA, true);
@@ -58,16 +63,20 @@ public class ReadbackActivity extends NativeActivity {
         super.onRequestPermissionsResult(rc, perms, grants);
         for (int i = 0; i < perms.length; i++) {
             if (perms[i].equals(android.Manifest.permission.CAMERA)) {
-                nativeSetPermission(
-                        perms[i],
-                        grants[i] == PackageManager.PERMISSION_GRANTED
-                );
+                boolean granted = grants[i] == PackageManager.PERMISSION_GRANTED;
+                Log.i(TAG, "Camera permission result: " + granted);
+                nativeSetPermission(perms[i], granted);
             }
         }
     }
 
     // Called from the native SecureMR readback path. Keep the native/OpenXR thread non-blocking.
     public void onRgbFrame(byte[] rgb, int width, int height) {
+        int currentFrame = frameCount.incrementAndGet();
+        if (currentFrame == 1 || currentFrame % 30 == 0) {
+            Log.i(TAG, "RGB frame #" + currentFrame + " " + width + "x" + height +
+                    " bytes=" + rgb.length);
+        }
         if (completed.get() || !decodeInFlight.compareAndSet(false, true)) {
             return;
         }
@@ -113,6 +122,7 @@ public class ReadbackActivity extends NativeActivity {
         Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
         hints.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
         hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        hints.put(DecodeHintType.ALSO_INVERTED, Boolean.TRUE);
 
         try {
             MultiFormatReader reader = new MultiFormatReader();
