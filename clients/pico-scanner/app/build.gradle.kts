@@ -51,6 +51,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
     implementation(platform("com.pico.spatial:bom:6.1.9"))
+    implementation("com.pico.spatial.core:core")
     implementation("com.pico.spatial.ml:securemr")
     implementation("com.pico.spatial.ml:readback")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
