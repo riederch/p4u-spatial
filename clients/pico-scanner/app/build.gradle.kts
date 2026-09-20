@@ -63,16 +63,13 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
-    // PICO 4 Ultra / PICO OS 5.x uses the pre-OS6 Spatial SDK line.
-    // The 6.x SpatialML runtime expects OS6 OpenMR classes (for example SSMRConnection)
-    // which are not present on PICO 4 Ultra's OpenMR system package.
-    implementation(platform("com.pico.spatial:spatial-bom:0.13.3"))
-    implementation("com.pico.spatial:spatial-core")
-    implementation("com.pico.spatial.ml:spatial-ml-securemr")
-    implementation("com.pico.spatial.ml:spatial-ml-readback")
-    implementation("com.pico.spatial.ui:spatial-ui-foundation")
-    implementation("com.pico.spatial.ui:spatial-ui-platform")
-    implementation("com.pico.spatial.ui:spatial-ui-design")
+    implementation(platform("com.pico.spatial:bom:6.1.9"))
+    implementation("com.pico.spatial.core:core")
+    implementation("com.pico.spatial.ml:securemr")
+    implementation("com.pico.spatial.ml:readback")
+    implementation("com.pico.spatial.ui:foundation")
+    implementation("com.pico.spatial.ui:platform")
+    implementation("com.pico.spatial.ui:design")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.google.zxing:core:3.5.3")
 }
