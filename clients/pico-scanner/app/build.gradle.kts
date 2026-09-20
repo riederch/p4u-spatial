@@ -62,6 +62,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":securemr-probe"))
     implementation("androidx.core:core-ktx:1.15.0")
     implementation(platform("com.pico.spatial:bom:6.1.9"))
     implementation("com.pico.spatial.core:core")

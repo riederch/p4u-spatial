@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.application")
+    id("com.android.library")
 }
 
 android {
@@ -8,11 +8,7 @@ android {
     ndkVersion = "26.3.11579264"
 
     defaultConfig {
-        applicationId = "at.p4u.spatial.securemrprobe"
         minSdk = 31
-        targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
 
         externalNativeBuild {
             cmake {
@@ -49,7 +45,6 @@ android {
         }
     }
 }
-
 
 dependencies {
     implementation("com.google.zxing:core:3.5.3")

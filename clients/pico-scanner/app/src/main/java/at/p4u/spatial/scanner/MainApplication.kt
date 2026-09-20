@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import com.bytedance.pico.secure_mr_demo.readback.ReadbackActivity
 import com.pico.spatial.ui.design.Button
 import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.design.Text
@@ -71,11 +72,7 @@ class MainApplication : Application() {
                             .background(Color.LightGray)
                             .padding(32.dp),
                     ) {
-                        Text(
-                            "picoVr",
-                            textAlign = TextAlign.Center,
-                            fontSize = 8.em,
-                        )
+                        Text("picoVr", textAlign = TextAlign.Center, fontSize = 8.em)
                         Text(
                             status,
                             textAlign = TextAlign.Center,
@@ -85,15 +82,12 @@ class MainApplication : Application() {
                         Button(
                             onClick = {
                                 scannedPayload = null
-                                val launchIntent =
-                                    context.packageManager.getLaunchIntentForPackage(SECUREMR_HELPER_PACKAGE)
-                                if (launchIntent == null) {
-                                    status = "SecureMR QR-Helfer ist nicht installiert"
-                                } else {
-                                    status = "SecureMR QR-Scanner startet …"
-                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(launchIntent)
-                                }
+                                status = "SecureMR QR-Scanner startet …"
+                                context.startActivity(
+                                    Intent(context, ReadbackActivity::class.java).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                )
                             },
                         ) {
                             Text("QR scannen")
@@ -118,6 +112,5 @@ class MainApplication : Application() {
         const val EXTRA_QR_PAYLOAD = "payload"
         const val SECUREMR_RESULT_PERMISSION =
             "at.p4u.spatial.scanner.permission.SECUREMR_RESULT"
-        const val SECUREMR_HELPER_PACKAGE = "at.p4u.spatial.securemrprobe"
     }
 }

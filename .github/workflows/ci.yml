@@ -19,19 +19,15 @@ jobs:
     name: TypeScript, schemas and tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-
       - name: Run checks
         run: npm run check
 
@@ -39,56 +35,31 @@ jobs:
     name: PICO Scanner debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-
       - name: Install Android SDK components
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
       - name: Diagnose PICO Spatial runtime dependencies
         working-directory: clients/pico-scanner
         run: |
           ./gradlew :app:dependencies --configuration debugRuntimeClasspath > /tmp/p4u-deps.txt
           echo "===== P4U Spatial dependencies ====="
-          grep -E "com\\.pico\\.spatial|openmr|securemr|readback|foundation|platform|design" /tmp/p4u-deps.txt || true
-          echo "===== Search resolved artifacts for missing runtime classes ====="
-          while IFS= read -r -d '' f; do
-            if unzip -l "$f" 2>/dev/null | grep -Eq "StatisticsReporter|SSMRConnection"; then
-              echo "FOUND-IN: $f"
-              unzip -l "$f" 2>/dev/null | grep -E "StatisticsReporter|SSMRConnection" || true
-            fi
-          done < <(find "$HOME/.gradle/caches/modules-2/files-2.1" -type f -name "*.jar" -print0)
-          while IFS= read -r -d '' f; do
-            tmpdir="$(mktemp -d)"
-            if unzip -p "$f" classes.jar > "$tmpdir/classes.jar" 2>/dev/null; then
-              if unzip -l "$tmpdir/classes.jar" 2>/dev/null | grep -Eq "StatisticsReporter|SSMRConnection"; then
-                echo "FOUND-IN-AAR: $f"
-                unzip -l "$tmpdir/classes.jar" 2>/dev/null | grep -E "StatisticsReporter|SSMRConnection" || true
-              fi
-            fi
-            rm -rf "$tmpdir"
-          done < <(find "$HOME/.gradle/caches/modules-2/files-2.1" -type f -name "*.aar" -print0)
-
+          grep -E "com\.pico\.spatial|openmr|securemr|readback|foundation|platform|design" /tmp/p4u-deps.txt || true
       - name: Build debug APK
         working-directory: clients/pico-scanner
         run: ./gradlew :app:assembleDebug
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -96,26 +67,13 @@ jobs:
           path: clients/pico-scanner/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Build SecureMR compatibility probe
-        working-directory: clients/pico-scanner
-        run: ./gradlew :securemr-probe:assembleDebug
-
-      - name: Upload SecureMR compatibility probe
-        uses: actions/upload-artifact@v4
-        with:
-          name: p4u-securemr-probe-debug
-          path: clients/pico-scanner/securemr-probe/build/outputs/apk/debug/securemr-probe-debug.apk
-          if-no-files-found: error
-
   ha-container:
     name: Home Assistant container build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Build amd64 container without publishing
         run: |
           docker build \
