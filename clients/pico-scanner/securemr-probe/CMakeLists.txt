@@ -13,6 +13,17 @@ if(NOT pico_securemr_samples_POPULATED)
     FetchContent_Populate(pico_securemr_samples)
 endif()
 
+# Force verbose logging in the pinned official sample for the hardware compatibility probe.
+set(_logger_file "${pico_securemr_samples_SOURCE_DIR}/base/oxr_utils/logger.cpp")
+file(READ "${_logger_file}" _logger_source)
+string(REPLACE
+    "Log::Level g_minSeverity{Log::Level::Info};"
+    "Log::Level g_minSeverity{Log::Level::Verbose};"
+    _logger_source
+    "${_logger_source}"
+)
+file(WRITE "${_logger_file}" "${_logger_source}")
+
 set(SAMPLE_SRCS
     ${pico_securemr_samples_SOURCE_DIR}/samples/readback/cpp/readback_file.cpp
     ${pico_securemr_samples_SOURCE_DIR}/samples/readback/cpp/readback_vulkan.cpp
