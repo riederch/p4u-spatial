@@ -2,7 +2,6 @@ package at.p4u.spatial.scanner
 
 import android.app.Application
 import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pico.spatial.ui.foundation.dsl.DefaultWindowContainer
@@ -13,13 +12,8 @@ class MainApplication : Application() {
         super.onCreate()
         launch {
             DefaultWindowContainer {
-                PicoVrSpatialHome()
+                Box(Modifier.windowConstraints(width = 960.dp, height = 720.dp))
             }
         }
     }
-}
-
-@Composable
-private fun PicoVrSpatialHome() {
-    Box(Modifier.windowConstraints(width = 960.dp, height = 720.dp))
 }
