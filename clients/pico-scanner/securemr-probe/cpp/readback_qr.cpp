@@ -8,7 +8,14 @@
 //
 // This file is derived from the official PICO SecureMR readback sample.
 // The readback sink is adapted to deliver RGB frames to the Java QR decoder.
+//
+// The official readback_file.cpp is also the single translation unit that
+// provides stb_image/stb_image_write implementations. Because this adapted
+// file replaces it, keep those implementation defines here so the GPU helper
+// objects linked by the official sample still resolve stbi_* symbols.
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "readback_file.h"
 #include <algorithm>
 #include <android/log.h>
