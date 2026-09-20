@@ -261,7 +261,7 @@ object SystemDiagnostics {
 
             listOf(
                 "com.bytedance.pico.openmr.spatial.pack.SSMRConnection",
-                "com.bytedance.pico.openmr.spatial.pack.SSMRConnection$Companion",
+                "com.bytedance.pico.openmr.spatial.pack.SSMRConnection\$Companion",
             ).forEach { name ->
                 val probe = runCatching { foreign.classLoader.loadClass(name) }
                 val state =
