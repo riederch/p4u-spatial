@@ -50,7 +50,7 @@ class MainActivity : Activity() {
     private lateinit var pairingInput: EditText
     private lateinit var pairButton: Button
     private lateinit var scanQrButton: Button
-    private var qrScanner: PicoQrScanner? = null
+    private var qrScanner: AutoCloseable? = null
     private var pendingQrScan = false
     private lateinit var testUploadButton: Button
 
@@ -268,8 +268,8 @@ class MainActivity : Activity() {
         scanQrButton.isEnabled = false
         status.text = "QR-Scanner startet … QR-Code vor die picoVr-Kamera halten."
         qrScanner?.close()
-        qrScanner = PicoQrScanner(
-            activity = this,
+        qrScanner = PicoSpatialQrScanner(
+            context = this,
             onDecoded = { raw ->
                 runOnUiThread {
                     qrScanner?.close()
@@ -289,7 +289,7 @@ class MainActivity : Activity() {
                 }
             },
         )
-        qrScanner?.start()
+        (qrScanner as PicoSpatialQrScanner).start()
     }
 
     private fun startPairing(rawOverride: String? = null) {
