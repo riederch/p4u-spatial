@@ -11,6 +11,10 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <meta-data
+            android:name="pico.spatial.use_experimental_api"
+            android:value="1" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
