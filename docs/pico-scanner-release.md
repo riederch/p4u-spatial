@@ -1,4 +1,4 @@
-# picoVrVr Scanner release runbook
+# picoVr Scanner release runbook
 
 This runbook defines the build, signing and publication path for the P4U Spatial Scanner APK.
 
@@ -17,7 +17,12 @@ Configure these GitHub Actions repository secrets:
 - `P4U_ANDROID_KEY_ALIAS`;
 - `P4U_ANDROID_KEY_PASSWORD`.
 
-Do not commit the keystore or passwords to the repository.
+For automatic OTA publication to the Bridge, additionally configure:
+
+- `P4U_BRIDGE_URL` — externally reachable base URL of the P4U Bridge, for example `https://spatial.example.org`;
+- `P4U_BRIDGE_ADMIN_KEY` — deployment/release administration key accepted by the Bridge.
+
+Do not commit the keystore, passwords or Bridge administration key to the repository.
 
 Record the production certificate SHA-256 fingerprint independently so it can be compared with generated release descriptors.
 
@@ -40,7 +45,7 @@ The resulting debug APK is for development sideloading only. It is not a product
 
 ## Production release
 
-Run the GitHub Actions workflow **Publish picoVrVr Scanner APK** manually.
+Run the GitHub Actions workflow **Publish picoVr Scanner APK** manually.
 
 Inputs:
 
@@ -59,13 +64,16 @@ The workflow:
 5. calculates APK SHA-256, exact byte size and signing-certificate SHA-256;
 6. generates `release-descriptor.json`;
 7. creates a GitHub Release containing the signed APK and descriptor;
-8. uploads the same files as workflow artifacts.
+8. optionally publishes the release descriptor directly to the configured Bridge;
+9. uploads the same files as workflow artifacts.
 
 A beta release is a GitHub prerelease. A stable release is marked as the latest release.
 
 ## Bridge publication
 
-The GitHub Release alone does not make the version visible to headsets. Publish the generated descriptor to the target Bridge:
+The GitHub Release alone does not make the version visible to headsets. With `publish_to_bridge=true` (the default), the workflow publishes the generated descriptor automatically to the target Bridge using the configured GitHub secrets.
+
+For manual recovery or a Bridge that is not reachable from GitHub Actions, publish the generated descriptor to the target Bridge:
 
 ```text
 PUT /api/v1/admin/xr-app/releases/<releaseId>
@@ -75,29 +83,43 @@ Content-Type: application/json
 
 The request body is the generated `release-descriptor.json` unchanged.
 
-This is deliberately a separate administrative step. Building/signing an APK does not automatically expose it to production headsets.
+The automatic workflow step preserves the same trust boundary: GitHub Actions builds/signs the APK and only sends the signed release descriptor to the Bridge. The Bridge never receives the Android signing key.
 
-For a first deployment, publish to `beta`, validate on a test picoVrVr, then create/promote an explicitly versioned `stable` release. Do not silently move a device between channels.
+For a first deployment, publish to `beta`, validate on a test picoVr, then create/promote an explicitly versioned `stable` release. Do not silently move a device between channels.
 
 ## First installation
 
-The very first installation cannot use self-update because no trusted application exists on the headset yet:
+The very first installation cannot use self-update because no trusted application exists on the headset yet. A development PC or USB connection is not required: the signed APK can be downloaded directly with the headset browser and installed through the normal Android/PICO sideload flow.
 
 ```text
-signed APK
-  -> verify digest/certificate
-  -> administrator-controlled picoVrVr/Android sideload
+picoVr browser
+  -> download signed APK
+  -> Android/PICO installation confirmation
   -> launch
   -> configure/discover Bridge
   -> QR pairing
   -> administrator approval
 ```
 
-After this bootstrap, normal newer-version delivery uses the Bridge `xr-app` contract.
+After this initial browser/sideload installation, normal newer-version delivery uses the Bridge `xr-app` contract. A PC or USB connection is not part of the normal deployment path.
 
 ## Self-update
 
-Once paired, the application discovers the Bridge update service, obtains the latest descriptor for its selected channel, downloads the APK from the descriptor URL, verifies size, SHA-256 and signing identity, and hands the verified APK to the Android/picoVrVr installer.
+Once paired, the application discovers the Bridge update service, obtains the latest descriptor for its selected channel, downloads the APK from the descriptor URL, verifies size, SHA-256 and signing identity, and hands the verified APK to the Android/picoVr installer.
+
+Normal deployment after the one-time bootstrap is therefore:
+
+```text
+GitHub Actions
+  -> signed APK + release descriptor
+  -> GitHub Release
+  -> descriptor published to Bridge
+  -> picoVr: "Auf Update prüfen"
+  -> APK download + signature verification
+  -> Android/PICO installation confirmation
+```
+
+The headset does not need to be connected to a development PC. Standard Android package security still requires user confirmation on the headset unless the device is managed with a privileged/device-owner installation mechanism.
 
 The installed application's data directory is preserved. Pairing identity, refresh credentials and pending outbox data must survive the update.
 
@@ -109,11 +131,11 @@ Before a stable descriptor is published to production:
 - APK signature verification succeeds;
 - descriptor SHA-256 matches the exact published APK;
 - descriptor signing fingerprint matches the production signing certificate;
-- beta installation succeeds on a picoVrVr 4 Ultra;
+- beta installation succeeds on a PICO 4 Ultra;
 - application starts after update and reports the expected version code;
 - existing pairing still works;
 - pending offline/outbox data survives;
 - Bridge discovery and update lookup work;
 - a failed/cancelled install leaves the previous app usable.
 
-The first real release should additionally validate the complete chain from clean sideload through pairing and one subsequent self-update.
+The first real release should additionally validate the complete PC-independent chain from browser download and clean sideload through pairing and one subsequent self-update.
