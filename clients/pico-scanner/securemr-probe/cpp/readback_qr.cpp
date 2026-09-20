@@ -21,7 +21,7 @@ extern "C" {
 JNIEXPORT void JNICALL
 Java_com_bytedance_pico_secure_1mr_1demo_readback_ReadbackActivity_nativeSetPermission(
     JNIEnv* env,
-    jobject,
+    jclass,
     jstring permission,
     jboolean granted) {
   const char* permUtf = env->GetStringUTFChars(permission, nullptr);
