@@ -96,6 +96,17 @@ jobs:
           path: clients/pico-scanner/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
+      - name: Build SecureMR compatibility probe
+        working-directory: clients/pico-scanner
+        run: ./gradlew :securemr-probe:assembleDebug
+
+      - name: Upload SecureMR compatibility probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4u-securemr-probe-debug
+          path: clients/pico-scanner/securemr-probe/build/outputs/apk/debug/securemr-probe-debug.apk
+          if-no-files-found: error
+
   ha-container:
     name: Home Assistant container build
     runs-on: ubuntu-latest

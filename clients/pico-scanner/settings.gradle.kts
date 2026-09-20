@@ -18,3 +18,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "P4USpatialScanner"
 include(":app")
+
+include(":securemr-probe")
