@@ -1,6 +1,10 @@
 package at.p4u.spatial.scanner
 
 import android.app.Application
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.background
@@ -36,12 +40,25 @@ class MainApplication : Application() {
                 val mainHandler = remember { Handler(Looper.getMainLooper()) }
                 var status by remember { mutableStateOf("PICO Spatial runtime active") }
                 var scannedPayload by remember { mutableStateOf<String?>(null) }
-                var scanner by remember { mutableStateOf<PicoSpatialQrScanner?>(null) }
 
-                DisposableEffect(Unit) {
+                DisposableEffect(context) {
+                    val receiver = object : BroadcastReceiver() {
+                        override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                            if (intent?.action != ACTION_SECUREMR_RESULT) return
+                            val raw = intent.getStringExtra(EXTRA_QR_PAYLOAD) ?: return
+                            scannedPayload = raw
+                            status = "QR-Code erkannt"
+                        }
+                    }
+                    context.registerReceiver(
+                        receiver,
+                        IntentFilter(ACTION_SECUREMR_RESULT),
+                        SECUREMR_RESULT_PERMISSION,
+                        mainHandler,
+                        Context.RECEIVER_EXPORTED,
+                    )
                     onDispose {
-                        scanner?.close()
-                        scanner = null
+                        runCatching { context.unregisterReceiver(receiver) }
                     }
                 }
 
@@ -67,31 +84,16 @@ class MainApplication : Application() {
                         )
                         Button(
                             onClick = {
-                                scanner?.close()
                                 scannedPayload = null
-                                status = "QR-Scanner startet …"
-
-                                lateinit var nextScanner: PicoSpatialQrScanner
-                                nextScanner = PicoSpatialQrScanner(
-                                    context = context,
-                                    onDecoded = { raw ->
-                                        mainHandler.post {
-                                            scannedPayload = raw
-                                            status = "QR-Code erkannt"
-                                            nextScanner.close()
-                                            if (scanner === nextScanner) scanner = null
-                                        }
-                                    },
-                                    onError = { message ->
-                                        mainHandler.post {
-                                            status = "QR-Scanner: $message"
-                                            nextScanner.close()
-                                            if (scanner === nextScanner) scanner = null
-                                        }
-                                    },
-                                )
-                                scanner = nextScanner
-                                nextScanner.start()
+                                val launchIntent =
+                                    context.packageManager.getLaunchIntentForPackage(SECUREMR_HELPER_PACKAGE)
+                                if (launchIntent == null) {
+                                    status = "SecureMR QR-Helfer ist nicht installiert"
+                                } else {
+                                    status = "SecureMR QR-Scanner startet …"
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(launchIntent)
+                                }
                             },
                         ) {
                             Text("QR scannen")
@@ -109,5 +111,13 @@ class MainApplication : Application() {
                 }
             }
         }
+    }
+
+    companion object {
+        const val ACTION_SECUREMR_RESULT = "at.p4u.spatial.scanner.SECUREMR_QR_RESULT"
+        const val EXTRA_QR_PAYLOAD = "payload"
+        const val SECUREMR_RESULT_PERMISSION =
+            "at.p4u.spatial.scanner.permission.SECUREMR_RESULT"
+        const val SECUREMR_HELPER_PACKAGE = "at.p4u.spatial.securemrprobe"
     }
 }

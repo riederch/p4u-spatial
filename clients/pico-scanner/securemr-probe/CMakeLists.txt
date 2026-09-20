@@ -25,7 +25,7 @@ string(REPLACE
 file(WRITE "${_logger_file}" "${_logger_source}")
 
 set(SAMPLE_SRCS
-    ${pico_securemr_samples_SOURCE_DIR}/samples/readback/cpp/readback_file.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/cpp/readback_qr.cpp
     ${pico_securemr_samples_SOURCE_DIR}/samples/readback/cpp/readback_vulkan.cpp
     ${pico_securemr_samples_SOURCE_DIR}/samples/readback/cpp/readback_opengl.cpp
 )
