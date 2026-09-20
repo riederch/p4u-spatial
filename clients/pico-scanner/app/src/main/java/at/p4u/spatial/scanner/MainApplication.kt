@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pico.spatial.ui.foundation.dsl.DefaultWindowContainer
 import com.pico.spatial.ui.foundation.dsl.launch
-import com.pico.spatial.ui.foundation.windowConstraints
 
 class MainApplication : Application() {
     override fun onCreate() {
