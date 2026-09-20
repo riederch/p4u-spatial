@@ -269,7 +269,7 @@ class MainActivity : Activity() {
         status.text = "QR-Scanner startet … QR-Code vor die picoVr-Kamera halten."
         qrScanner?.close()
         qrScanner = PicoSpatialQrScanner(
-            activity = this,
+            context = this,
             onDecoded = { raw ->
                 runOnUiThread {
                     qrScanner?.close()

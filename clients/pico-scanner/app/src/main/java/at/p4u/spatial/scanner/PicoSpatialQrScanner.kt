@@ -39,9 +39,10 @@ class PicoSpatialQrScanner(
         job = scope.launch {
             runCatching {
                 val instance = SpatialMLInstance.create(context.applicationContext)
-                repeat(100) {
-                    if (instance.ready) return@repeat
+                var attempts = 0
+                while (!instance.ready && attempts < 100) {
                     delay(100)
+                    attempts += 1
                 }
                 check(instance.ready) { "PICO SpatialML wurde nicht bereit." }
 
@@ -62,16 +63,23 @@ class PicoSpatialQrScanner(
                     )
                 )
                 val pipeline = session.newPipeline().apply {
+                    val rightFrame = newLocalTensor(
+                        MultiDimensionalInitInfo(
+                            DataType.Image.R8G8B8_U_DYNAMIC,
+                            intArrayOf(FRAME_SIZE, FRAME_SIZE),
+                        )
+                    )
                     rectifiedVSTAccess(
-                        rightImageResult = frame,
+                        rightImageResult = rightFrame,
                         leftImageResult = null,
                         timestampResult = null,
                         cameraMatrixResult = null,
                     )
+                    copy(rightFrame, frame)
                 }
 
                 while (true) {
-                    pipeline.submit(emptyMap(), null, null).await()
+                    pipeline.submit(emptyMap(), null, null)
                     frame.readbackContentSuspend().use { content ->
                         val rgb = ByteArray(FRAME_SIZE * FRAME_SIZE * 3)
                         content.buffer.rewind()
