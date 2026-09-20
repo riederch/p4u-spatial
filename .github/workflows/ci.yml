@@ -61,6 +61,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Inspect picoVr runtime dependencies
+        working-directory: clients/pico-scanner
+        run: ./gradlew :app:dependencies --configuration debugRuntimeClasspath
+
       - name: Build debug APK
         working-directory: clients/pico-scanner
         run: ./gradlew :app:assembleDebug
