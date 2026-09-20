@@ -3,6 +3,7 @@ package com.bytedance.pico.secure_mr_demo.readback;
 import android.app.NativeActivity;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Build;
 import android.util.Log;
 
 public class ReadbackActivity extends NativeActivity {
@@ -16,6 +17,9 @@ public class ReadbackActivity extends NativeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "Starting official OpenXR SecureMR readback compatibility probe");
+        Log.i(TAG, "device=" + Build.DEVICE + " model=" + Build.MODEL +
+                " release=" + Build.VERSION.RELEASE + " sdk=" + Build.VERSION.SDK_INT +
+                " display=" + Build.DISPLAY);
         super.onCreate(savedInstanceState);
     }
 
