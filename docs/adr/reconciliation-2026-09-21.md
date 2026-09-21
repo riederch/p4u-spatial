@@ -35,7 +35,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0013 | Contracts | Aligned | XR is discovered/profiled over Core, with canonical XR scopes and legacy /api/v1 compatibility. |
 | 0014 | Contracts | Partial | Relations use normal Spatial collections/write semantics. Efficient relation filtering is not implemented. |
 | 0015 | Contracts | Contract-only | Explicit publish workflow is specified; no MultiGIS/App Sync reference client exists here. |
-| 0016 | Contracts | Aligned locally / federation pending | Local immutable Artifact read/upload/commit, integrity verification and Spatial-write readiness checks are implemented. Artifact-aware federation durable relay remains open. |
+| 0016 | Contracts | Aligned | Local immutable Artifact read/upload/commit, integrity verification, Spatial-write readiness checks and artifact-aware federation durable-relay admission are implemented. |
 | 0017 | Contracts | Superseded by 0027 | The previous xr-app registry ambiguity was explicitly resolved by ADR 0027. |
 | 0018 | Bridge | Partial migration | Persisted BridgeConfigStore is authoritative after migration, but legacy functional `P4U_*` environment variables are still accepted as bootstrap/migration input. |
 | 0019 | App | Partial | Generic QR lifecycle/content/actions are reusable; QR result presentation still lives in the product app layer. |
@@ -84,19 +84,21 @@ It has been changed to `implementation`, so SecureMR remains an internal backend
 
 ## Open architecture gaps
 
-### 1. Spatial Artifacts federation follow-up
+### 1. Spatial Artifacts
 
-The local authoritative-source software gap has been closed:
+The software gap found during the audit is closed:
 
 - artifact descriptor/content reads are implemented,
 - retry-safe upload sessions and commit are implemented,
 - SHA-256/size integrity is enforced,
 - committed bytes are immutable,
 - new local Spatial writes reject uncommitted local Artifact References,
-- local source/discovery capabilities now advertise Artifact support.
+- local source/discovery capabilities advertise Artifact support,
+- federation verifies committed authoritative Artifact Descriptors before an artifact-dependent
+  operation may be persisted as `relay-durable`.
 
-Still open: federation durable relay must become artifact-aware before it may acknowledge an
-operation with required artifact payloads as `relay-durable`.
+The reference relay does not keep its own binary artifact cache; when authoritative verification is
+unavailable it refuses a durable acknowledgement rather than weakening the contract.
 
 ### 2. Federation delegated-user
 
