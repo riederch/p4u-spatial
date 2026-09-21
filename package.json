@@ -16,7 +16,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check:schemas": "node tools/check-schema-refs.mjs",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run check:schemas && npm test"
+    "check": "npm run typecheck && npm run check:schemas && npm run check:adr-traceability && npm test",
+    "check:adr-traceability": "node tools/check-adr-traceability.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
