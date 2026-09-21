@@ -86,6 +86,7 @@ function digest(apk: Uint8Array): string {
   return createHash("sha256").update(apk).digest("hex");
 }
 
+// ADR: docs/adr/app/0023-xr-application-update-trust.md — updates require version, compatibility, digest and signing-identity verification before installation.
 export class XrApplicationUpdater {
   constructor(
     private readonly releases: ReleaseClient,
