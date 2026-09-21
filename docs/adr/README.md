@@ -6,6 +6,18 @@ ADRs record architectural decisions that should remain understandable independen
 implementation history. They complement `docs/architecture.md`: the architecture document
 describes the current system, while ADRs explain why important constraints and structures exist.
 
+## Areas
+
+ADRs are grouped by architectural ownership:
+
+- [Bridge](bridge/) — server behavior, deployment, pairing implementation, processing and Bridge-owned state.
+- [App](app/) — headset/client architecture, XR runtime integration, reusable app features and persistent XR UI patterns.
+- [Contracts](contracts/) — public interoperability contracts, protocol semantics, identities, authorization scopes and cross-implementation invariants.
+
+Cross-cutting decisions live in the area with primary architectural ownership and reference related ADRs in other areas when needed.
+
+ADR numbers are global across all areas. A number is never reused merely because an ADR lives in a different directory.
+
 ## When to create an ADR
 
 Create an ADR when a change introduces or materially changes one or more of the following:
@@ -25,17 +37,17 @@ implementation details that do not constrain future architecture.
 
 ## File naming
 
-ADRs use a monotonically increasing four-digit number:
+ADRs use a monotonically increasing four-digit number and live below their owning area:
 
 ```text
-NNNN-short-kebab-case-title.md
+docs/adr/<area>/NNNN-short-kebab-case-title.md
 ```
 
 Examples:
 
 ```text
-0018-web-managed-configuration.md
-0019-reusable-qr-reader-feature.md
+docs/adr/bridge/0018-web-managed-configuration.md
+docs/adr/app/0019-reusable-qr-reader-feature.md
 ```
 
 Numbers are never reused. Superseded ADRs remain in the repository.
@@ -79,29 +91,41 @@ For a material change:
 
 ## Index
 
+### Bridge
+
 | ADR | Decision | Status |
 | --- | --- | --- |
-| [0001](0001-system-boundaries.md) | System boundaries | Accepted |
-| [0002](0002-authentication-and-device-pairing.md) | Authentication and device pairing | Accepted |
-| [0003](0003-spatial-coordinate-frames.md) | Spatial coordinate frames | Accepted |
-| [0004](0004-ai-optional-deterministic-core.md) | AI optional, deterministic core | Accepted |
-| [0005](0005-protocol-layering.md) | Protocol layering | Accepted |
-| [0006](0006-source-route-identity.md) | Source and route identity | Accepted |
-| [0007](0007-authentication-boundary.md) | Authentication boundary | Accepted |
-| [0008](0008-app-sync-independence.md) | App Sync independence | Accepted |
-| [0009](0009-durable-relay.md) | Durable relay | Accepted |
-| [0010](0010-repository-layout-profile.md) | Repository layout profile | Accepted |
-| [0011](0011-source-wide-operation-idempotency.md) | Source-wide operation idempotency | Accepted |
-| [0012](0012-federation-access-modes.md) | Federation access modes | Accepted |
-| [0013](0013-xr-as-profile-over-core.md) | XR as a profile over Core | Accepted |
-| [0014](0014-relation-authority.md) | Relation authority | Accepted |
-| [0015](0015-publish-boundary.md) | Publish boundary | Accepted |
-| [0016](0016-artifact-immutability.md) | Artifact immutability | Accepted |
-| [0017](0017-discovery-and-namespace-registry.md) | Discovery and namespace registry | Accepted |
-| [0018](0018-web-managed-configuration.md) | Web-managed Bridge configuration | Accepted |
-| [0019](0019-reusable-qr-reader-feature.md) | Reusable QR reader feature | Accepted |
-| [0020](0020-securemr-qr-scanner-backend.md) | SecureMR QR scanner backend | Accepted |
-| [0021](0021-xr-control-and-status-hud.md) | XR control and status HUD | Accepted |
+| [0001](bridge/0001-system-boundaries.md) | System boundaries | Accepted |
+| [0002](bridge/0002-authentication-and-device-pairing.md) | Authentication and device pairing | Accepted |
+| [0004](bridge/0004-ai-optional-deterministic-core.md) | AI optional, deterministic core | Accepted |
+| [0018](bridge/0018-web-managed-configuration.md) | Web-managed Bridge configuration | Accepted |
+
+### App
+
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [0019](app/0019-reusable-qr-reader-feature.md) | Reusable QR reader feature | Accepted |
+| [0020](app/0020-securemr-qr-scanner-backend.md) | SecureMR QR scanner backend | Accepted |
+| [0021](app/0021-xr-control-and-status-hud.md) | XR control and status HUD | Accepted |
+
+### Contracts
+
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [0003](contracts/0003-spatial-coordinate-frames.md) | Spatial coordinate frames | Accepted |
+| [0005](contracts/0005-protocol-layering.md) | Protocol layering | Accepted |
+| [0006](contracts/0006-source-route-identity.md) | Source and route identity | Accepted |
+| [0007](contracts/0007-authentication-boundary.md) | Authentication boundary | Accepted |
+| [0008](contracts/0008-app-sync-independence.md) | App Sync independence | Accepted |
+| [0009](contracts/0009-durable-relay.md) | Durable relay | Accepted |
+| [0010](contracts/0010-repository-layout-profile.md) | Repository layout profile | Accepted |
+| [0011](contracts/0011-source-wide-operation-idempotency.md) | Source-wide operation idempotency | Accepted |
+| [0012](contracts/0012-federation-access-modes.md) | Federation access modes | Accepted |
+| [0013](contracts/0013-xr-as-profile-over-core.md) | XR as a profile over Core | Accepted |
+| [0014](contracts/0014-relation-authority.md) | Relation authority | Accepted |
+| [0015](contracts/0015-publish-boundary.md) | Publish boundary | Accepted |
+| [0016](contracts/0016-artifact-immutability.md) | Artifact immutability | Accepted |
+| [0017](contracts/0017-discovery-and-namespace-registry.md) | Discovery and namespace registry | Accepted |
 
 ## Relationship to repository rules
 
