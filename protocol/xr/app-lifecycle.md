@@ -4,7 +4,7 @@
 
 This profile defines how an XR client discovers, verifies and applies application updates after the application has been bootstrapped onto the headset.
 
-Application distribution is an implementation concern of the XR profile. It MUST NOT expose Git/Gitea credentials and MUST NOT couple protocol compatibility to one Android package store.
+Application distribution is exposed as the independent `xr-app` contract in the Open Interoperability Protocol family. It MUST NOT expose Git/Gitea credentials and MUST NOT couple protocol compatibility to one Android package store.
 
 ## First installation
 
