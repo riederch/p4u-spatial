@@ -169,6 +169,7 @@ function applyFederatedReadHeaders(reply: FastifyReply, result: FederatedReadRes
   }
 }
 
+// ADR: docs/adr/contracts/0027-separate-xr-app-contract.md — discovery exposes XR runtime and XR application lifecycle as separate contracts.
 export function buildServer(config: BridgeConfig, repository: RepositoryProvider, options: { configStore?: BridgeConfigStore } = {}): FastifyInstance {
   const app = Fastify({ logger: true, bodyLimit: 64 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
@@ -506,7 +507,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         "xr.display.read",
         "xr.scan.write",
         "xr.observation.write",
-        "xr.app.update",
+        "xr-app.update",
       ],
     };
   });
