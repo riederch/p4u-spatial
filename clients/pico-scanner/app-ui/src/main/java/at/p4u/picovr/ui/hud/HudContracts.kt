@@ -156,12 +156,13 @@ fun FeatureSnapshot.toHudContribution(): HudContribution {
         emptyList()
     }
 
-    val status = if (enabled && statusIconKey != null) {
+    val iconKey = statusIconKey
+    val status = if (enabled && iconKey != null) {
         listOf(
             HudStatusContribution(
                 id = "feature:$id",
                 title = title,
-                iconKey = statusIconKey,
+                iconKey = iconKey,
             ),
         )
     } else {
