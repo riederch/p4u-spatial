@@ -52,6 +52,8 @@ available independently of content length.
 - `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrModels.kt` — generic QR content and action contracts.
 - `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/BridgeRegistrationQrAction.kt` — Bridge pairing implemented as an application-provided custom QR action.
 
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — reusable QR result/action presentation and QR status icon.
+
 ## Related decisions
 
 - ADR 0013: XR Is a Profile over Core
