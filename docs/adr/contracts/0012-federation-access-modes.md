@@ -23,3 +23,13 @@ A direct writable source can legitimately have a read-only HA route.
 Federation providers never expose their upstream service credentials to clients.
 
 Future OAuth/OIDC delegation can be added without changing source identity or Spatial operation semantics.
+
+## Implementation anchors
+
+- `protocol/federation/http.md` — route-effective federation behavior and no credential pass-through.
+- `protocol/schemas/spatial/route.schema.json` — route access-mode metadata.
+- `bridge/src/services/federation-service.ts` — anonymous and service access modes with provider-owned bearer credentials.
+
+## Reconciliation note
+
+The reference Bridge currently implements `anonymous` and `service`. `delegated-user` remains a specified future mode and has no implementation in this repository yet.
