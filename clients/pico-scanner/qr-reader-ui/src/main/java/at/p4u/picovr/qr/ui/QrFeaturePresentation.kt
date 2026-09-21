@@ -111,11 +111,7 @@ class QrFeaturePresentation(
                     onAction = { action ->
                         if (runningActionId != null) return@QrResultView
                         runningActionId = action.id
-                        actionMessage = if (action.id == "bridge.register") {
-                            "Bridge wird registriert …"
-                        } else {
-                            null
-                        }
+                        actionMessage = "Aktion wird ausgeführt …"
                         scope.launch {
                             actionMessage = when (
                                 val outcome = action.execute(appContext, state.result)
