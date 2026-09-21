@@ -1386,5 +1386,179 @@ _p4u_replace_if_missing(
     "${_controller_beam_render_replacement}"
 )
 
+set(_pointer_beam_style_state_old [==[
+    std::array<XrVector3f*, 2> handDeltas{};
+    std::array<std::optional<XrPosef>, 2> handPoses{};
+    std::array<std::optional<XrPosef>, 2> controllerBeamPoses{};
+    bool buttonPressed = false;
+]==])
+
+set(_pointer_beam_style_state_new [==[
+    std::array<XrVector3f*, 2> handDeltas{};
+    std::array<std::optional<XrPosef>, 2> handPoses{};
+    std::array<std::optional<XrPosef>, 2> controllerBeamPoses{};
+    std::array<bool, 2> pointerBeamIsHand{{false, false}};
+    bool buttonPressed = false;
+]==])
+
+_p4u_replace_if_missing(
+    "pointer beam source style state v11"
+    "pointerBeamIsHand{{false, false}}"
+    "${_pointer_beam_style_state_old}"
+    "${_pointer_beam_style_state_new}"
+)
+
+set(_pointer_beam_pose_old [==[
+      if (resolvedPose) {
+        const XrPosef& pose = *resolvedPose;
+        float scale = 0.1f * m_input.handScale[hand];
+]==])
+
+set(_pointer_beam_pose_new [==[
+      if (resolvedPose) {
+        const XrPosef& pose = *resolvedPose;
+
+        // P4U v11: visualize the pointer that is actually delivered to the product,
+        // not only the provisional controller candidate. This guarantees a beam for
+        // controllers as well as the direct-hand fallback.
+        controllerBeamPoses[hand] = pose;
+        pointerBeamIsHand[hand] =
+            directHandActive && m_p4uControllerRecentFrames[hand] == 0;
+
+        float scale = 0.1f * m_input.handScale[hand];
+]==])
+
+_p4u_replace_if_missing(
+    "beam follows resolved pointer pose v11"
+    "P4U v11: visualize the pointer that is actually delivered to the product"
+    "${_pointer_beam_pose_old}"
+    "${_pointer_beam_pose_new}"
+)
+
+set(_pointer_beam_geometry_old [==[
+        const float beamStart = 0.035f;
+        const float beamEnd = std::max(beamStart + 0.04f, beamLength);
+        const float halfWidth = 0.0016f;
+        const float z0 = -beamStart;
+        const float z1 = -beamEnd;
+        const XrVector3f beamColor{0.82f, 0.88f, 0.96f};
+
+        std::vector<Geometry::Vertex> beamVerts{
+            {{-halfWidth, -halfWidth, z0}, beamColor},
+            {{ halfWidth, -halfWidth, z0}, beamColor},
+            {{ halfWidth,  halfWidth, z0}, beamColor},
+            {{-halfWidth,  halfWidth, z0}, beamColor},
+            {{-halfWidth, -halfWidth, z1}, beamColor},
+            {{ halfWidth, -halfWidth, z1}, beamColor},
+            {{ halfWidth,  halfWidth, z1}, beamColor},
+            {{-halfWidth,  halfWidth, z1}, beamColor},
+        };
+        const std::vector<uint16_t> beamIndices{
+            0, 1, 2, 0, 2, 3,
+            4, 6, 5, 4, 7, 6,
+            0, 4, 5, 0, 5, 1,
+            1, 5, 6, 1, 6, 2,
+            2, 6, 7, 2, 7, 3,
+            3, 7, 4, 3, 4, 0,
+        };
+
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            beamVerts.data(),
+            static_cast<uint32_t>(beamVerts.size()),
+            beamIndices.data(),
+            static_cast<uint32_t>(beamIndices.size()),
+            beamPose);
+]==])
+
+set(_pointer_beam_geometry_new [==[
+        const float beamStart = pointerBeamIsHand[hand] ? 0.004f : 0.035f;
+        const float beamEnd = std::max(beamStart + 0.04f, beamLength);
+
+        // P4U: rounded tapered pointer beam v11.
+        // Geometry::Vertex has RGB but no alpha, so the hand beam fades visually by
+        // combining a shrinking radius with progressively dimmer vertex colors.
+        constexpr int kBeamSides = 10;
+        const int beamSegments = pointerBeamIsHand[hand] ? 10 : 5;
+        const float startRadius = pointerBeamIsHand[hand] ? 0.0026f : 0.0018f;
+        const float endRadius = pointerBeamIsHand[hand] ? 0.00015f : 0.0010f;
+
+        std::vector<Geometry::Vertex> beamVerts;
+        std::vector<uint16_t> beamIndices;
+        beamVerts.reserve(static_cast<size_t>(beamSegments + 1) * kBeamSides);
+        beamIndices.reserve(static_cast<size_t>(beamSegments) * kBeamSides * 6);
+
+        for (int segment = 0; segment <= beamSegments; ++segment) {
+          const float t =
+              static_cast<float>(segment) / static_cast<float>(beamSegments);
+          const float z = -(beamStart + (beamEnd - beamStart) * t);
+
+          float radius =
+              startRadius + (endRadius - startRadius) * t;
+          float intensity = 1.0f;
+          if (pointerBeamIsHand[hand]) {
+            // Smooth fade towards the target: brightest at the fingertip, nearly gone
+            // at the far end. Radius taper reinforces the fade without opaque dark caps.
+            const float fade = 1.0f - t;
+            intensity = 0.18f + 0.82f * fade * fade;
+          } else {
+            intensity = 0.72f + 0.28f * (1.0f - t);
+          }
+
+          const XrVector3f color{
+              0.82f * intensity,
+              0.88f * intensity,
+              0.96f * intensity,
+          };
+
+          for (int sideIndex = 0; sideIndex < kBeamSides; ++sideIndex) {
+            const float angle =
+                (2.0f * MATH_PI * static_cast<float>(sideIndex)) /
+                static_cast<float>(kBeamSides);
+            beamVerts.push_back({
+                {radius * std::cos(angle), radius * std::sin(angle), z},
+                color,
+            });
+          }
+        }
+
+        for (int segment = 0; segment < beamSegments; ++segment) {
+          const int ring0 = segment * kBeamSides;
+          const int ring1 = (segment + 1) * kBeamSides;
+          for (int sideIndex = 0; sideIndex < kBeamSides; ++sideIndex) {
+            const int next = (sideIndex + 1) % kBeamSides;
+            const uint16_t a = static_cast<uint16_t>(ring0 + sideIndex);
+            const uint16_t b = static_cast<uint16_t>(ring0 + next);
+            const uint16_t c = static_cast<uint16_t>(ring1 + next);
+            const uint16_t d = static_cast<uint16_t>(ring1 + sideIndex);
+            beamIndices.push_back(a);
+            beamIndices.push_back(b);
+            beamIndices.push_back(c);
+            beamIndices.push_back(a);
+            beamIndices.push_back(c);
+            beamIndices.push_back(d);
+          }
+        }
+
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            beamVerts.data(),
+            static_cast<uint32_t>(beamVerts.size()),
+            beamIndices.data(),
+            static_cast<uint32_t>(beamIndices.size()),
+            beamPose);
+]==])
+
+_p4u_replace_if_missing(
+    "rounded tapered pointer beam v11"
+    "P4U: rounded tapered pointer beam v11"
+    "${_pointer_beam_geometry_old}"
+    "${_pointer_beam_geometry_new}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
