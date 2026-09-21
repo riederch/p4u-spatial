@@ -9,6 +9,7 @@ import android.os.Looper
 import com.bytedance.pico.secure_mr_demo.readback.ReadbackActivity
 import java.util.UUID
 
+// ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — keep QR scan/result lifecycle reusable and app business actions pluggable.
 class QrReaderController(
     context: Context,
     customActions: List<QrAction> = emptyList(),
