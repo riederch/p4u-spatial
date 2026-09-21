@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import at.p4u.picovr.core.feature.FeatureRegistry
 import at.p4u.picovr.qr.QrFeature
 import at.p4u.picovr.qr.ui.QrFeaturePresentation
+import at.p4u.picovr.securemr.SpatialMlQrScannerBackend
 import at.p4u.picovr.ui.FeaturePresentationRegistry
 import at.p4u.picovr.ui.PicoFeatureShell
 import com.pico.spatial.ui.foundation.dsl.DefaultWindowContainer
@@ -38,6 +39,7 @@ class MainApplication : Application() {
                         listOf(
                             QrFeaturePresentation(
                                 context = context,
+                                scannerBackend = SpatialMlQrScannerBackend(context),
                                 customActions = listOf(BridgeRegistrationQrAction()),
                             ),
                         ),

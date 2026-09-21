@@ -1,88 +1,72 @@
 package at.p4u.picovr.qr
 
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.Handler
-import android.os.Looper
-import com.bytedance.pico.secure_mr_demo.readback.ReadbackActivity
-import java.util.UUID
 
 // ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — keep QR scan/result lifecycle reusable and app business actions pluggable.
+// ADR: docs/adr/app/0031-hud-controlled-ambient-feature-lifecycle.md — QR recognition is controlled by feature state and resumes automatically after closing a result.
 class QrReaderController(
     context: Context,
+    private val scannerBackend: QrScannerBackend,
     customActions: List<QrAction> = emptyList(),
     includeStandardActions: Boolean = true,
 ) : AutoCloseable {
     private val appContext = context.applicationContext
-    private val handler = Handler(Looper.getMainLooper())
     private val actions = buildList {
         if (includeStandardActions) addAll(StandardQrActions.all())
         addAll(customActions)
     }
 
-    private var receiver: BroadcastReceiver? = null
-    private var currentAction: String? = null
+    private var enabled = false
 
     var onStateChanged: ((QrReaderState) -> Unit)? = null
     var state: QrReaderState = QrReaderState.Idle
         private set
 
-    fun scan() {
-        if (state is QrReaderState.Scanning) return
-        unregisterReceiver()
+    fun setEnabled(enabled: Boolean) {
+        if (this.enabled == enabled) return
+        this.enabled = enabled
 
-        val action = "${appContext.packageName}.QR_RESULT.${UUID.randomUUID()}"
-        currentAction = action
-        receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action != action) return
-                when (intent.getStringExtra(ReadbackActivity.EXTRA_STATUS)) {
-                    ReadbackActivity.STATUS_DECODED -> {
-                        val raw = intent.getStringExtra(ReadbackActivity.EXTRA_PAYLOAD) ?: return
-                        val result = QrResult(raw, QrContentParser.parse(raw))
-                        update(QrReaderState.Result(result, matchingActions(result)))
-                        unregisterReceiver()
-                    }
-                    ReadbackActivity.STATUS_ERROR -> {
-                        update(
-                            QrReaderState.Error(
-                                intent.getStringExtra(ReadbackActivity.EXTRA_MESSAGE)
-                                    ?: "QR-Scanner konnte nicht gestartet werden."
-                            )
-                        )
-                        unregisterReceiver()
-                    }
-                    ReadbackActivity.STATUS_CANCELLED -> {
-                        update(QrReaderState.Idle)
-                        unregisterReceiver()
-                    }
-                }
-            }
+        if (!enabled) {
+            scannerBackend.stop()
+            update(QrReaderState.Idle)
+            return
         }
 
-        appContext.registerReceiver(
-            receiver,
-            IntentFilter(action),
-            Context.RECEIVER_NOT_EXPORTED,
-        )
-
-        update(QrReaderState.Scanning)
-        appContext.startActivity(
-            Intent(appContext, ReadbackActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                putExtra(ReadbackActivity.EXTRA_RESULT_ACTION, action)
-                putExtra(ReadbackActivity.EXTRA_RESULT_PACKAGE, appContext.packageName)
-            }
-        )
+        if (state !is QrReaderState.Result) {
+            startRecognition()
+        }
     }
 
     fun dismissResult() {
         update(QrReaderState.Idle)
+        if (enabled) {
+            startRecognition()
+        }
     }
 
     fun availableActions(result: QrResult): List<QrAction> = matchingActions(result)
+
+    private fun startRecognition() {
+        if (!enabled || state is QrReaderState.Scanning) return
+
+        update(QrReaderState.Scanning)
+        scannerBackend.start(
+            object : QrScannerBackend.Listener {
+                override fun onDecoded(raw: String) {
+                    if (!enabled || state !is QrReaderState.Scanning) return
+                    scannerBackend.stop()
+                    val result = QrResult(raw, QrContentParser.parse(raw))
+                    update(QrReaderState.Result(result, matchingActions(result)))
+                }
+
+                override fun onError(message: String) {
+                    if (!enabled) return
+                    scannerBackend.stop()
+                    update(QrReaderState.Error(message))
+                }
+            },
+        )
+    }
 
     private fun matchingActions(result: QrResult): List<QrAction> =
         actions.filter { runCatching { it.matches(result) }.getOrDefault(false) }
@@ -92,14 +76,9 @@ class QrReaderController(
         onStateChanged?.invoke(newState)
     }
 
-    private fun unregisterReceiver() {
-        receiver?.let { runCatching { appContext.unregisterReceiver(it) } }
-        receiver = null
-        currentAction = null
-    }
-
     override fun close() {
-        unregisterReceiver()
+        enabled = false
+        scannerBackend.close()
         onStateChanged = null
     }
 }

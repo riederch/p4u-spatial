@@ -66,6 +66,7 @@ dependencies {
     implementation(project(":app-ui"))
     implementation(project(":qr-reader"))
     implementation(project(":qr-reader-ui"))
+    implementation(project(":securemr-probe"))
     implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation(platform("com.pico.spatial:bom:6.1.9"))

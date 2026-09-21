@@ -1,5 +1,6 @@
 plugins {
     id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -37,8 +38,22 @@ android {
             keepDebugSymbols.add("**.so")
         }
     }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
 }
 
 dependencies {
+    implementation(project(":qr-reader"))
+    implementation(platform("com.pico.spatial:bom:6.1.9"))
+    implementation("com.pico.spatial.ml:securemr")
+    implementation("com.pico.spatial.ml:readback")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
