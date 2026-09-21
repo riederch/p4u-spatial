@@ -36,8 +36,11 @@ Core
 ├── Federation
 │   └── Routing / Cache / Durable Relay
 │
-└── XR
-    └── Pairing / Scan / Observation / Task profiles
+├── XR
+│   └── Pairing / Scan / Observation / Task profiles
+│
+└── XR App
+    └── Application release / package / update lifecycle
 ```
 
 Portable backup is a local file format, not a network contract.
@@ -74,6 +77,7 @@ tiles
 federation
 app-sync
 xr
+xr-app
 ```
 
 ## Current target topology
