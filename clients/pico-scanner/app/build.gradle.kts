@@ -62,7 +62,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":securemr-probe"))
+    implementation(project(":qr-reader"))
     implementation("androidx.core:core-ktx:1.15.0")
     implementation(platform("com.pico.spatial:bom:6.1.9"))
     implementation("com.pico.spatial.core:core")
@@ -72,5 +72,4 @@ dependencies {
     implementation("com.pico.spatial.ui:platform")
     implementation("com.pico.spatial.ui:design")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("com.google.zxing:core:3.5.3")
 }
