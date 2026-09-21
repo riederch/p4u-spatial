@@ -12,6 +12,10 @@ import { BridgeError, assertOrThrow } from "./errors.js";
 import type { RepositoryProvider } from "./repository/provider.js";
 import { DeviceRegistry } from "./services/device-registry.js";
 import { FederationService, type FederatedReadResult } from "./services/federation-service.js";
+import {
+  FederationDelegationService,
+  type SubjectTokenProvider,
+} from "./services/federation-delegation-service.js";
 import { InstanceIdentityService } from "./services/instance-identity.js";
 import { PairingService } from "./services/pairing-service.js";
 import { ScanUploadService } from "./services/scan-upload-service.js";
@@ -44,6 +48,7 @@ interface Services {
   xrAppReleases: XrAppReleaseService;
   candidates: CandidateReviewService;
   federation?: FederationService;
+  federationDelegation?: FederationDelegationService;
   adminPasskeys?: AdminPasskeyService;
   adminUsers: AdminUserService;
   adminSessions: AdminSessionService;
@@ -172,7 +177,14 @@ function applyFederatedReadHeaders(reply: FastifyReply, result: FederatedReadRes
 }
 
 // ADR: docs/adr/contracts/0027-separate-xr-app-contract.md — discovery exposes XR runtime and XR application lifecycle as separate contracts.
-export function buildServer(config: BridgeConfig, repository: RepositoryProvider, options: { configStore?: BridgeConfigStore } = {}): FastifyInstance {
+export function buildServer(
+  config: BridgeConfig,
+  repository: RepositoryProvider,
+  options: {
+    configStore?: BridgeConfigStore;
+    federationSubjectTokenProvider?: SubjectTokenProvider;
+  } = {},
+): FastifyInstance {
   const app = Fastify({ logger: true, bodyLimit: 64 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
 
@@ -187,16 +199,47 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     config.spatialOperationRetentionSeconds,
   );
 
-  const federation = config.federationUpstreamUrl
-    ? new FederationService(config.stateDir, {
-        upstreamUrl: config.federationUpstreamUrl,
+  const federationAccessMode = config.federationAccessMode
+    ?? (config.federationToken ? "service" : "anonymous");
+
+  let federationDelegation: FederationDelegationService | undefined;
+  if (config.federationUpstreamUrl && federationAccessMode === "delegated-user") {
+    if (!config.federationDelegationMethod || !config.federationOAuthTokenUrl || !config.federationOAuthClientId) {
+      throw new Error("Delegated federation requires method, token URL and OAuth client ID.");
+    }
+    if (config.federationDelegationMethod === "authorization-code-pkce" && !config.federationOAuthAuthorizationUrl) {
+      throw new Error("Authorization Code + PKCE requires an OAuth authorization URL.");
+    }
+    federationDelegation = new FederationDelegationService(
+      config.stateDir,
+      {
         routeId: config.federationRouteId,
-        accessMode: config.federationToken ? "service" : "anonymous",
-        ...(config.federationToken ? { token: config.federationToken } : {}),
-        retryBaseSeconds: config.federationRetryBaseSeconds,
-        retryMaxSeconds: config.federationRetryMaxSeconds,
-        relayRetentionSeconds: config.federationRelayRetentionSeconds,
-      })
+        method: config.federationDelegationMethod,
+        tokenUrl: config.federationOAuthTokenUrl,
+        clientId: config.federationOAuthClientId,
+        ...(config.federationOAuthClientSecret ? { clientSecret: config.federationOAuthClientSecret } : {}),
+        ...(config.federationOAuthAuthorizationUrl ? { authorizationUrl: config.federationOAuthAuthorizationUrl } : {}),
+        ...(config.federationOAuthScopes ? { scopes: config.federationOAuthScopes } : {}),
+        ...(config.federationOAuthAudience ? { audience: config.federationOAuthAudience } : {}),
+      },
+      options.federationSubjectTokenProvider,
+    );
+  }
+
+  const federation = config.federationUpstreamUrl
+    ? new FederationService(
+        config.stateDir,
+        {
+          upstreamUrl: config.federationUpstreamUrl,
+          routeId: config.federationRouteId,
+          accessMode: federationAccessMode,
+          ...(federationAccessMode === "service" && config.federationToken ? { token: config.federationToken } : {}),
+          retryBaseSeconds: config.federationRetryBaseSeconds,
+          retryMaxSeconds: config.federationRetryMaxSeconds,
+          relayRetentionSeconds: config.federationRelayRetentionSeconds,
+        },
+        federationDelegation,
+      )
     : undefined;
 
   const scans = new ScanUploadService(config.stateDir, repository, config.spatialRoot, {
@@ -241,6 +284,7 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     adminPasswordTotp: new AdminPasswordTotpService(config.stateDir),
     setupBootstrap: new SetupBootstrapService(config.stateDir),
     ...(federation ? { federation } : {}),
+    ...(federationDelegation ? { federationDelegation } : {}),
     ...(config.adminWebauthnRpId && config.adminWebauthnOrigin
       ? { adminPasskeys: new AdminPasskeyService(config.stateDir, config.adminWebauthnRpId, config.adminWebauthnOrigin) }
       : {}),
