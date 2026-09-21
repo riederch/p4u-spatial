@@ -56,6 +56,7 @@ class MainApplication : Application() {
                 PicoFeatureShell(
                     features = features,
                     presentations = presentationRegistry,
+                    onFeatureEnabledChange = featureRegistry::setEnabled,
                 )
             }
         }
