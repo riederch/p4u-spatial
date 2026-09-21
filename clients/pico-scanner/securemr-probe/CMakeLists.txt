@@ -24,6 +24,9 @@ string(REPLACE
 )
 file(WRITE "${_logger_file}" "${_logger_source}")
 
+# Apply the PICO 4 Ultra / PICO OS 5.x OpenXR input compatibility patch to the pinned sample.
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/patch_p4u_openxr_input.cmake)
+
 set(SAMPLE_SRCS
     ${CMAKE_CURRENT_LIST_DIR}/cpp/readback_qr.cpp
     ${pico_securemr_samples_SOURCE_DIR}/samples/readback/cpp/readback_vulkan.cpp
