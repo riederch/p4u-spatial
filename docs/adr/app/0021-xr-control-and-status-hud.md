@@ -1,8 +1,10 @@
 # ADR 0021: XR Control and Status HUD
 
-Status: Accepted
+Status: Superseded by ADR 0029
 
 Date: 2026-09-21
+
+> Superseded by ADR 0029. The original menu/status requirements are carried forward into the unified HUD interaction shell.
 
 ## Context
 
