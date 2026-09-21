@@ -42,7 +42,11 @@ public class ReadbackActivity extends NativeActivity {
     private final ExecutorService decoder = Executors.newSingleThreadExecutor();
     private final AtomicBoolean decodeInFlight = new AtomicBoolean(false);
     private final AtomicBoolean completed = new AtomicBoolean(false);
+    private final AtomicBoolean recognitionEnabled = new AtomicBoolean(true);
     private final AtomicInteger frameCount = new AtomicInteger(0);
+
+    private static final String PREFS_NAME = "p4u-qr-reader";
+    private static final String PREF_RECOGNITION_ENABLED = "qr-recognition-enabled";
 
     private String resultAction;
     private String resultPackage;
@@ -62,6 +66,11 @@ public class ReadbackActivity extends NativeActivity {
         if (resultPackage == null || resultPackage.isBlank()) {
             resultPackage = getPackageName();
         }
+
+        boolean savedRecognitionEnabled = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(PREF_RECOGNITION_ENABLED, true);
+        recognitionEnabled.set(savedRecognitionEnabled);
+        nativeSetQrRecognitionEnabled(savedRecognitionEnabled);
 
         Log.i(TAG, "Starting native OpenXR SecureMR QR scanner");
         Log.i(TAG, "device=" + Build.DEVICE + " model=" + Build.MODEL +
@@ -107,13 +116,15 @@ public class ReadbackActivity extends NativeActivity {
             Log.i(TAG, "RGB frame #" + currentFrame + " " + width + "x" + height +
                     " bytes=" + rgb.length);
         }
-        if (completed.get() || !decodeInFlight.compareAndSet(false, true)) {
+        if (!recognitionEnabled.get() || completed.get() ||
+                !decodeInFlight.compareAndSet(false, true)) {
             return;
         }
         decoder.execute(() -> {
             try {
                 String raw = decodeQr(rgb, width, height);
-                if (raw != null && complete(STATUS_DECODED, raw, null)) {
+                if (raw != null && recognitionEnabled.get() &&
+                        complete(STATUS_DECODED, raw, null)) {
                     // First valid decode wins. This deliberately keeps moving/mobile QR codes responsive.
                     Log.i(TAG, "QR decoded, payloadLength=" + raw.length());
                     runOnUiThread(this::finish);
@@ -177,6 +188,15 @@ public class ReadbackActivity extends NativeActivity {
         }
     }
 
+    public void onQrRecognitionChanged(boolean enabled) {
+        recognitionEnabled.set(enabled);
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_RECOGNITION_ENABLED, enabled)
+                .apply();
+        Log.i(TAG, "QR recognition " + (enabled ? "enabled" : "disabled"));
+    }
+
     @Override
     protected void onDestroy() {
         complete(STATUS_CANCELLED, null, null);
@@ -185,4 +205,5 @@ public class ReadbackActivity extends NativeActivity {
     }
 
     public native void nativeSetPermission(String permission, boolean granted);
+    public native void nativeSetQrRecognitionEnabled(boolean enabled);
 }
