@@ -35,7 +35,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0013 | Contracts | Aligned | XR is discovered/profiled over Core, with canonical XR scopes and legacy /api/v1 compatibility. |
 | 0014 | Contracts | Partial | Relations use normal Spatial collections/write semantics. Efficient relation filtering is not implemented. |
 | 0015 | Contracts | Contract-only | Explicit publish workflow is specified; no MultiGIS/App Sync reference client exists here. |
-| 0016 | Contracts | Contract-only / implementation gap | Immutable Spatial Artifact contract exists; Bridge artifact read/upload endpoints are not implemented. |
+| 0016 | Contracts | Aligned locally / federation pending | Local immutable Artifact read/upload/commit, integrity verification and Spatial-write readiness checks are implemented. Artifact-aware federation durable relay remains open. |
 | 0017 | Contracts | Superseded by 0027 | The previous xr-app registry ambiguity was explicitly resolved by ADR 0027. |
 | 0018 | Bridge | Partial migration | Persisted BridgeConfigStore is authoritative after migration, but legacy functional `P4U_*` environment variables are still accepted as bootstrap/migration input. |
 | 0019 | App | Partial | Generic QR lifecycle/content/actions are reusable; QR result presentation still lives in the product app layer. |
@@ -84,17 +84,19 @@ It has been changed to `implementation`, so SecureMR remains an internal backend
 
 ## Open architecture gaps
 
-### 1. Spatial Artifacts
+### 1. Spatial Artifacts federation follow-up
 
-ADR 0016 is normative, but the Bridge does not implement:
+The local authoritative-source software gap has been closed:
 
-- artifact descriptor/content reads,
-- artifact upload sessions,
-- artifact commit,
-- artifact-dependent durable federation relay.
+- artifact descriptor/content reads are implemented,
+- retry-safe upload sessions and commit are implemented,
+- SHA-256/size integrity is enforced,
+- committed bytes are immutable,
+- new local Spatial writes reject uncommitted local Artifact References,
+- local source/discovery capabilities now advertise Artifact support.
 
-Until implemented, the Bridge must not advertise artifact capabilities or make artifact-dependent
-durability guarantees.
+Still open: federation durable relay must become artifact-aware before it may acknowledge an
+operation with required artifact payloads as `relay-durable`.
 
 ### 2. Federation delegated-user
 
