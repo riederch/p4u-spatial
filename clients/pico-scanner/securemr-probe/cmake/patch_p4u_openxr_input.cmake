@@ -546,7 +546,9 @@ set(_direct_hand_render_replacement [==[
         }
 
         if (directActive) {
-          resolvedPose = palm.pose;
+          // P4U: the interaction pointer originates at the index fingertip, not the palm.
+          // This matches the user's perceived pointing point and avoids a hand-center cursor.
+          resolvedPose = indexTip.pose;
           m_input.handActive[hand] = XR_TRUE;
 
           const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
@@ -829,6 +831,27 @@ _p4u_replace_if_missing(
     "P4U: XR_EXT_hand_tracking system support="
     "${_hand_system_support_anchor}"
     "${_hand_system_support_replacement}"
+)
+
+set(_direct_hand_pointer_origin_old [==[
+        if (directActive) {
+          resolvedPose = palm.pose;
+          m_input.handActive[hand] = XR_TRUE;
+]==])
+
+set(_direct_hand_pointer_origin_new [==[
+        if (directActive) {
+          // P4U: the interaction pointer originates at the index fingertip, not the palm.
+          // This matches the user's perceived pointing point and avoids a hand-center cursor.
+          resolvedPose = indexTip.pose;
+          m_input.handActive[hand] = XR_TRUE;
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand fingertip pointer origin v6"
+    "P4U: the interaction pointer originates at the index fingertip"
+    "${_direct_hand_pointer_origin_old}"
+    "${_direct_hand_pointer_origin_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
