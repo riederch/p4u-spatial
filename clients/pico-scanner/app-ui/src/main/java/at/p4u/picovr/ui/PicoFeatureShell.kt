@@ -36,6 +36,8 @@ import at.p4u.picovr.ui.hud.HudStatusContribution
 import at.p4u.picovr.ui.hud.HudTokens
 import at.p4u.picovr.ui.hud.HudToggleRow
 import at.p4u.picovr.ui.hud.asContribution
+import at.p4u.picovr.ui.hud.buildHudMenuTree
+import at.p4u.picovr.ui.hud.resolve
 import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.design.Text
 import com.pico.spatial.ui.design.defaultColorScheme
@@ -139,47 +141,6 @@ fun PicoFeatureShell(
             )
         }
     }
-}
-
-private data class HudMenuNode(
-    val name: String,
-    val children: Map<String, HudMenuNode>,
-    val items: List<HudMenuContribution>,
-)
-
-private fun buildHudMenuTree(contributions: List<HudContribution>): HudMenuNode {
-    class MutableNode(val name: String) {
-        val children = linkedMapOf<String, MutableNode>()
-        val items = mutableListOf<HudMenuContribution>()
-    }
-
-    val root = MutableNode("")
-    contributions
-        .flatMap { it.menu }
-        .forEach { item ->
-            var node = root
-            item.path.forEach { segment ->
-                node = node.children.getOrPut(segment) { MutableNode(segment) }
-            }
-            node.items += item
-        }
-
-    fun freeze(node: MutableNode): HudMenuNode =
-        HudMenuNode(
-            name = node.name,
-            children = node.children.mapValues { freeze(it.value) },
-            items = node.items.toList(),
-        )
-
-    return freeze(root)
-}
-
-private fun HudMenuNode.resolve(path: List<String>): HudMenuNode? {
-    var node = this
-    path.forEach { segment ->
-        node = node.children[segment] ?: return null
-    }
-    return node
 }
 
 @Composable

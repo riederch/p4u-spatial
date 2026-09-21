@@ -57,6 +57,9 @@ jobs:
           ./gradlew :app:dependencies --configuration debugRuntimeClasspath > /tmp/p4u-deps.txt
           echo "===== P4U Spatial dependencies ====="
           grep -E "com\.pico\.spatial|openmr|securemr|readback|foundation|platform|design" /tmp/p4u-deps.txt || true
+      - name: Run PICO app unit tests
+        working-directory: clients/pico-scanner
+        run: ./gradlew :app-ui:testDebugUnitTest
       - name: Build debug APK
         working-directory: clients/pico-scanner
         run: ./gradlew :app:assembleDebug

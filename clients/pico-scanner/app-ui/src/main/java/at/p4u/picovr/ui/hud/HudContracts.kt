@@ -2,6 +2,7 @@ package at.p4u.picovr.ui.hud
 
 import androidx.compose.runtime.Composable
 import at.p4u.picovr.core.feature.FeatureSnapshot
+import kotlin.math.roundToInt
 
 // ADR: docs/adr/app/0029-unified-xr-hud-interaction-shell.md — features contribute declarative HUD state; the HUD owns persistent control chrome.
 data class HudContribution(
@@ -133,7 +134,9 @@ data class HudSettings(
             .coerceIn(MIN_SCALE_PERCENT, MAX_SCALE_PERCENT)
             .let { value ->
                 val offset = value - MIN_SCALE_PERCENT
-                MIN_SCALE_PERCENT + (offset / SCALE_STEP_PERCENT) * SCALE_STEP_PERCENT
+                MIN_SCALE_PERCENT + (
+                    offset.toFloat() / SCALE_STEP_PERCENT.toFloat()
+                ).roundToInt() * SCALE_STEP_PERCENT
             }
 
     companion object {

@@ -32,4 +32,5 @@ dependencies {
     implementation("com.pico.spatial.ui:foundation")
     implementation("com.pico.spatial.ui:platform")
     implementation("com.pico.spatial.ui:design")
+    testImplementation("junit:junit:4.13.2")
 }
