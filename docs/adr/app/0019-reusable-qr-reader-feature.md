@@ -46,6 +46,12 @@ available independently of content length.
 - Applications must explicitly register domain-specific actions.
 - Hardware-specific scan behavior is kept outside the reusable content/action layer.
 
+## Implementation anchors
+
+- `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrReaderController.kt` — reusable scan lifecycle, result state and pluggable action boundary.
+- `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrModels.kt` — generic QR content and action contracts.
+- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/BridgeRegistrationQrAction.kt` — Bridge pairing implemented as an application-provided custom QR action.
+
 ## Related decisions
 
 - ADR 0013: XR Is a Profile over Core
