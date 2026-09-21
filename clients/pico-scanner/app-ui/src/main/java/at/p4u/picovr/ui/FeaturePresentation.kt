@@ -20,7 +20,10 @@ interface FeaturePresentation : AutoCloseable {
         null
 
     @Composable
-    fun Content(snapshot: FeatureSnapshot)
+    fun Content(
+        snapshot: FeatureSnapshot,
+        onFeedback: (at.p4u.picovr.ui.hud.HudFeedback) -> Unit,
+    )
 
     @Composable
     fun StatusIcon(snapshot: FeatureSnapshot)

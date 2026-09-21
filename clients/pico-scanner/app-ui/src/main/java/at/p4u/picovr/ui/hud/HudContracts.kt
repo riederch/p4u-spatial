@@ -175,3 +175,13 @@ fun FeatureSnapshot.toHudContribution(): HudContribution {
         status = status,
     )
 }
+
+class LambdaHudCommand(
+    override val id: String,
+    override val label: String,
+    override val role: HudCommandRole = HudCommandRole.SECONDARY,
+    override val state: HudCommandState = HudCommandState(),
+    private val action: suspend () -> HudCommandResult,
+) : HudCommand {
+    override suspend fun execute(): HudCommandResult = action()
+}

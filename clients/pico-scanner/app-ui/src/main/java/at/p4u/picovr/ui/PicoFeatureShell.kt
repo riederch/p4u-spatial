@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +20,9 @@ import at.p4u.picovr.core.feature.FeatureSnapshot
 import at.p4u.picovr.ui.hud.HudCategoryRow
 import at.p4u.picovr.ui.hud.HudCommandButton
 import at.p4u.picovr.ui.hud.HudContribution
+import at.p4u.picovr.ui.hud.HudFeedback
+import at.p4u.picovr.ui.hud.HudFeedbackKind
+import at.p4u.picovr.ui.hud.HudFeedbackSurface
 import at.p4u.picovr.ui.hud.HudLauncherButton
 import at.p4u.picovr.ui.hud.HudMenuContribution
 import at.p4u.picovr.ui.hud.HudMenuControl
@@ -35,6 +39,7 @@ import com.pico.spatial.ui.foundation.material.backgroundMaterial
 import com.pico.spatial.ui.foundation.window.Augment
 import com.pico.spatial.ui.foundation.window.AugmentContentAlignment
 import com.pico.spatial.ui.platform.ViewPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // ADR: docs/adr/app/0022-modular-app-foundation-and-features.md — shell renders generic feature presentations without importing feature-specific types.
@@ -47,6 +52,15 @@ fun PicoFeatureShell(
     modifier: Modifier = Modifier,
 ) {
     val contributions = presentations.contributions(features)
+    var feedback by remember { mutableStateOf<HudFeedback?>(null) }
+
+    LaunchedEffect(feedback) {
+        val current = feedback ?: return@LaunchedEffect
+        if (!current.persistent && current.kind != HudFeedbackKind.RUNNING) {
+            delay(2500)
+            if (feedback == current) feedback = null
+        }
+    }
 
     PicoTheme(colorScheme = defaultColorScheme()) {
         Box(
@@ -61,7 +75,7 @@ fun PicoFeatureShell(
                 Text("picoVr", textAlign = TextAlign.Center, fontSize = HudTokens.Typography.heroEm.em)
                 presentations.home()?.let { presentation ->
                     features.firstOrNull { it.id == presentation.featureId }?.let { snapshot ->
-                        presentation.Content(snapshot)
+                        presentation.Content(snapshot) { feedback = it }
                     }
                 }
             }
@@ -77,7 +91,20 @@ fun PicoFeatureShell(
             UnifiedHudMenu(
                 contributions = contributions,
                 onFeatureEnabledChange = onFeatureEnabledChange,
+                onFeedback = { feedback = it },
             )
+        }
+
+        feedback?.let { currentFeedback ->
+            Augment(
+                anchor = NormalizedPoint3D(0.5f, 0.94f, 0f),
+                alignment = AugmentContentAlignment.BottomCenter,
+                followViewpoints = ViewPoint.All,
+                enableMaterialBackground = false,
+                focusable = false,
+            ) {
+                HudFeedbackSurface(currentFeedback)
+            }
         }
 
         Augment(
@@ -141,6 +168,7 @@ private fun HudMenuNode.resolve(path: List<String>): HudMenuNode? {
 private fun UnifiedHudMenu(
     contributions: List<HudContribution>,
     onFeatureEnabledChange: (featureId: String, enabled: Boolean) -> Unit,
+    onFeedback: (HudFeedback) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -186,7 +214,16 @@ private fun UnifiedHudMenu(
                             HudCommandButton(
                                 command = control.command,
                                 onExecute = { command ->
-                                    scope.launch { command.execute() }
+                                    scope.launch {
+                                        onFeedback(
+                                            HudFeedback(
+                                                kind = HudFeedbackKind.RUNNING,
+                                                message = command.label,
+                                                persistent = true,
+                                            ),
+                                        )
+                                        command.execute().feedback?.let(onFeedback)
+                                    }
                                 },
                             )
 
