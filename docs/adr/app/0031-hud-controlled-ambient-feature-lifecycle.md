@@ -6,26 +6,20 @@ Date: 2026-09-21
 
 ## Context
 
-ADR 0029 established the Unified XR HUD as the primary control surface, but the first QR
-implementation still retained a legacy feature-home interaction:
+ADR 0029 established the Unified XR HUD as the primary control surface, but the first QR implementation still retained a legacy feature-home interaction:
 
 - a visible primary application surface,
 - an explicit "QR scannen" button,
 - separate idle/scanning/error screens,
 - an explicit "Neu scannen" action after a result.
 
-That interaction duplicates the HUD and contradicts the intended ambient XR model. QR recognition
-is not a foreground tool that the user repeatedly launches. It is a persistent capability that
-should run while enabled and otherwise stay visually silent.
+That interaction duplicates the HUD and contradicts the intended ambient XR model. QR recognition is not a foreground tool that the user repeatedly launches. It is a persistent capability that should run while enabled and otherwise stay visually silent.
 
-The PICO reference stack also provides SpatialML SecureMR/readback APIs that can operate inside the
-same Spatial application runtime. A separate scanner NativeActivity is therefore not part of the
-desired product interaction.
+The initial implementation attempted to realize this with PICO Spatial SDK 6.x SpatialML. Real PICO 4 Ultra validation later showed that the target PICO OS 5.15.9.U runtime does not provide the Spatial-container runtime required by that SDK. ADR 0032 therefore changes the platform mechanism to native OpenXR/SecureMR while preserving the lifecycle defined here.
 
 ## Decision
 
-P4U Spatial models QR recognition, and comparable future always-available capabilities, as
-**HUD-controlled ambient features**.
+P4U Spatial models QR recognition, and comparable future always-available capabilities, as **HUD-controlled ambient features**.
 
 ### Single control authority
 
@@ -48,8 +42,7 @@ When QR recognition is enabled:
 - the feature remains visually represented only by its active status icon,
 - disabling the feature stops/gates camera and decode work.
 
-When QR recognition is disabled, no scanner runtime is started merely because the application is
-open.
+When QR recognition is disabled, no scanner runtime is started merely because the application is open.
 
 ### Result lifecycle
 
@@ -65,32 +58,23 @@ While a result is open:
 
 When the result is closed, recognition resumes automatically if QR remains enabled.
 
-There is no separate `Neu scannen` command in the normal QR result flow because resuming recognition
-is implicit in closing the result.
+There is no separate `Neu scannen` command in the normal QR result flow because resuming recognition is implicit in closing the result.
 
 ### Error behavior
 
 Scanner errors do not create a feature home screen.
 
-Errors use the shared HUD feedback/status model. Recoverable initialization/runtime failures may be
-retried with bounded backoff while the feature remains enabled. Repeated failure must remain visible
-as degraded/error state rather than creating an invisible infinite retry loop.
+Errors use the shared HUD feedback/status model. Recoverable initialization/runtime failures may be retried with bounded backoff while the feature remains enabled. Repeated failure must remain visible as degraded/error state rather than creating an invisible infinite retry loop.
 
-### Single Spatial application runtime
+### Single OpenXR application runtime
 
-The product QR flow must not launch a separate visible Android/NativeActivity for scanning.
+The product QR flow must not launch a second visible Android/NativeActivity for scanning.
 
-PICO SecureMR camera access is integrated in-process through the SpatialML SecureMR/readback APIs
-behind the existing vendor backend boundary.
-
-The legacy native OpenXR `ReadbackActivity` implementation may remain temporarily as historical or
-fallback development code during migration, but it must not be invoked by the normal product QR
-flow.
+For PICO 4 Ultra / PICO OS 5.x, PICO SecureMR camera access is integrated into the same native OpenXR application lifecycle that owns HUD rendering and input. The existing NativeActivity sample code is the validated implementation source, not a separate product screen.
 
 ### Application surface
 
-The application does not render a feature-specific white/home content surface merely to host an
-ambient feature.
+The application does not render a feature-specific white/home content surface merely to host an ambient feature.
 
 Persistent user-visible surfaces are:
 
@@ -98,8 +82,7 @@ Persistent user-visible surfaces are:
 - shared transient feedback,
 - explicit result/detail surfaces when content exists.
 
-The framework root container may still exist as required by PICO Spatial UI, but it must remain
-visually neutral/transparent when no working content is present.
+On the PICO 4 Ultra target these are OpenXR composition/content layers per ADR 0032 rather than a PICO Spatial SDK root window.
 
 ## Consequences
 
@@ -108,40 +91,36 @@ visually neutral/transparent when no working content is present.
 - Normal operation has no visible scanner screen or scan affordance.
 - QR recognition behaves like a background XR capability instead of a foreground app page.
 - Result handling remains explicit and safe; recognition never auto-executes QR actions.
-- The QR backend must support lifecycle control inside the existing Spatial application runtime.
-- Hardware validation must verify camera/readback support and lifecycle behavior on the target PICO
-  runtime before the legacy NativeActivity path is removed.
+- The QR backend must support lifecycle control inside the product's OpenXR runtime.
+- Hardware validation must verify camera/readback support and lifecycle behavior on the target PICO runtime.
 
 ## Implementation anchors
 
 - `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrScannerBackend.kt` — vendor-neutral scanner lifecycle contract.
 - `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrReaderController.kt` — authoritative ambient start/stop, first-result latch and automatic resume after result close.
-- `clients/pico-scanner/securemr-probe/src/main/java/at/p4u/picovr/securemr/SpatialMlQrScannerBackend.kt` — in-process PICO SpatialML SecureMR/readback implementation.
-- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — no-home-surface QR presentation; result panel only when a QR result exists.
-- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — transparent root content surface plus persistent HUD chrome.
-- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/MainApplication.kt` — composition root injects the PICO scanner backend into the reusable QR feature.
+- `clients/pico-scanner/securemr-probe/cpp/readback_qr.cpp` — validated native PICO SecureMR/OpenXR camera/readback implementation to be integrated into the main runtime.
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — existing product semantics/presentation contract; its Spatial-UI renderer is superseded by the OpenXR presentation adapter.
+- ADR 0032 defines the target PICO runtime and migration boundary.
 
 ## Implementation status
 
-The software migration is implemented and CI-green with PICO Spatial SDK 6.1.9:
+The **product lifecycle** in this ADR is implemented in the platform-neutral QR controller and HUD contracts.
 
-- no QR home/start/scan surface,
-- QR toggle directly controls runtime recognition,
-- recognition is visually silent while scanning,
-- result close automatically resumes recognition while the feature remains enabled,
-- normal product flow no longer launches `ReadbackActivity`,
-- PICO camera access/readback runs in-process through SpatialML,
-- root content chrome no longer paints the previous white/gray feature screen.
+The former PICO Spatial SDK 6.1.9 presentation/backend implementation compiled in CI but failed physical PICO 4 Ultra runtime validation because required Spatial runtime classes are absent on the target PICO OS 5.15.9.U.
 
-Physical PICO 4 Ultra validation remains required for real camera permission behavior, VST readback,
-decode reliability, result placement and runtime lifecycle.
+Therefore the following are currently migration work, not completed hardware functionality:
+
+- OpenXR HUD rendering of the existing semantic HUD model,
+- in-process native SecureMR lifecycle controlled by the QR feature toggle,
+- OpenXR result/detail placement,
+- controller and controller-free hand interaction parity on real hardware.
 
 ## Relationship to existing decisions
 
-This ADR supersedes ADR 0020's NativeActivity/native-OpenXR integration choice while preserving its
-vendor-backend boundary, first-valid-decode rule and ephemeral-frame requirements.
+ADR 0032 supersedes the SpatialML/Spatial-application **mechanism** previously described here. It does not supersede this ADR's ambient feature behavior.
 
 - ADR 0019 — Reusable QR Reader Feature
-- ADR 0020 — SecureMR QR Scanner Backend (superseded integration mode)
+- ADR 0020 — SecureMR QR Scanner Backend
 - ADR 0022 — Modular App Foundation and Features
 - ADR 0029 — Unified XR HUD Interaction Shell
+- ADR 0032 — PICO 4 Ultra Runtime Uses Native OpenXR
