@@ -9,11 +9,19 @@
 set(_p4u_openxr_program "${pico_securemr_samples_SOURCE_DIR}/base/openxr_program.cpp")
 file(READ "${_p4u_openxr_program}" _p4u_openxr_source)
 
-function(_p4u_replace_once label needle replacement)
+function(_p4u_replace_if_missing label marker needle replacement)
+    string(FIND "${_p4u_openxr_source}" "${marker}" _p4u_marker_match)
+    if(NOT _p4u_marker_match EQUAL -1)
+        message(STATUS "PICO OpenXR input patch: '${label}' already applied")
+        set(_p4u_openxr_source "${_p4u_openxr_source}" PARENT_SCOPE)
+        return()
+    endif()
+
     string(FIND "${_p4u_openxr_source}" "${needle}" _p4u_match)
     if(_p4u_match EQUAL -1)
         message(FATAL_ERROR "PICO OpenXR input patch failed: missing anchor '${label}'")
     endif()
+
     string(REPLACE "${needle}" "${replacement}" _p4u_openxr_source "${_p4u_openxr_source}")
     set(_p4u_openxr_source "${_p4u_openxr_source}" PARENT_SCOPE)
 endfunction()
@@ -63,8 +71,9 @@ set(_capability_replacement [==[
             m_handTrackingSupported ? "yes" : "no"));
 ]==])
 
-_p4u_replace_once(
+_p4u_replace_if_missing(
     "instance extension capability probe"
+    "P4U: Probe input capabilities on the actual runtime"
     "${_capability_anchor}"
     "${_capability_replacement}"
 )
@@ -73,7 +82,7 @@ set(_extension_anchor [==[
     extensions.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
 ]==])
 
-set(_extension_replacement [==[
+set(_controller_extension_replacement [==[
     extensions.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
 
     if (m_picoControllerInteractionSupported) {
@@ -84,6 +93,17 @@ set(_extension_replacement [==[
           Log::Level::Warning,
           "P4U: XR_BD_controller_interaction unavailable; using generic controller bindings only");
     }
+]==])
+
+_p4u_replace_if_missing(
+    "controller extension enable"
+    "P4U: enabling XR_BD_controller_interaction"
+    "${_extension_anchor}"
+    "${_controller_extension_replacement}"
+)
+
+set(_hand_extension_replacement [==[
+    extensions.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
 
     if (m_handInteractionSupported) {
       extensions.push_back(XR_EXT_HAND_INTERACTION_EXTENSION_NAME);
@@ -95,17 +115,18 @@ set(_extension_replacement [==[
     }
 ]==])
 
-_p4u_replace_once(
-    "controller extension enable"
+_p4u_replace_if_missing(
+    "hand interaction extension enable"
+    "P4U: enabling XR_EXT_hand_interaction"
     "${_extension_anchor}"
-    "${_extension_replacement}"
+    "${_hand_extension_replacement}"
 )
 
 set(_binding_anchor [==[
     XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
 ]==])
 
-set(_binding_replacement [==[
+set(_controller_binding_replacement [==[
     // P4U: Explicit PICO 4 Ultra / PICO 4S bindings. The target runtime reports this
     // interaction profile on PICO OS 5.15.9.U. Use aim pose for the future HUD ray and
     // trigger/value for semantic activation; keep haptics on the physical controllers.
@@ -151,6 +172,17 @@ set(_binding_replacement [==[
           "P4U: suggested bindings for /interaction_profiles/bytedance/pico4s_controller");
     }
 
+    XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+]==])
+
+_p4u_replace_if_missing(
+    "PICO 4S interaction profile bindings"
+    "P4U: suggested bindings for /interaction_profiles/bytedance/pico4s_controller"
+    "${_binding_anchor}"
+    "${_controller_binding_replacement}"
+)
+
+set(_hand_binding_replacement [==[
     // P4U: Hand interaction is a semantic fallback for the same HUD controls, not a
     // separate input mode. Pinch drives the existing grab/activate action and hand aim
     // drives the same pose action used by controller aim. No hand haptic or hand-only
@@ -207,10 +239,11 @@ set(_binding_replacement [==[
     XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
 ]==])
 
-_p4u_replace_once(
-    "PICO 4S interaction profile bindings"
+_p4u_replace_if_missing(
+    "hand interaction profile bindings"
+    "P4U: suggested hand fallback bindings for /interaction_profiles/ext/hand_interaction_ext"
     "${_binding_anchor}"
-    "${_binding_replacement}"
+    "${_hand_binding_replacement}"
 )
 
 set(_member_anchor [==[
@@ -230,8 +263,9 @@ set(_member_replacement [==[
   XrEventDataBuffer m_eventDataBuffer;
 ]==])
 
-_p4u_replace_once(
+_p4u_replace_if_missing(
     "input capability state"
+    "m_picoControllerInteractionSupported{false}"
     "${_member_anchor}"
     "${_member_replacement}"
 )
