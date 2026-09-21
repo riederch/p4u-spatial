@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { BridgeError, assertOrThrow } from "../errors.js";
 import { AtomicJsonStore } from "../storage/atomic-json-store.js";
 import { nowIso, sha256, stableStringify } from "../util.js";
+import type { FederationDelegationService } from "./federation-delegation-service.js";
 
 type JsonObject = Record<string, unknown>;
 interface CachedValue {
@@ -22,6 +23,7 @@ interface RelayEntry {
   operationId: string;
   operation: JsonObject;
   requestHash: string;
+  delegatedUserId?: string;
   artifactDependencies?: RelayArtifactDependency[];
   status: JsonObject;
   updatedAt: string;
@@ -40,7 +42,7 @@ interface FederationState {
 export interface FederationConfig {
   upstreamUrl: string;
   routeId: string;
-  accessMode: "anonymous" | "service";
+  accessMode: "anonymous" | "service" | "delegated-user";
   token?: string;
   retryBaseSeconds?: number;
   retryMaxSeconds?: number;
@@ -110,6 +112,7 @@ export class FederationService {
   constructor(
     stateDir: string,
     private readonly config: FederationConfig,
+    private readonly delegation?: FederationDelegationService,
   ) {
     this.store = new AtomicJsonStore(join(stateDir, "federation.json"), () => ({
       sources: {},
@@ -131,10 +134,39 @@ export class FederationService {
     }
   }
 
-  private headers(json = true): HeadersInit {
+  private delegatedUser(localUserId?: string): string {
+    if (this.config.accessMode !== "delegated-user") return "";
+    assertOrThrow(
+      typeof localUserId === "string" && localUserId.length > 0,
+      403,
+      "FEDERATION_USER_REQUIRED",
+      "Delegated federation requires the device to be assigned to a local user.",
+    );
+    assertOrThrow(this.delegation, 503, "FEDERATION_DELEGATION_NOT_CONFIGURED", "Delegated federation is not configured.");
+    return localUserId;
+  }
+
+  private principalKey(localUserId?: string): string {
+    return this.config.accessMode === "delegated-user"
+      ? `user:${this.delegatedUser(localUserId)}`
+      : "shared";
+  }
+
+  private sourceCacheKey(sourceId: string, localUserId?: string): string {
+    return this.config.accessMode === "delegated-user"
+      ? `${this.principalKey(localUserId)}\u0000${sourceId}`
+      : sourceId;
+  }
+
+  private async headers(json = true, localUserId?: string): Promise<HeadersInit> {
     const headers: Record<string, string> = {};
     if (json) headers["content-type"] = "application/json";
-    if (this.config.token) headers.authorization = `Bearer ${this.config.token}`;
+    if (this.config.accessMode === "service" && this.config.token) {
+      headers.authorization = `Bearer ${this.config.token}`;
+    } else if (this.config.accessMode === "delegated-user") {
+      const userId = this.delegatedUser(localUserId);
+      headers.authorization = `Bearer ${await this.delegation!.accessToken(userId)}`;
+    }
     return headers;
   }
 
@@ -142,13 +174,13 @@ export class FederationService {
     return `${this.config.upstreamUrl.replace(/\/$/, "")}${path}`;
   }
 
-  private async jsonRequest(path: string, init?: RequestInit): Promise<{ body: unknown; response: Response }> {
+  private async jsonRequest(path: string, init?: RequestInit, localUserId?: string): Promise<{ body: unknown; response: Response }> {
     let response: Response;
     try {
       response = await fetch(this.url(path), {
         ...init,
         headers: {
-          ...this.headers(init?.body !== undefined),
+          ...await this.headers(init?.body !== undefined, localUserId),
           ...(init?.headers ?? {}),
         },
       });
@@ -177,11 +209,11 @@ export class FederationService {
     return { body, response };
   }
 
-  private async upstreamInstanceId(): Promise<string> {
+  private async upstreamInstanceId(localUserId?: string): Promise<string> {
     const state = await this.store.read();
     if (state.upstreamInstanceId) return state.upstreamInstanceId;
 
-    const { body } = await this.jsonRequest("/.well-known/open-spatial-interop", { method: "GET" });
+    const { body } = await this.jsonRequest("/.well-known/open-spatial-interop", { method: "GET" }, localUserId);
     assertOrThrow(isRecord(body) && typeof body.instanceId === "string", 502, "UPSTREAM_INVALID_RESPONSE", "Upstream discovery has no instanceId.");
     await this.store.mutate((next) => {
       next.upstreamInstanceId = body.instanceId as string;
