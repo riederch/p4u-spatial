@@ -21,7 +21,7 @@ export interface BridgeConfig {
   federationUpstreamUrl?: string;
   federationToken?: string;
   federationRouteId: string;
-  federationAccessMode: "anonymous" | "service" | "delegated-user";
+  federationAccessMode?: "anonymous" | "service" | "delegated-user";
   federationDelegationMethod?: "authorization-code-pkce" | "token-exchange";
   federationOAuthAuthorizationUrl?: string;
   federationOAuthTokenUrl?: string;
