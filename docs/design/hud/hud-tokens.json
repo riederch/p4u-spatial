@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "status": "draft",
+  "surface": {
+    "hud": {
+      "opacity": 0.78,
+      "blurRole": "medium",
+      "borderOpacity": 0.34
+    },
+    "panel": {
+      "opacity": 0.9,
+      "blurRole": "strong",
+      "borderOpacity": 0.42
+    },
+    "feedback": {
+      "opacity": 0.88,
+      "blurRole": "medium"
+    }
+  },
+  "radius": {
+    "small": 12,
+    "medium": 18,
+    "large": 24,
+    "pill": 999
+  },
+  "spacing": {
+    "xs": 8,
+    "sm": 12,
+    "md": 20,
+    "lg": 28,
+    "xl": 40
+  },
+  "icon": {
+    "launcher": 48,
+    "status": 40,
+    "action": 32
+  },
+  "hitTarget": {
+    "minimum": 52,
+    "preferred": 60
+  },
+  "typography": {
+    "caption": 18,
+    "body": 22,
+    "menu": 24,
+    "title": 30,
+    "hero": 38
+  },
+  "animation": {
+    "fastMs": 120,
+    "normalMs": 180,
+    "slowMs": 260
+  },
+  "roles": {
+    "primary": "accent",
+    "secondary": "neutral",
+    "destructive": "danger",
+    "success": "success",
+    "warning": "warning",
+    "error": "danger",
+    "inactive": "muted"
+  }
+}
