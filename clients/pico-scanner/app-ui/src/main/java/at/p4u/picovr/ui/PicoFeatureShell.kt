@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.em
@@ -27,10 +28,14 @@ import at.p4u.picovr.ui.hud.HudLauncherButton
 import at.p4u.picovr.ui.hud.HudMenuContribution
 import at.p4u.picovr.ui.hud.HudMenuControl
 import at.p4u.picovr.ui.hud.HudNavigationPanel
+import at.p4u.picovr.ui.hud.HudSettings
+import at.p4u.picovr.ui.hud.HudSettingsStore
+import at.p4u.picovr.ui.hud.HudSliderRow
 import at.p4u.picovr.ui.hud.HudStatusContainer
 import at.p4u.picovr.ui.hud.HudStatusContribution
 import at.p4u.picovr.ui.hud.HudTokens
 import at.p4u.picovr.ui.hud.HudToggleRow
+import at.p4u.picovr.ui.hud.asContribution
 import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.design.Text
 import com.pico.spatial.ui.design.defaultColorScheme
@@ -51,7 +56,11 @@ fun PicoFeatureShell(
     onFeatureEnabledChange: (featureId: String, enabled: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val contributions = presentations.contributions(features)
+    val context = LocalContext.current
+    val settingsStore = remember(context) { HudSettingsStore(context) }
+    var hudSettings by remember { mutableStateOf(settingsStore.load()) }
+    val contributions = presentations.contributions(features) + hudSettings.asContribution()
+    val peripheralScale = hudSettings.normalizedPeripheralHudScalePercent / 100f
     var feedback by remember { mutableStateOf<HudFeedback?>(null) }
 
     LaunchedEffect(feedback) {
@@ -91,7 +100,15 @@ fun PicoFeatureShell(
             UnifiedHudMenu(
                 contributions = contributions,
                 onFeatureEnabledChange = onFeatureEnabledChange,
+                onSettingChange = { key, value ->
+                    if (key == "peripheralHudScalePercent") {
+                        hudSettings = settingsStore.save(
+                            hudSettings.copy(peripheralHudScalePercent = value),
+                        )
+                    }
+                },
                 onFeedback = { feedback = it },
+                peripheralScale = peripheralScale,
             )
         }
 
@@ -118,6 +135,7 @@ fun PicoFeatureShell(
                 features = features,
                 contributions = contributions,
                 presentations = presentations,
+                peripheralScale = peripheralScale,
             )
         }
     }
@@ -168,7 +186,9 @@ private fun HudMenuNode.resolve(path: List<String>): HudMenuNode? {
 private fun UnifiedHudMenu(
     contributions: List<HudContribution>,
     onFeatureEnabledChange: (featureId: String, enabled: Boolean) -> Unit,
+    onSettingChange: (key: String, value: Int) -> Unit,
     onFeedback: (HudFeedback) -> Unit,
+    peripheralScale: Float,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -227,6 +247,19 @@ private fun UnifiedHudMenu(
                                 },
                             )
 
+                        is HudMenuControl.RangeSetting ->
+                            HudSliderRow(
+                                title = item.title,
+                                value = control.value,
+                                min = control.min,
+                                max = control.max,
+                                step = control.step,
+                                unitSuffix = control.unitSuffix,
+                                onValueChange = { value ->
+                                    onSettingChange(control.key, value)
+                                },
+                            )
+
                         null ->
                             Text(
                                 item.title,
@@ -246,6 +279,7 @@ private fun UnifiedHudMenu(
 
         HudLauncherButton(
             expanded = open,
+            visualScale = peripheralScale,
             onClick = {
                 open = !open
                 if (!open) path = emptyList()
@@ -264,6 +298,7 @@ private fun UnifiedStatusRail(
     features: List<FeatureSnapshot>,
     contributions: List<HudContribution>,
     presentations: FeaturePresentationRegistry,
+    peripheralScale: Float,
     modifier: Modifier = Modifier,
 ) {
     val statuses = contributions.flatMap { contribution ->
@@ -289,6 +324,7 @@ private fun UnifiedStatusRail(
             HudStatusContainer(
                 title = entry.status.title,
                 level = entry.status.level,
+                visualScale = peripheralScale,
             ) {
                 if (snapshot != null && presentation != null) {
                     presentation.StatusIcon(snapshot)
