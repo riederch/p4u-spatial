@@ -51,9 +51,6 @@ android {
 
 dependencies {
     implementation(project(":qr-reader"))
-    implementation(platform("com.pico.spatial:bom:6.1.9"))
-    implementation("com.pico.spatial.ml:securemr")
-    implementation("com.pico.spatial.ml:readback")
     implementation("com.google.zxing:core:3.5.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
