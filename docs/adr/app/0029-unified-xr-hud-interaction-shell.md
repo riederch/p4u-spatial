@@ -114,9 +114,10 @@ hierarchy are owned by the HUD design system.
 
 Persistent launcher, navigation and status surfaces are viewpoint-following HUD chrome.
 
-On PICO Spatial UI the reference implementation uses a Mixed `DefaultStage` and attaches persistent
-HUD `AttachmentPanel` entities to `AnchorTarget.createCameraTarget()`. This binds persistent HUD
-chrome to the HMD/camera pose rather than to a room-fixed planar WindowContainer.
+For the PICO 4 Ultra / PICO OS 5.x target, ADR 0032 implements persistent HUD chrome with native
+OpenXR composition layers in `XR_REFERENCE_SPACE_TYPE_VIEW`. This binds persistent HUD chrome to
+the HMD pose rather than to a room-fixed Android panel. The earlier PICO Spatial UI
+`DefaultStage`/camera-target implementation is retained only as superseded implementation history.
 
 Large result/detail panels are not required to be head-locked. They may be spatial/world-locked
 where that improves readability and comfort.
@@ -410,8 +411,9 @@ It complements, and does not supersede:
 
 ## Implementation status
 
-The software architecture defined by this ADR is implemented and builds successfully with the
-PICO Spatial SDK 6.1.9 debug APK.
+The platform-neutral HUD architecture defined by this ADR is implemented. The former PICO Spatial
+SDK 6.1.9 renderer builds successfully but is not compatible with the target PICO OS 5.15.9.U
+runtime. ADR 0032 defines the replacement native OpenXR presentation path.
 
 Implemented:
 
@@ -420,7 +422,7 @@ Implemented:
 - contribution-driven hierarchical navigation,
 - authoritative feature toggles,
 - right-side active status rail,
-- persistent HUD `AttachmentPanel` surfaces parented to a PICO HMD camera-target anchor,
+- persistent HUD placement semantics (the former Spatial `AttachmentPanel` implementation is superseded by ADR 0032 and must be rendered in OpenXR VIEW space),
 - centralized feedback/progress surface,
 - shared result/detail panel chrome and fixed action dock,
 - QR result/action migration,
@@ -434,7 +436,13 @@ Hardware validation procedure:
 
 - `docs/pico-hud-input-validation.md`
 
-Physical PICO 4 Ultra validation remains required for field-of-view placement, interaction comfort,
-controller operation, controller-free hand operation, seamless input-source switching, slider
-usability, viewpoint-follow behavior and final visual tuning. Code/CI completion is not hardware
-validation.
+Physical PICO 4 Ultra validation has already invalidated the Spatial-SDK runtime mechanism: required
+Spatial container classes are absent on PICO OS 5.15.9.U. Native OpenXR migration per ADR 0032 is
+therefore required before field-of-view placement, interaction comfort, controller operation,
+controller-free hand operation, seamless input-source switching, slider usability,
+viewpoint-follow behavior and final visual tuning can be marked complete.
+
+
+## Runtime clarification
+
+ADR 0032 supersedes this ADR only where this document previously selected PICO Spatial SDK 6.x as the concrete PICO 4 Ultra runtime/presentation mechanism. All HUD information architecture, state, command, contribution, comfort and interaction-parity requirements remain authoritative.
