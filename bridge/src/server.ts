@@ -17,6 +17,7 @@ import { PairingService } from "./services/pairing-service.js";
 import { ScanUploadService } from "./services/scan-upload-service.js";
 import { SessionService } from "./services/session-service.js";
 import { SpatialReadService } from "./services/spatial-read-service.js";
+import { SpatialArtifactService } from "./services/spatial-artifact-service.js";
 import { SpatialWriteService, type SpatialWriteAction } from "./services/spatial-write-service.js";
 import { XrAppReleaseService } from "./services/xr-app-release-service.js";
 import { CandidateReviewService } from "./services/candidate-review-service.js";
@@ -38,6 +39,7 @@ interface Services {
   sessions: SessionService;
   scans: ScanUploadService;
   spatial: SpatialReadService;
+  artifacts: SpatialArtifactService;
   spatialWrite: SpatialWriteService;
   xrAppReleases: XrAppReleaseService;
   candidates: CandidateReviewService;
@@ -202,6 +204,22 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     maxFileBytes: config.scanMaxFileBytes,
     maxTotalBytes: config.scanMaxTotalBytes,
   }, config.scanUploadRetentionSeconds);
+
+  const artifacts = new SpatialArtifactService(
+    config.stateDir,
+    repository,
+    config.spatialRoot,
+    () => spatial.sourceId(),
+    config.scanMaxFileBytes,
+  );
+
+  const spatialWrite = new SpatialWriteService(
+    config.stateDir,
+    repository,
+    config.spatialRoot,
+    () => spatial.sourceId(),
+    (payload) => artifacts.assertReferencesReady(payload),
+  );
   const pairingClaimLimiter = new FixedWindowRateLimiter(config.pairingClaimRateLimit, 60_000);
   const sessionRefreshLimiter = new FixedWindowRateLimiter(config.sessionRefreshRateLimit, 60_000);
   const scanRequestLimiter = new FixedWindowRateLimiter(config.scanRequestRateLimit, 60_000);
@@ -214,12 +232,8 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
     sessions: new SessionService(config.stateDir, config.accessTokenTtlSeconds, config.refreshTokenTtlSeconds),
     scans,
     spatial,
-    spatialWrite: new SpatialWriteService(
-      config.stateDir,
-      repository,
-      config.spatialRoot,
-      () => spatial.sourceId(),
-    ),
+    artifacts,
+    spatialWrite,
     xrAppReleases: new XrAppReleaseService(config.stateDir),
     candidates: new CandidateReviewService(config.stateDir, (scanId) => scans.isCommitted(scanId)),
     adminUsers: new AdminUserService(config.stateDir),
@@ -500,7 +514,10 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
         "core.me",
         "spatial.read",
         "spatial.snapshots",
-        ...(config.spatialWritable ? ["spatial.create", "spatial.update", "spatial.delete"] : []),
+        "spatial.artifacts.read",
+        ...(config.spatialWritable
+          ? ["spatial.create", "spatial.update", "spatial.delete", "spatial.artifacts.write"]
+          : []),
         ...(services.federation ? ["federation.read", "federation.cache", "federation.durable-relay"] : []),
         "xr.pairing",
         "xr.device",
@@ -644,6 +661,63 @@ export function buildServer(config: BridgeConfig, repository: RepositoryProvider
       return result.body;
     }
     throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/artifacts/:artifactId", async (request) => {
+    await authenticatedDevice(request, services, "spatial.artifacts.read");
+    const { sourceId, artifactId } = request.params as { sourceId: string; artifactId: string };
+    return services.artifacts.getDescriptor(sourceId, artifactId, publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/artifacts/:artifactId/content", async (request, reply) => {
+    await authenticatedDevice(request, services, "spatial.artifacts.read");
+    const { sourceId, artifactId } = request.params as { sourceId: string; artifactId: string };
+    const artifact = await services.artifacts.getContent(sourceId, artifactId);
+    reply.header("ETag", `"sha256:${artifact.metadata.sha256}"`);
+    reply.header("Content-Length", artifact.metadata.size.toString());
+    return reply.type(artifact.metadata.mediaType).send(Buffer.from(artifact.content));
+  });
+
+  app.post("/spatial/v1/sources/:sourceId/artifact-uploads", async (request) => {
+    await authenticatedDevice(request, services, "spatial.artifacts.write");
+    if (!config.spatialWritable) {
+      throw new BridgeError(403, "SOURCE_READ_ONLY", "Spatial source is configured read-only.");
+    }
+    const { sourceId } = request.params as { sourceId: string };
+    return services.artifacts.createUpload(sourceId, request.body, publicBridgeUrl(request, config));
+  });
+
+  app.get("/spatial/v1/sources/:sourceId/artifact-uploads/:uploadId", async (request) => {
+    await authenticatedDevice(request, services, "spatial.artifacts.write");
+    const { sourceId, uploadId } = request.params as { sourceId: string; uploadId: string };
+    return services.artifacts.status(sourceId, uploadId, publicBridgeUrl(request, config));
+  });
+
+  app.put("/spatial/v1/sources/:sourceId/artifact-uploads/:uploadId/content", async (request) => {
+    await authenticatedDevice(request, services, "spatial.artifacts.write");
+    if (!config.spatialWritable) {
+      throw new BridgeError(403, "SOURCE_READ_ONLY", "Spatial source is configured read-only.");
+    }
+    assertOrThrow(Buffer.isBuffer(request.body), 400, "INVALID_REQUEST", "Binary artifact request body required.");
+    const { sourceId, uploadId } = request.params as { sourceId: string; uploadId: string };
+    const header = request.headers["x-content-sha256"];
+    const declared = Array.isArray(header) ? header[0] : header;
+    return services.artifacts.putContent(
+      sourceId,
+      uploadId,
+      request.body,
+      declared,
+      publicBridgeUrl(request, config),
+    );
+  });
+
+  app.post("/spatial/v1/sources/:sourceId/artifact-uploads/:uploadId/commit", async (request) => {
+    await authenticatedDevice(request, services, "spatial.artifacts.write");
+    if (!config.spatialWritable) {
+      throw new BridgeError(403, "SOURCE_READ_ONLY", "Spatial source is configured read-only.");
+    }
+    const { sourceId, uploadId } = request.params as { sourceId: string; uploadId: string };
+    return services.artifacts.commit(sourceId, uploadId, publicBridgeUrl(request, config));
   });
 
   app.post("/spatial/v1/sources/:sourceId/snapshots", async (request) => {
