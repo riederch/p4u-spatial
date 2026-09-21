@@ -776,24 +776,20 @@ _p4u_replace_if_missing(
     "${_direct_hand_diag_new}"
 )
 
-set(_hand_system_support_member_old [==[
-  bool m_handTrackingSupported{false};
-
-  // P4U: Direct XR_EXT_hand_tracking fallback.
+set(_hand_system_support_member_anchor [==[
+  PFN_xrCreateHandTrackerEXT m_xrCreateHandTrackerEXT{nullptr};
 ]==])
 
-set(_hand_system_support_member_new [==[
-  bool m_handTrackingSupported{false};
+set(_hand_system_support_member_replacement [==[
   bool m_handTrackingSystemSupported{false};
-
-  // P4U: Direct XR_EXT_hand_tracking fallback.
+  PFN_xrCreateHandTrackerEXT m_xrCreateHandTrackerEXT{nullptr};
 ]==])
 
 _p4u_replace_if_missing(
     "hand tracking system support state v5"
     "m_handTrackingSystemSupported{false}"
-    "${_hand_system_support_member_old}"
-    "${_hand_system_support_member_new}"
+    "${_hand_system_support_member_anchor}"
+    "${_hand_system_support_member_replacement}"
 )
 
 set(_hand_system_support_anchor [==[
