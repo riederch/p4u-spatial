@@ -241,6 +241,9 @@ export class FederationService {
           ? source.route.upstreamInstanceId
           : undefined,
         accessMode: this.config.accessMode,
+        ...(this.config.accessMode === "delegated-user"
+          ? { delegation: { method: this.delegation!.method() } }
+          : {}),
       },
       delivery: live
         ? { mode: "live", freshness: "current", observedAt: nowIso() }
@@ -250,13 +253,16 @@ export class FederationService {
         { rel: "self", href: `${baseUrl}/spatial/v1/sources/${encodeURIComponent(sourceId)}` },
         { rel: "collections", href: `${baseUrl}/spatial/v1/sources/${encodeURIComponent(sourceId)}/collections` },
         { rel: "operations", href: `${baseUrl}/spatial/v1/operations` },
+        ...(this.config.accessMode === "delegated-user"
+          ? [{ rel: "authorization", href: `${baseUrl}/federation/v1/authorization/status` }]
+          : []),
       ],
     };
   }
 
-  private async liveSources(baseUrl: string): Promise<JsonObject[]> {
-    const upstreamInstanceId = await this.upstreamInstanceId();
-    const { body } = await this.jsonRequest("/spatial/v1/sources", { method: "GET" });
+  private async liveSources(baseUrl: string, localUserId?: string): Promise<JsonObject[]> {
+    const upstreamInstanceId = await this.upstreamInstanceId(localUserId);
+    const { body } = await this.jsonRequest("/spatial/v1/sources", { method: "GET" }, localUserId);
     assertOrThrow(isRecord(body) && Array.isArray(body.sources), 502, "UPSTREAM_INVALID_RESPONSE", "Upstream sources response is invalid.");
 
     const retrievedAt = nowIso();
@@ -268,45 +274,50 @@ export class FederationService {
         const transformed = this.transformSource(candidate, true, retrievedAt, baseUrl);
         const route = transformed.route as JsonObject;
         route.upstreamInstanceId = upstreamInstanceId;
-        state.sources[candidate.sourceId] = { value: transformed, retrievedAt };
+        state.sources[this.sourceCacheKey(candidate.sourceId, localUserId)] = { value: transformed, retrievedAt };
         sources.push(transformed);
       }
     });
     return sources;
   }
 
-  async listSources(baseUrl: string): Promise<JsonObject[]> {
+  async listSources(baseUrl: string, localUserId?: string): Promise<JsonObject[]> {
     try {
-      return await this.liveSources(baseUrl);
+      return await this.liveSources(baseUrl, localUserId);
     } catch (error) {
       if (!(error instanceof BridgeError) || error.statusCode < 500) throw error;
       const state = await this.store.read();
-      return Object.values(state.sources).map(({ value, retrievedAt }) => {
-        if (!isRecord(value)) return {};
-        const transformed = this.transformSource(value, false, retrievedAt, baseUrl);
-        const route = transformed.route as JsonObject;
-        if (state.upstreamInstanceId) route.upstreamInstanceId = state.upstreamInstanceId;
-        return transformed;
-      });
+      const principal = this.principalKey(localUserId);
+      return Object.entries(state.sources)
+        .filter(([key]) => this.config.accessMode !== "delegated-user" || key.startsWith(`${principal}\u0000`))
+        .map(([, { value, retrievedAt }]) => {
+          if (!isRecord(value)) return {};
+          const transformed = this.transformSource(value, false, retrievedAt, baseUrl);
+          const route = transformed.route as JsonObject;
+          if (state.upstreamInstanceId) route.upstreamInstanceId = state.upstreamInstanceId;
+          return transformed;
+        });
     }
   }
 
-  async getSource(sourceId: string, baseUrl: string): Promise<JsonObject> {
-    const sources = await this.listSources(baseUrl);
+  async getSource(sourceId: string, baseUrl: string, localUserId?: string): Promise<JsonObject> {
+    const sources = await this.listSources(baseUrl, localUserId);
     const source = sources.find((candidate) => candidate.sourceId === sourceId);
     if (!source) throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
     return source;
   }
 
-  private readCacheKey(sourceId: string, suffix: string): string {
-    return `${sourceId}\u0000${suffix}`;
+  private readCacheKey(sourceId: string, suffix: string, localUserId?: string): string {
+    return this.config.accessMode === "delegated-user"
+      ? `${this.principalKey(localUserId)}\u0000${sourceId}\u0000${suffix}`
+      : `${sourceId}\u0000${suffix}`;
   }
 
-  async read(sourceId: string, suffix: string): Promise<FederatedReadResult> {
+  async read(sourceId: string, suffix: string, localUserId?: string): Promise<FederatedReadResult> {
     const path = `/spatial/v1/sources/${encodeURIComponent(sourceId)}${suffix}`;
-    const key = this.readCacheKey(sourceId, suffix);
+    const key = this.readCacheKey(sourceId, suffix, localUserId);
     try {
-      const { body, response } = await this.jsonRequest(path, { method: "GET" });
+      const { body, response } = await this.jsonRequest(path, { method: "GET" }, localUserId);
       const retrievedAt = nowIso();
       await this.store.mutate((state) => {
         state.reads[key] = { value: body, retrievedAt };
