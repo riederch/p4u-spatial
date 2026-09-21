@@ -239,17 +239,45 @@ Token groups include:
 Concrete values live in the derived HUD design specification so visual refinement does not require a
 new architecture decision.
 
-### 9. Interaction consistency
+### 9. Interaction consistency and input modalities
 
 HUD components must support the platform interaction methods available to the application without
 changing information architecture.
 
-At minimum the model must remain compatible with controller/ray interaction and focus-based
-navigation. Gaze, hand or other platform input may be added through adapters.
+Controller and hand input are both normative interaction modes for the unified HUD:
 
-Focus state must always be visually distinguishable.
+- **Controllers are the primary precision input.** Every interactive HUD control, menu entry,
+  result-panel action and adjustable setting must be fully operable with the PICO controllers using
+  the platform controller/ray interaction model.
+- **Hands/fingers are the controller-free fallback.** The same application functions must remain
+  operable without holding controllers whenever PICO hand tracking is available. Hand input must
+  support the platform-appropriate direct and/or ray-based gestures, such as fingertip/poke,
+  direct pinch and hand-ray/pinch.
+- The application MUST NOT create a second menu hierarchy, separate feature state or alternate
+  hand-only UI. Controller and hand interaction target the same semantic HUD controls and invoke the
+  same commands.
+- Input-specific behavior belongs in platform/input adapters. Shared HUD components expose semantic
+  operations such as activate, toggle, adjust, scroll and navigate-back rather than controller- or
+  hand-specific application logic.
+- Input modality changes must not reset navigation state, dismiss working content or change feature
+  state.
+- Controller-specific haptic feedback may be used where supported, but no required interaction may
+  depend on haptics.
+- Reduced visual HUD scaling must continue to preserve interaction hit targets suitable for both
+  controller rays and hand input.
+
+The preferred behavior is seamless use of whichever supported input source is currently available,
+without requiring a separate application interaction mode. Controller availability must not prevent
+a user from completing the same HUD workflow with hands alone.
+
+Focus/hover state must always be visually distinguishable and shared across supported input modes.
 
 Important actions must not depend on color alone.
+
+PICO OS and Spatial SDK behavior for hand interaction can differ by system generation. Therefore
+controller interaction and controller-free hand interaction both require physical validation on the
+target PICO 4 Ultra. In particular, hand interaction on the current target system must not be marked
+complete solely because it compiles against the Spatial SDK.
 
 ### 10. Information density and comfort
 
