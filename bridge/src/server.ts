@@ -630,28 +630,28 @@ export function buildServer(
   });
 
   app.get("/spatial/v1/sources", async (request) => {
-    await authenticatedDevice(request, services, "spatial.read");
+    const device = await authenticatedDevice(request, services, "spatial.read");
     const base = publicBridgeUrl(request, config);
     const sources: Array<Record<string, unknown>> = [await services.spatial.sourceDescriptor(base)];
-    if (services.federation) sources.push(...await services.federation.listSources(base));
+    if (services.federation) sources.push(...await services.federation.listSources(base, device.assignedUserId));
     return { sources };
   });
 
   app.get("/spatial/v1/sources/:sourceId", async (request) => {
-    await authenticatedDevice(request, services, "spatial.read");
+    const device = await authenticatedDevice(request, services, "spatial.read");
     const { sourceId } = request.params as { sourceId: string };
     const base = publicBridgeUrl(request, config);
     if (sourceId === await services.spatial.sourceId()) return services.spatial.sourceDescriptor(base);
-    if (services.federation) return services.federation.getSource(sourceId, base);
+    if (services.federation) return services.federation.getSource(sourceId, base, device.assignedUserId);
     throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
   app.get("/spatial/v1/sources/:sourceId/collections", async (request, reply) => {
-    await authenticatedDevice(request, services, "spatial.read");
+    const device = await authenticatedDevice(request, services, "spatial.read");
     const { sourceId } = request.params as { sourceId: string };
     if (sourceId === await services.spatial.sourceId()) return services.spatial.listCollections(publicBridgeUrl(request, config));
     if (services.federation) {
-      const result = await services.federation.read(sourceId, "/collections");
+      const result = await services.federation.read(sourceId, "/collections", device.assignedUserId);
       applyFederatedReadHeaders(reply, result);
       return result.body;
     }
@@ -659,11 +659,11 @@ export function buildServer(
   });
 
   app.get("/spatial/v1/sources/:sourceId/collections/:collectionId", async (request, reply) => {
-    await authenticatedDevice(request, services, "spatial.read");
+    const device = await authenticatedDevice(request, services, "spatial.read");
     const { sourceId, collectionId } = request.params as { sourceId: string; collectionId: string };
     if (sourceId === await services.spatial.sourceId()) return services.spatial.getCollection(collectionId, publicBridgeUrl(request, config));
     if (services.federation) {
-      const result = await services.federation.read(sourceId, `/collections/${encodeURIComponent(collectionId)}`);
+      const result = await services.federation.read(sourceId, `/collections/${encodeURIComponent(collectionId)}`, device.assignedUserId);
       applyFederatedReadHeaders(reply, result);
       return result.body;
     }
@@ -671,11 +671,11 @@ export function buildServer(
   });
 
   app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items", async (request, reply) => {
-    await authenticatedDevice(request, services, "spatial.read");
+    const device = await authenticatedDevice(request, services, "spatial.read");
     const { sourceId, collectionId } = request.params as { sourceId: string; collectionId: string };
     if (sourceId === await services.spatial.sourceId()) return services.spatial.listItems(collectionId);
     if (services.federation) {
-      const result = await services.federation.read(sourceId, `/collections/${encodeURIComponent(collectionId)}/items`);
+      const result = await services.federation.read(sourceId, `/collections/${encodeURIComponent(collectionId)}/items`, device.assignedUserId);
       applyFederatedReadHeaders(reply, result);
       return result.body;
     }
@@ -683,7 +683,7 @@ export function buildServer(
   });
 
   app.get("/spatial/v1/sources/:sourceId/collections/:collectionId/items/:objectId", async (request, reply) => {
-    await authenticatedDevice(request, services, "spatial.read");
+    const device = await authenticatedDevice(request, services, "spatial.read");
     const { sourceId, collectionId, objectId } = request.params as {
       sourceId: string;
       collectionId: string;
@@ -700,6 +700,7 @@ export function buildServer(
       const result = await services.federation.read(
         sourceId,
         `/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(objectId)}`,
+        device.assignedUserId,
       );
       applyFederatedReadHeaders(reply, result);
       return result.body;
@@ -801,7 +802,7 @@ export function buildServer(
 
   app.post("/spatial/v1/operations", async (request) => {
     const action = operationAction(request.body);
-    await authenticatedDevice(request, services, spatialActionScope(action));
+    const device = await authenticatedDevice(request, services, spatialActionScope(action));
     const body = request.body as Record<string, unknown>;
     const target = body.target as Record<string, unknown> | undefined;
     const sourceId = typeof target?.sourceId === "string" ? target.sourceId : "";
@@ -817,18 +818,18 @@ export function buildServer(
       }
       return services.spatialWrite.submit(request.body);
     }
-    if (services.federation) return services.federation.submitOperation(request.body, publicBridgeUrl(request, config));
+    if (services.federation) return services.federation.submitOperation(request.body, publicBridgeUrl(request, config), device.assignedUserId);
     throw new BridgeError(404, "SOURCE_NOT_FOUND", "Spatial source not found.");
   });
 
   app.get("/spatial/v1/operations/:operationId", async (request) => {
-    await authenticatedDevice(request, services);
+    const device = await authenticatedDevice(request, services);
     const { operationId } = request.params as { operationId: string };
     try {
       return await services.spatialWrite.get(operationId);
     } catch (error) {
       if (!(error instanceof BridgeError) || error.code !== "OPERATION_NOT_FOUND" || !services.federation) throw error;
-      return services.federation.getOperation(operationId);
+      return services.federation.getOperation(operationId, device.assignedUserId);
     }
   });
 
