@@ -76,6 +76,36 @@ Required sections:
 
 Use **Alternatives considered** when the choice would otherwise be hard to reconstruct.
 
+## Code traceability
+
+Accepted decisions with concrete implementation are linked in both directions.
+
+### Code to ADR
+
+At the architectural boundary, add an `ADR:` comment using the full repository-relative path and a short explanation:
+
+```kotlin
+// ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — QR actions stay pluggable and app-specific.
+```
+
+The reference belongs at a module, class, adapter, state owner or non-obvious implementation point. Do not annotate every helper merely because it is transitively affected.
+
+### ADR to code
+
+An accepted ADR with concrete implementation should contain an `Implementation anchors` section:
+
+```markdown
+## Implementation anchors
+
+- `path/to/primary/file.kt` — what part of the decision this file implements.
+```
+
+Keep this list focused on architectural anchors rather than every touched file.
+
+### Verification
+
+`npm run check:adr-traceability` verifies code-side ADR paths and ADR-side implementation anchors.
+
 ## Changing a decision
 
 Do not silently rewrite an accepted architectural decision into a different one.
