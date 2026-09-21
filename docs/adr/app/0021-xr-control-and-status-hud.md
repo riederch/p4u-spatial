@@ -32,7 +32,9 @@ Feature state has one authoritative setting per feature. Menu controls, status i
 underlying runtime capability observe the same state; the HUD must not maintain a second visual-only
 copy of feature state.
 
-HUD controls are head-locked interaction chrome. Spatial result windows remain separate and may be
+HUD controls are persistent field-of-view interaction chrome. On PICO Spatial UI, the reference
+implementation realizes this using viewpoint-following `Augment` surfaces with
+`followViewpoints = ViewPoint.All`. Spatial result windows remain separate and may be
 world/spatial UI as appropriate.
 
 ## Consequences
@@ -42,13 +44,15 @@ world/spatial UI as appropriate.
 - Users can see active background capabilities without opening the menu.
 - The HUD must remain visually restrained because it occupies persistent field-of-view space.
 - Feature settings require observable state so runtime behavior and status indicators stay in sync.
-- The current in-window status prototype is transitional until the control/status UI is hosted by
-  the head-locked XR HUD layer.
+- The PICO implementation uses platform-native viewpoint-following Augments rather than embedding
+  menu/status content inside the primary application window.
 
 ## Implementation anchors
 
 - `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrRecognitionSettings.kt` — authoritative persistent/observable QR feature state shared by controls and indicators.
-- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/MainApplication.kt` — current status-indicator projection; transitional until the head-locked HUD hosts it.
+- `clients/pico-scanner/app-core/src/main/java/at/p4u/picovr/core/feature/FeatureRegistry.kt` — shared authoritative feature-state aggregation and toggle dispatch.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — hierarchical lower-left menu and right-side active-status projection hosted in PICO viewpoint-following Augments.
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — QR-specific status icon and presentation.
 
 ## Related decisions
 
@@ -57,17 +61,18 @@ world/spatial UI as appropriate.
 
 ## Reconciliation note
 
-This ADR is functionally implemented at the generic shell level, but the final XR placement is still open.
+The software architecture required by this ADR is implemented:
 
-Implemented:
 - one authoritative observable feature state through `FeatureRegistry`,
 - a generic hierarchical lower-left menu generated from feature `menuPath` metadata,
 - generic toggle handling through the feature registry,
 - `Menü → Erkennung → QR-Code-Erkennung → Ein/Aus`,
 - a generic active-feature status projection on the right,
-- QR status visibility derived from the same authoritative state.
+- QR status visibility derived from the same authoritative state,
+- menu and status removed from the primary content box and hosted in independent PICO Spatial UI
+  `Augment` surfaces,
+- both HUD regions use `followViewpoints = ViewPoint.All` so the platform can keep them available
+  across viewpoint changes.
 
-Still open:
-- moving menu and status indicators from the current Spatial app window into a true head-locked XR HUD layer.
-
-The current in-window shell validates the interaction/state architecture; it must not be mistaken for the final field-of-view anchoring required by this ADR.
+The SDK 6.1.9 debug APK compiles successfully. Physical PICO validation is still required for
+perceived field-of-view placement, controller/gaze interaction, comfort and final offsets.
