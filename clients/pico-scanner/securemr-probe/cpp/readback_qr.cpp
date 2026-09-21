@@ -46,6 +46,7 @@ Java_com_bytedance_pico_secure_1mr_1demo_readback_ReadbackActivity_nativeSetPerm
 }
 #endif
 
+// ADR: docs/adr/app/0020-securemr-qr-scanner-backend.md — native camera access/readback stays isolated in the PICO backend.
 namespace SecureMR {
 
 #ifdef XR_READBACK_USE_CPU
