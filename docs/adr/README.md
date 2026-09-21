@@ -164,6 +164,7 @@ For a material change:
 | [0017](contracts/0017-discovery-and-namespace-registry.md) | Discovery and namespace registry | Superseded by 0027 |
 | [0026](contracts/0026-derived-candidate-review-and-promotion.md) | Derived candidate review and explicit promotion | Accepted |
 | [0027](contracts/0027-separate-xr-app-contract.md) | Separate XR application lifecycle contract and discovery registry | Accepted |
+| [0028](contracts/0028-delegated-user-federation-methods.md) | Delegated-user federation supports PKCE and token exchange | Accepted |
 
 ## Relationship to repository rules
 
