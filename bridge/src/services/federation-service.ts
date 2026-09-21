@@ -341,7 +341,7 @@ export class FederationService {
     }
   }
 
-  private async verifyArtifactDependencies(operation: JsonObject): Promise<RelayArtifactDependency[]> {
+  private async verifyArtifactDependencies(operation: JsonObject, localUserId?: string): Promise<RelayArtifactDependency[]> {
     const references = collectArtifactReferences(operation.payload);
     if (references.length === 0) return [];
 
@@ -357,6 +357,7 @@ export class FederationService {
         ({ body } = await this.jsonRequest(
           `/spatial/v1/sources/${encodeURIComponent(reference.sourceId)}/artifacts/${encodeURIComponent(reference.artifactId)}`,
           { method: "GET" },
+          localUserId,
         ));
       } catch (error) {
         if (error instanceof BridgeError && error.statusCode < 500) {
@@ -441,7 +442,7 @@ export class FederationService {
       const { body } = await this.jsonRequest("/spatial/v1/operations", {
         method: "POST",
         body: JSON.stringify(entry.operation),
-      });
+      }, entry.delegatedUserId);
       if (this.isTerminal(body)) {
         entry.status = body;
         entry.terminalAt = nowIso();
@@ -473,12 +474,13 @@ export class FederationService {
     return entry.status;
   }
 
-  async submitOperation(raw: unknown, baseUrl: string): Promise<JsonObject> {
+  async submitOperation(raw: unknown, baseUrl: string, localUserId?: string): Promise<JsonObject> {
     assertOrThrow(isRecord(raw), 400, "OPERATION_INVALID", "Operation JSON object required.");
     assertOrThrow(isRecord(raw.target), 400, "OPERATION_INVALID", "operation.target is required.");
     const sourceId = requiredString(raw.target.sourceId, "target.sourceId");
     const operationId = requiredString(raw.operationId, "operationId");
-    await this.getSource(sourceId, baseUrl);
+    const delegatedUserId = this.config.accessMode === "delegated-user" ? this.delegatedUser(localUserId) : undefined;
+    await this.getSource(sourceId, baseUrl, delegatedUserId);
 
     return this.withGate(async () => {
       const key = relayKey(sourceId, operationId);
@@ -486,6 +488,9 @@ export class FederationService {
       const state = await this.store.read();
       const existing = state.relays[key];
       if (existing) {
+        if (this.config.accessMode === "delegated-user" && existing.delegatedUserId !== delegatedUserId) {
+          throw new BridgeError(403, "FEDERATION_DELEGATED_USER_MISMATCH", "This operation is owned by a different delegated user.");
+        }
         if (existing.requestHash !== hash) {
           throw new BridgeError(409, "OPERATION_ID_CONFLICT", "operationId already exists with different logical content.");
         }
@@ -493,13 +498,14 @@ export class FederationService {
         return this.tryDeliver(existing);
       }
 
-      const artifactDependencies = await this.verifyArtifactDependencies(raw);
+      const artifactDependencies = await this.verifyArtifactDependencies(raw, delegatedUserId);
 
       const entry: RelayEntry = {
         sourceId,
         operationId,
         operation: raw,
         requestHash: hash,
+        ...(delegatedUserId ? { delegatedUserId } : {}),
         ...(artifactDependencies.length > 0 ? { artifactDependencies } : {}),
         status: {},
         updatedAt: nowIso(),
@@ -514,13 +520,19 @@ export class FederationService {
     });
   }
 
-  async getOperation(operationId: string): Promise<JsonObject> {
+  async getOperation(operationId: string, localUserId?: string): Promise<JsonObject> {
     return this.withGate(async () => {
       const state = await this.store.read();
       const matches = Object.values(state.relays).filter((entry) => entry.operationId === operationId);
       if (matches.length === 0) throw new BridgeError(404, "OPERATION_NOT_FOUND", "Federated operation not found.");
       if (matches.length > 1) throw new BridgeError(409, "OPERATION_ID_AMBIGUOUS", "operationId exists for more than one source.");
       const entry = matches[0]!;
+      if (this.config.accessMode === "delegated-user") {
+        const delegatedUserId = this.delegatedUser(localUserId);
+        if (entry.delegatedUserId !== delegatedUserId) {
+          throw new BridgeError(403, "FEDERATION_DELEGATED_USER_MISMATCH", "This operation belongs to a different delegated user.");
+        }
+      }
       if (this.isTerminal(entry.status)) return entry.status;
       return this.tryDeliver(entry);
     });
