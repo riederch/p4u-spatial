@@ -3,12 +3,16 @@ package at.p4u.spatial.scanner
 import android.app.Application
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,6 +34,7 @@ import at.p4u.picovr.qr.QrAction
 import at.p4u.picovr.qr.QrActionResult
 import at.p4u.picovr.qr.QrReaderController
 import at.p4u.picovr.qr.QrReaderState
+import at.p4u.picovr.qr.QrRecognitionSettings
 import at.p4u.picovr.qr.QrResult
 import com.pico.spatial.ui.design.Button
 import com.pico.spatial.ui.design.PicoTheme
@@ -53,24 +59,35 @@ class MainApplication : Application() {
                         customActions = listOf(BridgeRegistrationQrAction()),
                     )
                 }
+                val qrSettings = remember { QrRecognitionSettings(context) }
+                var qrRecognitionEnabled by remember { mutableStateOf(qrSettings.isEnabled()) }
                 var readerState by remember { mutableStateOf<QrReaderState>(reader.state) }
                 var actionMessage by remember { mutableStateOf<String?>(null) }
                 var runningActionId by remember { mutableStateOf<String?>(null) }
 
-                DisposableEffect(reader) {
+                DisposableEffect(reader, qrSettings) {
                     reader.onStateChanged = { readerState = it }
-                    onDispose { reader.close() }
+                    val settingsObserver = qrSettings.observe { qrRecognitionEnabled = it }
+                    onDispose {
+                        settingsObserver.close()
+                        reader.close()
+                    }
                 }
 
                 PicoTheme(colorScheme = defaultColorScheme()) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    Box(
                         modifier = Modifier
                             .windowConstraints(width = 960.dp, height = 720.dp)
                             .backgroundMaterial(true)
                             .background(Color.LightGray)
                             .padding(32.dp),
                     ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(end = 72.dp),
+                        ) {
                         Text("picoVr", textAlign = TextAlign.Center, fontSize = 8.em)
 
                         when (val state = readerState) {
@@ -140,6 +157,11 @@ class MainApplication : Application() {
                                 )
                             }
                         }
+
+                        ActiveFunctionStatusBar(
+                            qrRecognitionEnabled = qrRecognitionEnabled,
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                        )
                     }
                 }
             }
@@ -219,5 +241,56 @@ private fun QrResultView(
         Button(onClick = onScanAgain) {
             Text("Neu scannen")
         }
+    }
+}
+
+
+@androidx.compose.runtime.Composable
+private fun ActiveFunctionStatusBar(
+    qrRecognitionEnabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (qrRecognitionEnabled) {
+            QrFunctionStatusIcon()
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun QrFunctionStatusIcon(
+    size: Dp = 44.dp,
+) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(Color.White.copy(alpha = 0.82f))
+            .border(2.dp, Color.Black)
+            .padding(6.dp),
+    ) {
+        val cell = 8.dp
+        val finder = Modifier
+            .size(cell)
+            .background(Color.Black)
+
+        Box(modifier = finder.align(Alignment.TopStart))
+        Box(modifier = finder.align(Alignment.TopEnd))
+        Box(modifier = finder.align(Alignment.BottomStart))
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(Color.Black)
+                .align(Alignment.Center),
+        )
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .background(Color.Black)
+                .align(Alignment.BottomEnd),
+        )
     }
 }
