@@ -81,6 +81,8 @@ describe("bridge vertical slice", () => {
       }
     });
     expect(firstDiscovery.capabilities).toContain("spatial.read");
+    expect(firstDiscovery.capabilities).toContain("spatial.artifacts.read");
+    expect(firstDiscovery.capabilities).toContain("spatial.artifacts.write");
 
     const unauthenticatedSources = await app.inject({ method: "GET", url: "/spatial/v1/sources" });
     expect(unauthenticatedSources.statusCode).toBe(401);
@@ -123,8 +125,10 @@ describe("bridge vertical slice", () => {
     });
     expect(me.statusCode).toBe(200);
     expect((me.json() as { scopes: string[] }).scopes).toContain("spatial.read");
+    expect((me.json() as { scopes: string[] }).scopes).toContain("spatial.artifacts.read");
     expect((me.json() as { scopes: string[] }).scopes).toContain("xr.scan.write");
     expect((me.json() as { scopes: string[] }).scopes).not.toContain("spatial.create");
+    expect((me.json() as { scopes: string[] }).scopes).not.toContain("spatial.artifacts.write");
 
     const sources = await app.inject({
       method: "GET",
