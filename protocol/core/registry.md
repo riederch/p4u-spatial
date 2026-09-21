@@ -34,6 +34,7 @@ Canonical contract keys are lower-case kebab-case:
 - `federation`
 - `app-sync`
 - `xr`
+- `xr-app`
 
 Implementations MUST NOT invent aliases such as `appSync` in discovery documents.
 
@@ -102,6 +103,10 @@ Canonical v0.1 names include:
 - `xr.observation.write`
 - `xr.task.read`
 - `xr.task.answer`
+
+### XR App
+
+- `xr-app.update`
 
 Unknown capabilities MUST be tolerated by clients.
 
