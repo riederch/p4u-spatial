@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.em
 import at.p4u.picovr.core.feature.FeatureSnapshot
 import at.p4u.picovr.ui.hud.HudCategoryRow
 import at.p4u.picovr.ui.hud.HudCommandButton
@@ -35,6 +36,7 @@ import at.p4u.picovr.ui.hud.asContribution
 import at.p4u.picovr.ui.hud.buildHudMenuTree
 import at.p4u.picovr.ui.hud.resolve
 import com.pico.spatial.ui.design.PicoTheme
+import com.pico.spatial.ui.design.Text
 import com.pico.spatial.ui.design.defaultColorScheme
 import com.pico.spatial.ui.foundation.geometry.NormalizedPoint3D
 import com.pico.spatial.ui.foundation.window.Augment
