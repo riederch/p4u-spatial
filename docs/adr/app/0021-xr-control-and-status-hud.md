@@ -45,6 +45,11 @@ world/spatial UI as appropriate.
 - The current in-window status prototype is transitional until the control/status UI is hosted by
   the head-locked XR HUD layer.
 
+## Implementation anchors
+
+- `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrRecognitionSettings.kt` — authoritative persistent/observable QR feature state shared by controls and indicators.
+- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/MainApplication.kt` — current status-indicator projection; transitional until the head-locked HUD hosts it.
+
 ## Related decisions
 
 - ADR 0019: Reusable QR Reader Feature
