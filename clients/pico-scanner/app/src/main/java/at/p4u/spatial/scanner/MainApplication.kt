@@ -6,7 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import at.p4u.picovr.core.feature.FeatureRegistry
 import at.p4u.picovr.qr.QrFeature
 import at.p4u.picovr.qr.ui.QrFeaturePresentation
@@ -57,6 +59,7 @@ class MainApplication : Application() {
                     features = features,
                     presentations = presentationRegistry,
                     onFeatureEnabledChange = featureRegistry::setEnabled,
+                    modifier = Modifier.windowConstraints(width = 960.dp, height = 720.dp),
                 )
             }
         }
