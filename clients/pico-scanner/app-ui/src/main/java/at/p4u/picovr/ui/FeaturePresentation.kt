@@ -2,12 +2,22 @@ package at.p4u.picovr.ui
 
 import androidx.compose.runtime.Composable
 import at.p4u.picovr.core.feature.FeatureSnapshot
+import at.p4u.picovr.ui.hud.HudContribution
+import at.p4u.picovr.ui.hud.HudPanelPresentation
+import at.p4u.picovr.ui.hud.toHudContribution
 
 // ADR: docs/adr/app/0022-modular-app-foundation-and-features.md — feature-specific presentation plugs into a generic shell rather than the app composition root.
+// ADR: docs/adr/app/0029-unified-xr-hud-interaction-shell.md — feature adapters contribute HUD metadata while the shell owns persistent chrome.
 interface FeaturePresentation : AutoCloseable {
     val featureId: String
     val isHomeSurface: Boolean
         get() = false
+
+    fun hudContribution(snapshot: FeatureSnapshot): HudContribution =
+        snapshot.toHudContribution()
+
+    fun panelPresentation(snapshot: FeatureSnapshot): HudPanelPresentation? =
+        null
 
     @Composable
     fun Content(snapshot: FeatureSnapshot)
@@ -37,6 +47,11 @@ class FeaturePresentationRegistry(
 
     fun home(): FeaturePresentation? =
         presentationsByFeatureId.values.firstOrNull { it.isHomeSurface }
+
+    fun contributions(features: List<FeatureSnapshot>): List<HudContribution> =
+        features.mapNotNull { snapshot ->
+            presentationsByFeatureId[snapshot.id]?.hudContribution(snapshot)
+        }
 
     override fun close() {
         presentationsByFeatureId.values.forEach { runCatching { it.close() } }
