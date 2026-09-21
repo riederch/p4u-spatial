@@ -1,11 +1,12 @@
 package at.p4u.spatial.scanner
 
-import com.pico.spatial.ui.platform.stub.SpatialLaunchActivity
+import com.bytedance.pico.secure_mr_demo.readback.ReadbackActivity
 
 /**
- * Entry point for the PICO Spatial runtime.
+ * PICO 4 Ultra / PICO OS 5.x entry point.
  *
- * SpatialLaunchActivity owns the Android activity surface. MainApplication registers a Mixed
- * DefaultStage; persistent HUD chrome is attached to the HMD camera target inside that stage.
+ * ADR 0032 selects the native OpenXR runtime for the target headset. ReadbackActivity is the
+ * repository's already validated NativeActivity/OpenXR substrate; the product keeps the public
+ * launcher component name stable while the Spatial SDK bootstrap is removed.
  */
-class MainActivity : SpatialLaunchActivity()
+class MainActivity : ReadbackActivity()
