@@ -304,6 +304,7 @@ set(_direct_hand_member_anchor [==[
 
 set(_direct_hand_member_replacement [==[
   bool m_handTrackingSupported{false};
+  bool m_handTrackingSystemSupported{false};
 
   // P4U: Direct XR_EXT_hand_tracking fallback. This path is intentionally independent
   // of xrGetCurrentInteractionProfile so PICO may keep pico4s_controller active while
@@ -773,6 +774,65 @@ _p4u_replace_if_missing(
     "P4U: hand probe (%s)"
     "${_direct_hand_diag_old}"
     "${_direct_hand_diag_new}"
+)
+
+set(_hand_system_support_member_old [==[
+  bool m_handTrackingSupported{false};
+
+  // P4U: Direct XR_EXT_hand_tracking fallback.
+]==])
+
+set(_hand_system_support_member_new [==[
+  bool m_handTrackingSupported{false};
+  bool m_handTrackingSystemSupported{false};
+
+  // P4U: Direct XR_EXT_hand_tracking fallback.
+]==])
+
+_p4u_replace_if_missing(
+    "hand tracking system support state v5"
+    "m_handTrackingSystemSupported{false}"
+    "${_hand_system_support_member_old}"
+    "${_hand_system_support_member_new}"
+)
+
+set(_hand_system_support_anchor [==[
+    XrSystemGetInfo systemInfo{XR_TYPE_SYSTEM_GET_INFO};
+    systemInfo.formFactor = m_options->Parsed.FormFactor;
+    CHECK_XRCMD(xrGetSystem(m_instance, &systemInfo, &m_systemId));
+
+    Log::Write(Log::Level::Verbose,
+]==])
+
+set(_hand_system_support_replacement [==[
+    XrSystemGetInfo systemInfo{XR_TYPE_SYSTEM_GET_INFO};
+    systemInfo.formFactor = m_options->Parsed.FormFactor;
+    CHECK_XRCMD(xrGetSystem(m_instance, &systemInfo, &m_systemId));
+
+    if (m_handTrackingSupported) {
+      XrSystemHandTrackingPropertiesEXT handTrackingProperties{
+          XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT};
+      XrSystemProperties systemProperties{
+          XR_TYPE_SYSTEM_PROPERTIES, &handTrackingProperties};
+      CHECK_XRCMD(xrGetSystemProperties(m_instance, m_systemId, &systemProperties));
+
+      m_handTrackingSystemSupported =
+          handTrackingProperties.supportsHandTracking == XR_TRUE;
+
+      Log::Write(
+          Log::Level::Info,
+          Fmt("P4U: XR_EXT_hand_tracking system support=%s",
+              m_handTrackingSystemSupported ? "yes" : "no"));
+    }
+
+    Log::Write(Log::Level::Verbose,
+]==])
+
+_p4u_replace_if_missing(
+    "hand tracking system property probe v5"
+    "P4U: XR_EXT_hand_tracking system support="
+    "${_hand_system_support_anchor}"
+    "${_hand_system_support_replacement}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
