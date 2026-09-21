@@ -7,6 +7,8 @@ import { FederationService } from "../src/services/federation-service.js";
 
 const SOURCE_ID = "00000000-0000-7000-8000-000000000123";
 const INSTANCE_ID = "00000000-0000-7000-8000-000000000456";
+const ARTIFACT_ID = "00000000-0000-7000-8000-000000000999";
+const ARTIFACT_SHA256 = "a".repeat(64);
 const roots: string[] = [];
 const servers: Server[] = [];
 
@@ -28,7 +30,7 @@ async function listen(port = 0, terminal = true): Promise<{ server: Server; port
           route: { routeId: "direct", kind: "direct" },
           access: { viewRevision: "view-r1" },
           delivery: { mode: "live", freshness: "current" },
-          capabilities: ["spatial.read", "spatial.create", "spatial.update", "spatial.delete"],
+          capabilities: ["spatial.read", "spatial.create", "spatial.update", "spatial.delete", "spatial.artifacts.read"],
           links: [],
         }],
       }));
@@ -37,6 +39,21 @@ async function listen(port = 0, terminal = true): Promise<{ server: Server; port
     if (request.method === "GET" && path === `/spatial/v1/sources/${SOURCE_ID}/collections/assets/items/asset%3A1`) {
       response.setHeader("x-p4u-revision", "asset-r1");
       response.end(JSON.stringify({ objectId: "asset:1", name: "Pump" }));
+      return;
+    }
+    if (
+      request.method === "GET"
+      && path === `/spatial/v1/sources/${SOURCE_ID}/artifacts/${ARTIFACT_ID}`
+    ) {
+      response.end(JSON.stringify({
+        sourceId: SOURCE_ID,
+        artifactId: ARTIFACT_ID,
+        sha256: ARTIFACT_SHA256,
+        size: 42,
+        mediaType: "application/octet-stream",
+        createdAt: new Date().toISOString(),
+        links: [],
+      }));
       return;
     }
     if (request.method === "POST" && path === "/spatial/v1/operations") {
@@ -166,5 +183,66 @@ describe("FederationService", () => {
     const cleanupLate = await restarted.cleanupRelays(Date.now() + 120_000);
     expect(cleanupLate).toEqual({ removed: 1, kept: 0 });
     await close(second.server);
+  });
+  it("only acknowledges artifact-dependent relay durability after authoritative artifact verification", async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), "p4u-federation-artifacts-"));
+    roots.push(stateDir);
+    const upstream = await listen(0, false);
+
+    const service = new FederationService(stateDir, {
+      upstreamUrl: `http://127.0.0.1:${upstream.port}`,
+      routeId: "relay",
+      accessMode: "service",
+      token: "server-only-token",
+      retryBaseSeconds: 1,
+      retryMaxSeconds: 4,
+      relayRetentionSeconds: 60,
+    });
+
+    await service.listSources("https://relay.test");
+
+    const operation = {
+      operationId: "00000000-0000-7000-8000-000000000790",
+      target: { sourceId: SOURCE_ID, collectionId: "assets", objectId: "asset:artifact" },
+      action: "create",
+      baseRevision: null,
+      payload: {
+        objectId: "asset:artifact",
+        evidence: {
+          sourceId: SOURCE_ID,
+          artifactId: ARTIFACT_ID,
+          sha256: ARTIFACT_SHA256,
+          size: 42,
+          mediaType: "application/octet-stream",
+        },
+      },
+    };
+
+    const durable = await service.submitOperation(operation, "https://relay.test");
+    expect(durable).toMatchObject({
+      operationId: operation.operationId,
+      sourceId: SOURCE_ID,
+      state: "relay-durable",
+    });
+
+    await close(upstream.server);
+
+    const unavailableOperation = {
+      ...operation,
+      operationId: "00000000-0000-7000-8000-000000000791",
+    };
+    await expect(
+      service.submitOperation(unavailableOperation, "https://relay.test"),
+    ).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      statusCode: 503,
+    });
+
+    await expect(
+      service.getOperation(unavailableOperation.operationId),
+    ).rejects.toMatchObject({
+      code: "OPERATION_NOT_FOUND",
+      statusCode: 404,
+    });
   });
 });
