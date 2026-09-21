@@ -63,6 +63,7 @@ android {
 
 dependencies {
     implementation(project(":qr-reader"))
+    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation(platform("com.pico.spatial:bom:6.1.9"))
     implementation("com.pico.spatial.core:core")
