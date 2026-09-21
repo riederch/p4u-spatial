@@ -100,9 +100,18 @@ Native OpenXR is the input abstraction boundary.
 
 Controller support uses OpenXR action sets and controller aim/pose actions.
 
-Hand/finger fallback uses supported OpenXR hand capabilities on the target runtime. Exact extension
-availability must be probed on the real PICO 4 Ultra before a specific hand interaction extension is
-made mandatory.
+Hand/finger fallback uses supported OpenXR hand capabilities on the target runtime.
+
+Real-device validation on PICO 4 Ultra / PICO OS 5.15.9.U confirms that the runtime exposes:
+
+- `XR_BD_controller_interaction`,
+- `XR_EXT_hand_interaction`,
+- `XR_EXT_hand_tracking`.
+
+The product input adapter uses `XR_EXT_hand_interaction` as the semantic HUD fallback: hand aim
+maps to the same pose action as controller aim, and pinch/value maps to the same activation action
+as controller trigger/value. `XR_EXT_hand_tracking` is available for future skeletal/joint-aware
+features but is not required for baseline HUD interaction.
 
 No separate hand-only menu or duplicate feature state is allowed.
 
@@ -147,8 +156,9 @@ CI success against Spatial SDK artifacts is not evidence of target-runtime compa
 - The fatal `SpatialContainerInfo` dependency is removed from the target runtime path.
 - Head locking is implemented with a standard OpenXR VIEW space instead of an OS-6 Spatial Stage.
 - The already validated SecureMR path can remain in-process and in the same APK.
-- Controller input can build on the existing OpenXR action infrastructure.
-- Hand input needs explicit OpenXR capability probing and real-device validation.
+- Controller input is hardware-validated through the PICO 4S interaction profile.
+- Hand interaction is hardware-capability-validated through `XR_EXT_hand_interaction`; skeletal hand
+  tracking is also available through `XR_EXT_hand_tracking` but is not required by the baseline HUD.
 - Some current `app-ui` PICO Spatial UI code becomes a superseded implementation rather than the
   target presentation layer.
 - Migration is incremental: first restore a stable native OpenXR bootstrap, then move HUD rendering,
