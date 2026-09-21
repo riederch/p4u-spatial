@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+// ADR: docs/adr/app/0020-securemr-qr-scanner-backend.md — PICO SecureMR/OpenXR remains a vendor backend behind the generic QR feature.
 public class ReadbackActivity extends NativeActivity {
     private static final String TAG = "p4u-SecureMR-QR";
     private static final int REQ_CAMERA = 1001;
