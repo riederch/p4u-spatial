@@ -292,8 +292,8 @@ set(_hand_tracking_extension_replacement [==[
 _p4u_replace_if_missing(
     "direct hand tracking extension enable"
     "P4U: enabling XR_EXT_hand_tracking"
-    "\${_extension_anchor}"
-    "\${_hand_tracking_extension_replacement}"
+    "${_extension_anchor}"
+    "${_hand_tracking_extension_replacement}"
 )
 
 set(_direct_hand_member_anchor [==[
@@ -323,8 +323,8 @@ set(_direct_hand_member_replacement [==[
 _p4u_replace_if_missing(
     "direct hand tracking state"
     "m_xrCreateHandTrackerEXT{nullptr}"
-    "\${_direct_hand_member_anchor}"
-    "\${_direct_hand_member_replacement}"
+    "${_direct_hand_member_anchor}"
+    "${_direct_hand_member_replacement}"
 )
 
 set(_direct_hand_init_anchor [==[
@@ -372,8 +372,8 @@ set(_direct_hand_init_replacement [==[
 _p4u_replace_if_missing(
     "direct hand tracking initializer"
     "P4U: initialize direct XR_EXT_hand_tracking fallback"
-    "\${_direct_hand_init_anchor}"
-    "\${_direct_hand_init_replacement}"
+    "${_direct_hand_init_anchor}"
+    "${_direct_hand_init_replacement}"
 )
 
 set(_direct_hand_init_call_anchor [==[
@@ -392,8 +392,8 @@ set(_direct_hand_init_call_replacement [==[
 _p4u_replace_if_missing(
     "direct hand tracking initializer call"
     "InitializeP4uHandTracking();"
-    "\${_direct_hand_init_call_anchor}"
-    "\${_direct_hand_init_call_replacement}"
+    "${_direct_hand_init_call_anchor}"
+    "${_direct_hand_init_call_replacement}"
 )
 
 set(_direct_hand_destroy_anchor [==[
@@ -418,8 +418,8 @@ set(_direct_hand_destroy_replacement [==[
 _p4u_replace_if_missing(
     "direct hand tracker cleanup"
     "m_xrDestroyHandTrackerEXT(m_p4uHandTrackers[hand])"
-    "\${_direct_hand_destroy_anchor}"
-    "\${_direct_hand_destroy_replacement}"
+    "${_direct_hand_destroy_anchor}"
+    "${_direct_hand_destroy_replacement}"
 )
 
 set(_direct_hand_render_anchor [==[
@@ -611,8 +611,8 @@ set(_direct_hand_render_replacement [==[
 _p4u_replace_if_missing(
     "direct hand tracking render fallback"
     "P4U: direct hand fallback active"
-    "\${_direct_hand_render_anchor}"
-    "\${_direct_hand_render_replacement}"
+    "${_direct_hand_render_anchor}"
+    "${_direct_hand_render_replacement}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
