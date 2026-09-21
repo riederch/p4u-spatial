@@ -40,7 +40,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0018 | Bridge | Partial migration | Persisted BridgeConfigStore is authoritative after migration, but legacy functional `P4U_*` environment variables are still accepted as bootstrap/migration input. |
 | 0019 | App | Partial | Generic QR lifecycle/content/actions are reusable; QR result presentation still lives in the product app layer. |
 | 0020 | App | Aligned in code / hardware pending | SecureMR is an internal QR backend; first-valid decode, no overlay and ephemeral frames match ADR. PICO hardware validation remains required. |
-| 0021 | App | Partial | Authoritative feature state and generic status projection exist. Lower-left menu, toggle UI and true head-locked HUD are not implemented. |
+| 0021 | App | Aligned in code / hardware pending | Generic hierarchical menu, feature toggle, active-status projection and PICO viewpoint-following Augment HUD are implemented; physical placement/interaction validation remains. |
 | 0022 | App | Aligned | app-core is feature-neutral, app-ui provides generic presentation infrastructure, qr-reader-ui owns QR presentation, and MainApplication is reduced to composition/registration. |
 | 0023 | App | Aligned / reconstructed | Signed APK release trust, descriptor integrity/signing metadata and updater verification are documented and implemented; discovery key remains intentionally unresolved under ADR 0017. |
 | 0024 | App | Aligned / reconstructed | Durable outbox, retry-safe upload and Android Keystore-backed refresh credential storage are implemented. |
@@ -111,15 +111,18 @@ The coordinate-frame contract is mature enough to describe quality/provenance, b
 system still lacks the complete deterministic control-point registration/residual pipeline required
 by ADR 0003.
 
-### 4. XR HUD
+### 4. XR HUD hardware validation
 
-ADR 0021 remains intentionally ahead of implementation:
+The software gap found during the audit has been closed:
 
-- no lower-left menu,
-- no hierarchical menu rendering,
-- no menu-backed QR toggle,
-- status projection still lives inside the spatial app window,
-- no final head-locked HUD interaction layer.
+- lower-left hierarchical menu is generated from feature metadata,
+- QR enable/disable is routed through the authoritative feature registry,
+- active feature symbols are projected on the right,
+- menu and status are hosted outside the primary content box in PICO Spatial UI `Augment`
+  surfaces using `ViewPoint.All`.
+
+Remaining work is physical PICO validation of placement, follow behavior, controller/gaze interaction
+and comfort; code/CI completion does not constitute that hardware validation.
 
 ### 5. App modularization validation
 
