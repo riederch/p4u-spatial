@@ -169,13 +169,19 @@ Destructive or security-sensitive commands require explicit confirmation.
 
 Navigation is hierarchical and contribution-driven.
 
-The initial required path is:
+The initial required feature paths are:
 
 ```text
 Erkennung
 └── QR-Code-Erkennung
     └── Ein / Aus
+
+Positionierung
+└── GNSS
+    └── Ein / Aus
 ```
+
+The GNSS path is contributed only when the optional GNSS feature is installed/registered.
 
 Future categories may include connection, spatial tools and system functions, but a category appears
 only when at least one installed/registered contribution belongs to it.
@@ -200,7 +206,18 @@ Its HUD integration follows these rules:
 - Standard actions and application-provided custom actions use the same HUD command components.
 - Bridge registration remains a custom action and not QR-core behavior.
 
-### 7. Visual design system
+### 7. GNSS integration
+
+External GNSS is an optional feature defined by ADR 0030.
+
+- GNSS contributes under `Positionierung → GNSS`.
+- Disabled GNSS does not show a normal active status icon.
+- Valid fix shows healthy/active status.
+- Enabled without a valid fix or with a lost connection remains visible as waiting/degraded.
+- Detailed coordinates and quality diagnostics belong in a detail surface, not permanent rail text.
+- GNSS source/provenance remains explicit; source fallback must not appear transparent.
+
+### 8. Visual design system
 
 The HUD uses one visual system for launcher, navigation, status, feedback and result-panel chrome.
 
@@ -222,7 +239,7 @@ Token groups include:
 Concrete values live in the derived HUD design specification so visual refinement does not require a
 new architecture decision.
 
-### 8. Interaction consistency
+### 9. Interaction consistency
 
 HUD components must support the platform interaction methods available to the application without
 changing information architecture.
@@ -234,7 +251,7 @@ Focus state must always be visually distinguishable.
 
 Important actions must not depend on color alone.
 
-### 9. Information density and comfort
+### 10. Information density and comfort
 
 Persistent HUD chrome is intentionally sparse.
 
@@ -259,7 +276,7 @@ A user-adjustable **peripheral HUD scale** is supported as a display preference:
 
 This preference is presentation-only and MUST NOT create a second feature/runtime state.
 
-### 10. Modularity boundary
+### 11. Modularity boundary
 
 The Unified HUD belongs to shared app UI infrastructure.
 
@@ -350,3 +367,4 @@ It complements, and does not supersede:
 - ADR 0020 — SecureMR QR Scanner Backend
 - ADR 0022 — Modular App Foundation and Features
 - ADR 0024 — Headset Offline State, Durable Outbox and Secure Credentials
+- ADR 0030 — Optional External GNSS Positioning Feature
