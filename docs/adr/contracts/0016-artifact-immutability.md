@@ -23,7 +23,23 @@ A durable relay may acknowledge an operation that depends on artifacts only when
 - `protocol/spatial/artifacts.md` — immutable source-scoped artifacts and retry-safe upload session contract.
 - `protocol/schemas/spatial/artifact-descriptor.schema.json` — committed artifact descriptor.
 - `protocol/schemas/spatial/artifact-upload-request.schema.json` — client-generated uploadId and declared integrity metadata.
+- `protocol/profiles/git-repository.md` — reference Git-backed artifact persistence layout.
+- `bridge/src/services/spatial-artifact-service.ts` — retry-safe upload sessions, immutable commit, integrity verification and Artifact Reference readiness checks.
+- `bridge/src/server.ts` — authenticated Artifact read/upload/commit HTTP endpoints and capability advertisement.
+- `bridge/src/services/spatial-write-service.ts` — authoritative local writes reject uncommitted local Artifact References.
+- `bridge/test/artifact.test.ts` — retry, integrity, immutability and readiness regression coverage.
 
 ## Reconciliation note
 
-The contract is specified, but the current reference Bridge does not expose Spatial Artifact read/upload endpoints. This is an open implementation gap. Federation durable relay therefore must not yet claim artifact-dependent durability.
+The local authoritative-source implementation is now aligned with this ADR:
+
+- descriptor/content reads are implemented,
+- upload create/status/content/commit are retry-safe,
+- committed content is immutable and SHA-256/size verified,
+- new local Spatial writes reject uncommitted local Artifact References,
+- discovery/source capabilities expose `spatial.artifacts.read` and, for writable sources,
+  `spatial.artifacts.write`.
+
+Federation remains narrower than the full ADR consequence: artifact-aware durable relay is not yet
+implemented, so a relay must not claim artifact-dependent durability until those payloads are
+durably available to the relay or authoritative source.
