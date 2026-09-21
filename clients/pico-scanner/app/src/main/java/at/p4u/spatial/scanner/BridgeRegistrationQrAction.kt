@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+// ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — Bridge registration is a custom action, not scanner-core behavior.
 class BridgeRegistrationQrAction(
     private val pairingClient: PairingClient = PairingClient(),
     private val endpointResolver: BridgeEndpointResolver = BridgeEndpointResolver(),
