@@ -245,7 +245,7 @@ class QrReadbackCheck final : public ReadbackCheck {
     float z;
   };
 
-  static constexpr float kHudDistanceMeters = 0.35f;
+  static constexpr float kHudDistanceMeters = 0.50f;
   static constexpr float kHudWidthMeters = 0.30f;
   static constexpr float kHudHeightMeters = 0.30f;
   static constexpr float kPointerRedrawThreshold = 0.003f;
