@@ -15,3 +15,13 @@ The dedicated MultiGIS backend can be a separate Fire instance from domain/conte
 Domain instances such as WWG may remain pure Content Providers.
 
 Provider data is not copied to the Account Provider as a second canonical source.
+
+## Implementation anchors
+
+- `protocol/app-sync/README.md` — opaque application workspace semantics independent of Spatial.
+- `protocol/workflows/publish.md` — explicit publication boundary from app-owned state to Spatial authority.
+- `protocol/README.md` — App Sync and Spatial are sibling contracts over Core.
+
+## Reconciliation note
+
+This repository currently specifies App Sync but does not contain an Account Provider implementation. The decision is therefore contract-complete but not reference-implementation-complete.
