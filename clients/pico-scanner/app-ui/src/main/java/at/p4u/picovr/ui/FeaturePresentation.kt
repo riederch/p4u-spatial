@@ -10,7 +10,7 @@ interface FeaturePresentation : AutoCloseable {
         get() = false
 
     @Composable
-    fun Content()
+    fun Content(snapshot: FeatureSnapshot)
 
     @Composable
     fun StatusIcon(snapshot: FeatureSnapshot)
