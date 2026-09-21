@@ -108,10 +108,23 @@ Real-device validation on PICO 4 Ultra / PICO OS 5.15.9.U confirms that the runt
 - `XR_EXT_hand_interaction`,
 - `XR_EXT_hand_tracking`.
 
-The product input adapter uses `XR_EXT_hand_interaction` as the semantic HUD fallback: hand aim
-maps to the same pose action as controller aim, and pinch/value maps to the same activation action
-as controller trigger/value. `XR_EXT_hand_tracking` is available for future skeletal/joint-aware
-features but is not required for baseline HUD interaction.
+The product input adapter must not depend exclusively on the runtime's current interaction profile.
+
+Real-device validation shows that PICO OS `5.15.9.U` can keep
+`/interaction_profiles/bytedance/pico4s_controller` current even while system gesture input is
+active. Therefore:
+
+- controller input continues to use the PICO 4S OpenXR action bindings;
+- `XR_EXT_hand_interaction` may contribute profile-driven bindings where the runtime activates them;
+- baseline controller-free hand interaction uses direct `XR_EXT_hand_tracking` as the reliable
+  fallback;
+- Palm tracking supplies the hand pointer pose;
+- Thumb Tip to Index Tip distance supplies semantic pinch activation with hysteresis;
+- active direct hand tracking may override a stale-but-valid controller aim pose;
+- when hand joints become inactive, controller actions resume without an application-level mode
+  switch.
+
+Both sources still feed the same semantic HUD controls and application state.
 
 No separate hand-only menu or duplicate feature state is allowed.
 
@@ -157,8 +170,10 @@ CI success against Spatial SDK artifacts is not evidence of target-runtime compa
 - Head locking is implemented with a standard OpenXR VIEW space instead of an OS-6 Spatial Stage.
 - The already validated SecureMR path can remain in-process and in the same APK.
 - Controller input is hardware-validated through the PICO 4S interaction profile.
-- Hand interaction is hardware-capability-validated through `XR_EXT_hand_interaction`; skeletal hand
-  tracking is also available through `XR_EXT_hand_tracking` but is not required by the baseline HUD.
+- Hand input is hardware-validated through direct `XR_EXT_hand_tracking`; the runtime can activate
+  and deactivate valid joint data as PICO switches between gesture and controller input.
+- `XR_EXT_hand_interaction` remains enabled as an optional profile-driven path but is not relied on
+  as the sole hand-input mechanism on PICO OS `5.15.9.U`.
 - Some current `app-ui` PICO Spatial UI code becomes a superseded implementation rather than the
   target presentation layer.
 - Migration is incremental: first restore a stable native OpenXR bootstrap, then move HUD rendering,
