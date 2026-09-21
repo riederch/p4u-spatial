@@ -206,9 +206,9 @@ fun HudSettings.asContribution(): HudContribution =
                 control = HudMenuControl.RangeSetting(
                     key = "peripheralHudScalePercent",
                     value = normalizedPeripheralHudScalePercent,
-                    min = MIN_SCALE_PERCENT,
-                    max = MAX_SCALE_PERCENT,
-                    step = SCALE_STEP_PERCENT,
+                    min = HudSettings.MIN_SCALE_PERCENT,
+                    max = HudSettings.MAX_SCALE_PERCENT,
+                    step = HudSettings.SCALE_STEP_PERCENT,
                     unitSuffix = "%",
                 ),
             ),
