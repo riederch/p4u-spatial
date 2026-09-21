@@ -1,6 +1,5 @@
 package at.p4u.picovr.qr
 
-import android.util.Patterns
 import org.json.JSONArray
 import org.json.JSONObject
 
