@@ -9,6 +9,7 @@ interface State {
   consumedAt?: string;
 }
 
+// ADR: docs/adr/bridge/0025-admin-authentication-and-bootstrap.md — first-run administration uses a Bridge-generated one-time setup proof.
 export class SetupBootstrapService {
   private readonly store: AtomicJsonStore<State>;
 
