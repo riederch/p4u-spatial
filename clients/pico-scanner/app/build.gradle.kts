@@ -63,18 +63,9 @@ android {
 
 dependencies {
     implementation(project(":app-core"))
-    implementation(project(":app-ui"))
     implementation(project(":qr-reader"))
-    implementation(project(":qr-reader-ui"))
     implementation(project(":securemr-probe"))
     implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.core:core-ktx:1.15.0")
-    implementation(platform("com.pico.spatial:bom:6.1.9"))
-    implementation("com.pico.spatial.core:core")
-    implementation("com.pico.spatial.ml:securemr")
-    implementation("com.pico.spatial.ml:readback")
-    implementation("com.pico.spatial.ui:foundation")
-    implementation("com.pico.spatial.ui:platform")
-    implementation("com.pico.spatial.ui:design")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
