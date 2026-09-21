@@ -1012,7 +1012,7 @@ set(_input_arbitration_locals_new [==[
 
 _p4u_replace_if_missing(
     "input source arbitration locals v8"
-    "const InputState controllerToggle = m_input.handToggle[hand]"
+    "const InputState::ToggleStatus controllerToggle = m_input.handToggle[hand]"
     "${_input_arbitration_locals_old}"
     "${_input_arbitration_locals_new}"
 )
