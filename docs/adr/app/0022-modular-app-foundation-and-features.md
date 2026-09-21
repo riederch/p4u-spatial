@@ -93,6 +93,10 @@ feature while PICO SecureMR is one QR scanner backend.
 - `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/MainApplication.kt` — thin composition root registering shipped features.
 - `clients/pico-scanner/settings.gradle.kts` — explicit Gradle module boundary.
 
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/FeaturePresentation.kt` — generic feature presentation contract and presentation registry.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — generic PICO feature shell and active-feature status projection.
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — QR-specific presentation isolated from the application composition root.
+
 ## Related decisions
 
 - ADR 0019: Reusable QR Reader Feature
@@ -101,17 +105,12 @@ feature while PICO SecureMR is one QR scanner backend.
 
 ## Reconciliation note
 
-This ADR is partially implemented.
+The structural split is now implemented:
 
-Implemented:
-- separate `app-core` Gradle module,
-- feature-neutral `AppFeature` contract,
-- generic `FeatureRegistry`,
-- QR exposed as the first concrete `QrFeature`,
-- `app` selects and registers shipped features.
+- `app-core` is feature/UI/vendor neutral,
+- `app-ui` owns generic feature presentation infrastructure,
+- `qr-reader` owns QR behavior and state,
+- `qr-reader-ui` owns QR-specific presentation,
+- `app` is reduced to composition/registration of shipped features, presentations and product-specific custom actions.
 
-Still open:
-- `MainApplication` still knows QR-specific reader/result types and renders QR result UI,
-- the status renderer still switches on the QR icon key,
-- feature-specific presentation should move behind feature-owned UI/presentation contracts so the composition root remains thin,
-- additional features are needed to validate that no feature-to-feature dependency shortcuts emerge.
+Remaining validation is architectural rather than a known layering violation: additional features should exercise the same contracts to ensure no feature-to-feature dependency shortcuts emerge.
