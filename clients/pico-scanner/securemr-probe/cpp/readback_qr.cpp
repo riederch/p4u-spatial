@@ -19,6 +19,7 @@
 #include "readback_file.h"
 #include <algorithm>
 #include <android/log.h>
+#include <atomic>
 #include <string>
 
 #ifdef __cplusplus
@@ -54,6 +55,16 @@ bool ReadbackCheck::isCpuBuffer = false;
 #endif
 
 struct android_app* ReadbackCheck::gapp = nullptr;
+static std::atomic<bool> gQrRecognitionEnabled{true};
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_bytedance_pico_secure_1mr_1demo_readback_ReadbackActivity_nativeSetQrRecognitionEnabled(
+    JNIEnv*,
+    jclass,
+    jboolean enabled) {
+  gQrRecognitionEnabled.store(enabled == JNI_TRUE);
+}
+
 
 class QrReadbackCheck final : public ReadbackCheck {
  public:
@@ -121,7 +132,7 @@ void ReadbackCheck::CreateGlobalTensor() {
 }
 
 void ReadbackCheck::Tick() {
-  if (!pipelineAllInitialized || !gPermissionCamera) return;
+  if (!pipelineAllInitialized || !gPermissionCamera || !gQrRecognitionEnabled.load()) return;
 
   if (isCpuBuffer) {
     if (!mCurrentReadbackRequest) {
