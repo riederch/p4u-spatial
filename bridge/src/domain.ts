@@ -7,6 +7,8 @@ export type CanonicalDeviceScope =
   | "spatial.create"
   | "spatial.update"
   | "spatial.delete"
+  | "spatial.artifacts.read"
+  | "spatial.artifacts.write"
   | "xr.display.read"
   | "xr.scan.write"
   | "xr.observation.write"
@@ -27,6 +29,8 @@ export const CANONICAL_DEVICE_SCOPES: readonly CanonicalDeviceScope[] = [
   "spatial.create",
   "spatial.update",
   "spatial.delete",
+  "spatial.artifacts.read",
+  "spatial.artifacts.write",
   "xr.display.read",
   "xr.scan.write",
   "xr.observation.write",
@@ -131,6 +135,7 @@ export interface ScanManifest {
 
 export const DEFAULT_DEVICE_SCOPES: DeviceScope[] = [
   "spatial.read",
+  "spatial.artifacts.read",
   "xr.display.read",
   "xr.scan.write",
   "xr.observation.write",
