@@ -115,7 +115,7 @@ async function assertPilot(app: ReturnType<typeof buildServer>, config: BridgeCo
     writePolicy?: unknown;
   }> }).sources[0]!;
   expect(source.route.routeId).toBe("rchkb-git");
-  expect(source.capabilities).toEqual(["spatial.read", "spatial.snapshots"]);
+  expect(source.capabilities).toEqual(["spatial.read", "spatial.snapshots", "spatial.artifacts.read"]);
   expect(source.writePolicy).toBeUndefined();
 
   const collections = await app.inject({
