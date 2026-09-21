@@ -3,21 +3,16 @@ package at.p4u.picovr.qr.ui
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -28,18 +23,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import at.p4u.picovr.core.feature.FeatureSnapshot
 import at.p4u.picovr.qr.QrAction
-import at.p4u.picovr.qr.QrActionResult
 import at.p4u.picovr.qr.QrFeature
 import at.p4u.picovr.qr.QrReaderController
 import at.p4u.picovr.qr.QrReaderState
-import at.p4u.picovr.qr.QrResult
 import at.p4u.picovr.ui.FeaturePresentation
+import at.p4u.picovr.ui.hud.HudCommand
+import at.p4u.picovr.ui.hud.HudCommandAvailability
+import at.p4u.picovr.ui.hud.HudCommandRole
+import at.p4u.picovr.ui.hud.HudCommandState
+import at.p4u.picovr.ui.hud.HudFeedback
+import at.p4u.picovr.ui.hud.HudFeedbackKind
+import at.p4u.picovr.ui.hud.HudResultPanel
+import at.p4u.picovr.ui.hud.LambdaHudCommand
 import com.pico.spatial.ui.design.Button
 import com.pico.spatial.ui.design.Text
 import kotlinx.coroutines.launch
 
 // ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — QR result/action presentation belongs to the reusable QR feature surface.
 // ADR: docs/adr/app/0022-modular-app-foundation-and-features.md — app composition does not render QR-specific state.
+// ADR: docs/adr/app/0029-unified-xr-hud-interaction-shell.md — QR results use the shared HUD result panel, commands and feedback language.
 class QrFeaturePresentation(
     context: Context,
     customActions: List<QrAction> = emptyList(),
@@ -54,11 +56,13 @@ class QrFeaturePresentation(
     override val isHomeSurface: Boolean = true
 
     @Composable
-    override fun Content(snapshot: FeatureSnapshot) {
+    override fun Content(
+        snapshot: FeatureSnapshot,
+        onFeedback: (HudFeedback) -> Unit,
+    ) {
         val scope = rememberCoroutineScope()
-        var readerState by androidx.compose.runtime.remember { mutableStateOf<QrReaderState>(reader.state) }
-        var actionMessage by androidx.compose.runtime.remember { mutableStateOf<String?>(null) }
-        var runningActionId by androidx.compose.runtime.remember { mutableStateOf<String?>(null) }
+        var readerState by remember { mutableStateOf<QrReaderState>(reader.state) }
+        var runningActionId by remember { mutableStateOf<String?>(null) }
 
         DisposableEffect(reader) {
             reader.onStateChanged = { readerState = it }
@@ -83,12 +87,7 @@ class QrFeaturePresentation(
                     fontSize = 4.em,
                     modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
                 )
-                Button(
-                    onClick = {
-                        actionMessage = null
-                        reader.scan()
-                    },
-                ) {
+                Button(onClick = reader::scan) {
                     Text("QR scannen")
                 }
             }
@@ -109,34 +108,111 @@ class QrFeaturePresentation(
                     fontSize = 3.em,
                     modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
                 )
-                Button(onClick = reader::scan) { Text("Erneut scannen") }
+                Button(onClick = reader::scan) {
+                    Text("Erneut scannen")
+                }
             }
 
             is QrReaderState.Result -> {
-                QrResultView(
-                    result = state.result,
-                    actions = state.actions,
-                    actionMessage = actionMessage,
-                    runningActionId = runningActionId,
-                    onAction = { action ->
-                        if (runningActionId != null) return@QrResultView
-                        runningActionId = action.id
-                        actionMessage = "Aktion wird ausgeführt …"
-                        scope.launch {
-                            actionMessage = when (
-                                val outcome = action.execute(appContext, state.result)
-                            ) {
-                                is QrActionResult.Success -> outcome.message ?: "Aktion ausgeführt."
-                                is QrActionResult.Failure -> outcome.message
+                val blocked = runningActionId != null
+                val commands = buildList<HudCommand> {
+                    state.actions.forEach { action ->
+                        add(
+                            QrHudCommand(
+                                context = appContext,
+                                result = state.result,
+                                action = action,
+                                running = runningActionId == action.id,
+                                blocked = blocked && runningActionId != action.id,
+                            ),
+                        )
+                    }
+                    add(
+                        LambdaHudCommand(
+                            id = "qr.scan-again",
+                            label = "Neu scannen",
+                            role = HudCommandRole.SECONDARY,
+                            state = HudCommandState(
+                                availability = if (blocked) {
+                                    HudCommandAvailability.DISABLED
+                                } else {
+                                    HudCommandAvailability.ENABLED
+                                },
+                            ),
+                        ) {
+                            reader.scan()
+                            at.p4u.picovr.ui.hud.HudCommandResult()
+                        },
+                    )
+                    add(
+                        LambdaHudCommand(
+                            id = "qr.close",
+                            label = "Schließen",
+                            role = HudCommandRole.PASSIVE,
+                            state = HudCommandState(
+                                availability = if (blocked) {
+                                    HudCommandAvailability.DISABLED
+                                } else {
+                                    HudCommandAvailability.ENABLED
+                                },
+                            ),
+                        ) {
+                            reader.dismissResult()
+                            at.p4u.picovr.ui.hud.HudCommandResult()
+                        },
+                    )
+                }
+
+                HudResultPanel(
+                    title = "QR-Code erkannt",
+                    typeLabel = state.result.content.kind.name,
+                    commands = commands,
+                    onCommand = { command ->
+                        if (command.state.availability != HudCommandAvailability.ENABLED) {
+                            return@HudResultPanel
+                        }
+
+                        if (command.id == "qr.scan-again" || command.id == "qr.close") {
+                            scope.launch {
+                                command.execute()
                             }
-                            runningActionId = null
+                            return@HudResultPanel
+                        }
+
+                        runningActionId = command.id
+                        onFeedback(
+                            HudFeedback(
+                                kind = HudFeedbackKind.RUNNING,
+                                message = command.label,
+                                persistent = true,
+                            ),
+                        )
+                        scope.launch {
+                            try {
+                                val result = command.execute()
+                                result.feedback?.let(onFeedback)
+                            } catch (error: Throwable) {
+                                onFeedback(
+                                    HudFeedback(
+                                        kind = HudFeedbackKind.ERROR,
+                                        message = error.message ?: "Aktion fehlgeschlagen.",
+                                    ),
+                                )
+                            } finally {
+                                runningActionId = null
+                            }
                         }
                     },
-                    onScanAgain = {
-                        actionMessage = null
-                        reader.scan()
-                    },
-                )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(520.dp),
+                ) {
+                    Text(
+                        state.result.content.displayText,
+                        textAlign = TextAlign.Start,
+                        fontSize = 2.7.em,
+                    )
+                }
             }
         }
     }
@@ -145,10 +221,9 @@ class QrFeaturePresentation(
     override fun StatusIcon(snapshot: FeatureSnapshot) {
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .background(Color.White.copy(alpha = 0.82f))
-                .border(2.dp, Color.Black)
-                .padding(6.dp),
+                .size(40.dp)
+                .background(Color.Transparent)
+                .padding(4.dp),
         ) {
             val cell = 8.dp
             val finder = Modifier
@@ -175,80 +250,5 @@ class QrFeaturePresentation(
 
     override fun close() {
         reader.close()
-    }
-}
-
-@Composable
-private fun QrResultView(
-    result: QrResult,
-    actions: List<QrAction>,
-    actionMessage: String?,
-    runningActionId: String?,
-    onAction: (QrAction) -> Unit,
-    onScanAgain: () -> Unit,
-) {
-    val scroll = rememberScrollState()
-
-    LaunchedEffect(result.raw) {
-        scroll.scrollTo(0)
-    }
-
-    Text(
-        "QR-Code erkannt",
-        textAlign = TextAlign.Center,
-        fontSize = 4.em,
-        modifier = Modifier.padding(top = 20.dp, bottom = 12.dp),
-    )
-
-    Text(
-        result.content.kind.name,
-        textAlign = TextAlign.Center,
-        fontSize = 2.5.em,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(360.dp)
-            .background(Color.White.copy(alpha = 0.72f))
-            .padding(20.dp)
-            .verticalScroll(scroll),
-    ) {
-        Text(
-            result.content.displayText,
-            textAlign = TextAlign.Start,
-            fontSize = 2.7.em,
-        )
-    }
-
-    actionMessage?.let {
-        Text(
-            it,
-            textAlign = TextAlign.Center,
-            fontSize = 2.5.em,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-    }
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-    ) {
-        actions.forEach { action ->
-            Button(
-                onClick = {
-                    if (runningActionId == null) onAction(action)
-                },
-            ) {
-                Text(if (runningActionId == action.id) "Bitte warten …" else action.title)
-            }
-        }
-        Button(onClick = onScanAgain) {
-            Text("Neu scannen")
-        }
     }
 }
