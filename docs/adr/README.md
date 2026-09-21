@@ -131,6 +131,7 @@ For a material change:
 | [0002](bridge/0002-authentication-and-device-pairing.md) | Authentication and device pairing | Accepted |
 | [0004](bridge/0004-ai-optional-deterministic-core.md) | AI optional, deterministic core | Accepted |
 | [0018](bridge/0018-web-managed-configuration.md) | Web-managed Bridge configuration | Accepted |
+| [0025](bridge/0025-admin-authentication-and-bootstrap.md) | Administrator authentication and first-run bootstrap | Accepted |
 
 ### App
 
@@ -140,6 +141,8 @@ For a material change:
 | [0020](app/0020-securemr-qr-scanner-backend.md) | SecureMR QR scanner backend | Accepted |
 | [0021](app/0021-xr-control-and-status-hud.md) | XR control and status HUD | Accepted |
 | [0022](app/0022-modular-app-foundation-and-features.md) | Modular app foundation and features | Accepted |
+| [0023](app/0023-xr-application-update-trust.md) | XR application update trust and release lifecycle | Accepted |
+| [0024](app/0024-headset-offline-state-and-secure-storage.md) | Headset offline state, durable outbox and secure credentials | Accepted |
 
 ### Contracts
 
@@ -159,6 +162,7 @@ For a material change:
 | [0015](contracts/0015-publish-boundary.md) | Publish boundary | Accepted |
 | [0016](contracts/0016-artifact-immutability.md) | Artifact immutability | Accepted |
 | [0017](contracts/0017-discovery-and-namespace-registry.md) | Discovery and namespace registry | Accepted |
+| [0026](contracts/0026-derived-candidate-review-and-promotion.md) | Derived candidate review and explicit promotion | Accepted |
 
 ## Relationship to repository rules
 
