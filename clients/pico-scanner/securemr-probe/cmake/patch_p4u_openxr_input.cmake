@@ -318,6 +318,10 @@ set(_direct_hand_member_replacement [==[
   std::array<bool, Side::COUNT> m_p4uHandPinched{{false, false}};
   std::array<bool, Side::COUNT> m_p4uDirectHandWasActive{{false, false}};
   std::array<uint32_t, Side::COUNT> m_p4uHandProbeCounter{{0, 0}};
+  std::array<XrPosef, Side::COUNT> m_p4uPreviousControllerPose{};
+  std::array<bool, Side::COUNT> m_p4uPreviousControllerPoseValid{{false, false}};
+  std::array<uint32_t, Side::COUNT> m_p4uControllerRecentFrames{{0, 0}};
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
 
   XrEventDataBuffer m_eventDataBuffer;
 ]==])
@@ -474,15 +478,20 @@ set(_direct_hand_render_anchor [==[
 ]==])
 
 set(_direct_hand_render_replacement [==[
-    // Resolve product pointer/activation input from both sources every frame. PICO OS may
-    // keep a stale/idle controller action pose valid while the user is actually using hands,
-    // so an active XR_EXT_hand_tracking result must be allowed to override that pose.
-    // P4U: active hand tracking overrides stale controller pose.
+    // Resolve product pointer/activation input from both sources every frame.
+    // P4U: source arbitration follows recent real interaction, not tracking validity alone.
     std::array<XrVector3f*, 2> handDeltas{};
     std::array<std::optional<XrPosef>, 2> handPoses{};
     bool buttonPressed = false;
     for (auto hand : {Side::LEFT, Side::RIGHT}) {
       std::optional<XrPosef> resolvedPose;
+      const InputState controllerToggle = m_input.handToggle[hand];
+      bool controllerPoseValid = false;
+      XrPosef controllerPose{};
+      bool directHandActive = false;
+      XrPosef directHandPose{};
+      InputState directHandToggle = InputState::RELEASE;
+      float directHandScale = 1.0f;
 
       XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
       res = xrLocateSpace(m_input.handSpace[hand], m_appSpace, predictedDisplayTime, &spaceLocation);
@@ -490,7 +499,41 @@ set(_direct_hand_render_replacement [==[
       if (XR_UNQUALIFIED_SUCCESS(res) &&
           (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
           (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
-        resolvedPose = spaceLocation.pose;
+        controllerPose = spaceLocation.pose;
+        controllerPoseValid = true;
+
+        // P4U: A merely valid controller pose is not proof that the controller is the
+        // user's active input source. Detect real movement and keep the controller sticky
+        // briefly so hand tracking cannot steal the pointer while aiming.
+        if (m_p4uPreviousControllerPoseValid[hand]) {
+          const XrPosef& previous = m_p4uPreviousControllerPose[hand];
+          const float dx = controllerPose.position.x - previous.position.x;
+          const float dy = controllerPose.position.y - previous.position.y;
+          const float dz = controllerPose.position.z - previous.position.z;
+          const float positionDeltaSq = dx * dx + dy * dy + dz * dz;
+          const float quaternionDot =
+              std::abs(controllerPose.orientation.x * previous.orientation.x +
+                       controllerPose.orientation.y * previous.orientation.y +
+                       controllerPose.orientation.z * previous.orientation.z +
+                       controllerPose.orientation.w * previous.orientation.w);
+          const float angularDelta =
+              2.0f * std::acos(std::min(1.0f, std::max(0.0f, quaternionDot)));
+
+          if (positionDeltaSq >= 0.000036f || angularDelta >= 0.020f) {
+            m_p4uControllerRecentFrames[hand] = 90;
+          }
+        }
+        m_p4uPreviousControllerPose[hand] = controllerPose;
+        m_p4uPreviousControllerPoseValid[hand] = true;
+      } else {
+        m_p4uPreviousControllerPoseValid[hand] = false;
+        m_p4uControllerRecentFrames[hand] = 0;
+      }
+
+      // Trigger input is unambiguous user intent and immediately gives the controller
+      // ownership, even if the controller was held perfectly still before the press.
+      if (controllerToggle == InputState::PRESS_DOWN) {
+        m_p4uControllerRecentFrames[hand] = 90;
       }
 
       if (m_handTrackingSupported &&
@@ -548,8 +591,8 @@ set(_direct_hand_render_replacement [==[
         if (directActive) {
           // P4U: the interaction pointer originates at the index fingertip, not the palm.
           // This matches the user's perceived pointing point and avoids a hand-center cursor.
-          resolvedPose = indexTip.pose;
-          m_input.handActive[hand] = XR_TRUE;
+          directHandActive = true;
+          directHandPose = indexTip.pose;
 
           const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
           const float dy = thumbTip.pose.position.y - indexTip.pose.position.y;
@@ -567,12 +610,12 @@ set(_direct_hand_render_replacement [==[
           }
 
           m_p4uHandPinched[hand] = pinched;
-          m_input.handToggle[hand] =
+          directHandToggle =
               pinched ? InputState::PRESS_DOWN : InputState::RELEASE;
 
           const float pinchValue =
               std::min(1.0f, std::max(0.0f, (0.060f - pinchDistance) / 0.040f));
-          m_input.handScale[hand] = 1.0f - 0.5f * pinchValue;
+          directHandScale = 1.0f - 0.5f * pinchValue;
 
           const char* handName[] = {"left", "right"};
           if (!m_p4uDirectHandWasActive[hand]) {
@@ -599,6 +642,41 @@ set(_direct_hand_render_replacement [==[
           m_p4uDirectHandWasActive[hand] = false;
           m_p4uHandPinched[hand] = false;
         }
+      }
+
+      // P4U: arbitrate by recent *actual* use, not merely by tracking validity.
+      // Controller movement/trigger wins immediately. Otherwise a valid direct hand takes
+      // over. If no hand is available, a valid controller pose remains the fallback.
+      const bool controllerRecent =
+          controllerPoseValid && m_p4uControllerRecentFrames[hand] > 0;
+      const bool useController =
+          controllerPoseValid && (controllerRecent || !directHandActive);
+      const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+
+      if (useController) {
+        resolvedPose = controllerPose;
+        m_input.handActive[hand] = XR_TRUE;
+        m_input.handToggle[hand] = controllerToggle;
+      } else if (directHandActive) {
+        resolvedPose = directHandPose;
+        m_input.handActive[hand] = XR_TRUE;
+        m_input.handToggle[hand] = directHandToggle;
+        m_input.handScale[hand] = directHandScale;
+      } else {
+        resolvedPose.reset();
+      }
+
+      if (selectedSource != m_p4uPointerSource[hand]) {
+        const char* handName[] = {"left", "right"};
+        const char* sourceName[] = {"none", "controller", "hand"};
+        Log::Write(
+            Log::Level::Info,
+            Fmt("P4U: pointer source (%s)=%s", handName[hand], sourceName[selectedSource]));
+        m_p4uPointerSource[hand] = selectedSource;
+      }
+
+      if (m_p4uControllerRecentFrames[hand] > 0) {
+        --m_p4uControllerRecentFrames[hand];
       }
 
       if (resolvedPose) {
@@ -882,6 +960,224 @@ _p4u_replace_if_missing(
     "quadR.pose = Math::Pose::Translation({0.0f, 0.f, -0.50f});"
     "${_hud_quad_distance_right_old}"
     "${_hud_quad_distance_right_new}"
+)
+
+set(_input_arbitration_state_old [==[
+  std::array<bool, Side::COUNT> m_p4uHandPinched{{false, false}};
+  std::array<bool, Side::COUNT> m_p4uDirectHandWasActive{{false, false}};
+  std::array<uint32_t, Side::COUNT> m_p4uHandProbeCounter{{0, 0}};
+
+  XrEventDataBuffer m_eventDataBuffer;
+]==])
+
+set(_input_arbitration_state_new [==[
+  std::array<bool, Side::COUNT> m_p4uHandPinched{{false, false}};
+  std::array<bool, Side::COUNT> m_p4uDirectHandWasActive{{false, false}};
+  std::array<uint32_t, Side::COUNT> m_p4uHandProbeCounter{{0, 0}};
+  std::array<XrPosef, Side::COUNT> m_p4uPreviousControllerPose{};
+  std::array<bool, Side::COUNT> m_p4uPreviousControllerPoseValid{{false, false}};
+  std::array<uint32_t, Side::COUNT> m_p4uControllerRecentFrames{{0, 0}};
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+
+  XrEventDataBuffer m_eventDataBuffer;
+]==])
+
+_p4u_replace_if_missing(
+    "input source arbitration state v8"
+    "m_p4uControllerRecentFrames{{0, 0}}"
+    "${_input_arbitration_state_old}"
+    "${_input_arbitration_state_new}"
+)
+
+set(_input_arbitration_locals_old [==[
+    for (auto hand : {Side::LEFT, Side::RIGHT}) {
+      std::optional<XrPosef> resolvedPose;
+
+      XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
+]==])
+
+set(_input_arbitration_locals_new [==[
+    for (auto hand : {Side::LEFT, Side::RIGHT}) {
+      std::optional<XrPosef> resolvedPose;
+      const InputState controllerToggle = m_input.handToggle[hand];
+      bool controllerPoseValid = false;
+      XrPosef controllerPose{};
+      bool directHandActive = false;
+      XrPosef directHandPose{};
+      InputState directHandToggle = InputState::RELEASE;
+      float directHandScale = 1.0f;
+
+      XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
+]==])
+
+_p4u_replace_if_missing(
+    "input source arbitration locals v8"
+    "const InputState controllerToggle = m_input.handToggle[hand]"
+    "${_input_arbitration_locals_old}"
+    "${_input_arbitration_locals_new}"
+)
+
+set(_input_arbitration_controller_old [==[
+      if (XR_UNQUALIFIED_SUCCESS(res) &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+        resolvedPose = spaceLocation.pose;
+      }
+
+      if (m_handTrackingSupported &&
+]==])
+
+set(_input_arbitration_controller_new [==[
+      if (XR_UNQUALIFIED_SUCCESS(res) &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+        controllerPose = spaceLocation.pose;
+        controllerPoseValid = true;
+
+        // P4U: A merely valid controller pose is not proof that the controller is the
+        // user's active input source. Detect real movement and keep the controller sticky
+        // briefly so hand tracking cannot steal the pointer while aiming.
+        if (m_p4uPreviousControllerPoseValid[hand]) {
+          const XrPosef& previous = m_p4uPreviousControllerPose[hand];
+          const float dx = controllerPose.position.x - previous.position.x;
+          const float dy = controllerPose.position.y - previous.position.y;
+          const float dz = controllerPose.position.z - previous.position.z;
+          const float positionDeltaSq = dx * dx + dy * dy + dz * dz;
+          const float quaternionDot =
+              std::abs(controllerPose.orientation.x * previous.orientation.x +
+                       controllerPose.orientation.y * previous.orientation.y +
+                       controllerPose.orientation.z * previous.orientation.z +
+                       controllerPose.orientation.w * previous.orientation.w);
+          const float angularDelta =
+              2.0f * std::acos(std::min(1.0f, std::max(0.0f, quaternionDot)));
+
+          if (positionDeltaSq >= 0.000036f || angularDelta >= 0.020f) {
+            m_p4uControllerRecentFrames[hand] = 90;
+          }
+        }
+        m_p4uPreviousControllerPose[hand] = controllerPose;
+        m_p4uPreviousControllerPoseValid[hand] = true;
+      } else {
+        m_p4uPreviousControllerPoseValid[hand] = false;
+        m_p4uControllerRecentFrames[hand] = 0;
+      }
+
+      // Trigger input is unambiguous user intent and immediately gives the controller
+      // ownership, even if the controller was held perfectly still before the press.
+      if (controllerToggle == InputState::PRESS_DOWN) {
+        m_p4uControllerRecentFrames[hand] = 90;
+      }
+
+      if (m_handTrackingSupported &&
+]==])
+
+_p4u_replace_if_missing(
+    "input source arbitration controller activity v8"
+    "A merely valid controller pose is not proof"
+    "${_input_arbitration_controller_old}"
+    "${_input_arbitration_controller_new}"
+)
+
+set(_input_arbitration_hand_pose_old [==[
+        if (directActive) {
+          // P4U: the interaction pointer originates at the index fingertip, not the palm.
+          // This matches the user's perceived pointing point and avoids a hand-center cursor.
+          resolvedPose = indexTip.pose;
+          m_input.handActive[hand] = XR_TRUE;
+]==])
+
+set(_input_arbitration_hand_pose_new [==[
+        if (directActive) {
+          // P4U: the interaction pointer originates at the index fingertip, not the palm.
+          // This matches the user's perceived pointing point and avoids a hand-center cursor.
+          directHandActive = true;
+          directHandPose = indexTip.pose;
+]==])
+
+_p4u_replace_if_missing(
+    "input source arbitration hand candidate v8"
+    "directHandActive = true;"
+    "${_input_arbitration_hand_pose_old}"
+    "${_input_arbitration_hand_pose_new}"
+)
+
+set(_input_arbitration_hand_state_old [==[
+          m_p4uHandPinched[hand] = pinched;
+          m_input.handToggle[hand] =
+              pinched ? InputState::PRESS_DOWN : InputState::RELEASE;
+
+          const float pinchValue =
+              std::min(1.0f, std::max(0.0f, (0.060f - pinchDistance) / 0.040f));
+          m_input.handScale[hand] = 1.0f - 0.5f * pinchValue;
+]==])
+
+set(_input_arbitration_hand_state_new [==[
+          m_p4uHandPinched[hand] = pinched;
+          directHandToggle =
+              pinched ? InputState::PRESS_DOWN : InputState::RELEASE;
+
+          const float pinchValue =
+              std::min(1.0f, std::max(0.0f, (0.060f - pinchDistance) / 0.040f));
+          directHandScale = 1.0f - 0.5f * pinchValue;
+]==])
+
+_p4u_replace_if_missing(
+    "input source arbitration hand state v8"
+    "directHandToggle ="
+    "${_input_arbitration_hand_state_old}"
+    "${_input_arbitration_hand_state_new}"
+)
+
+set(_input_arbitration_apply_old [==[
+      if (resolvedPose) {
+        const XrPosef& pose = *resolvedPose;
+]==])
+
+set(_input_arbitration_apply_new [==[
+      // P4U: arbitrate by recent *actual* use, not merely by tracking validity.
+      // Controller movement/trigger wins immediately. Otherwise a valid direct hand takes
+      // over. If no hand is available, a valid controller pose remains the fallback.
+      const bool controllerRecent =
+          controllerPoseValid && m_p4uControllerRecentFrames[hand] > 0;
+      const bool useController =
+          controllerPoseValid && (controllerRecent || !directHandActive);
+      const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+
+      if (useController) {
+        resolvedPose = controllerPose;
+        m_input.handActive[hand] = XR_TRUE;
+        m_input.handToggle[hand] = controllerToggle;
+      } else if (directHandActive) {
+        resolvedPose = directHandPose;
+        m_input.handActive[hand] = XR_TRUE;
+        m_input.handToggle[hand] = directHandToggle;
+        m_input.handScale[hand] = directHandScale;
+      } else {
+        resolvedPose.reset();
+      }
+
+      if (selectedSource != m_p4uPointerSource[hand]) {
+        const char* handName[] = {"left", "right"};
+        const char* sourceName[] = {"none", "controller", "hand"};
+        Log::Write(
+            Log::Level::Info,
+            Fmt("P4U: pointer source (%s)=%s", handName[hand], sourceName[selectedSource]));
+        m_p4uPointerSource[hand] = selectedSource;
+      }
+
+      if (m_p4uControllerRecentFrames[hand] > 0) {
+        --m_p4uControllerRecentFrames[hand];
+      }
+
+      if (resolvedPose) {
+        const XrPosef& pose = *resolvedPose;
+]==])
+
+_p4u_replace_if_missing(
+    "input source arbitration apply v8"
+    "P4U: arbitrate by recent *actual* use"
+    "${_input_arbitration_apply_old}"
+    "${_input_arbitration_apply_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
