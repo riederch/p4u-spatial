@@ -42,6 +42,10 @@ code, but to make mismatches and implementation gaps explicit.
 | 0020 | App | Aligned in code / hardware pending | SecureMR is an internal QR backend; first-valid decode, no overlay and ephemeral frames match ADR. PICO hardware validation remains required. |
 | 0021 | App | Partial | Authoritative feature state and generic status projection exist. Lower-left menu, toggle UI and true head-locked HUD are not implemented. |
 | 0022 | App | Partial | app-core, AppFeature and FeatureRegistry exist. MainApplication still contains QR-specific result/status presentation details. |
+| 0023 | App | Aligned / reconstructed | Signed APK release trust, descriptor integrity/signing metadata and updater verification are documented and implemented; discovery key remains intentionally unresolved under ADR 0017. |
+| 0024 | App | Aligned / reconstructed | Durable outbox, retry-safe upload and Android Keystore-backed refresh credential storage are implemented. |
+| 0025 | Bridge | Aligned / reconstructed | Passkeys, password+TOTP, server-side sessions/CSRF and one-time first-run setup proof are implemented. |
+| 0026 | Contracts | Aligned / reconstructed | Derived candidates remain non-canonical until explicit review/promotion using normal Spatial write authority/idempotency. |
 
 ## Corrections made during this reconciliation
 
@@ -145,34 +149,22 @@ The next modularization step should move feature presentation behind a feature-o
 contract so adding a feature does not add another feature-specific `when` branch to
 `MainApplication`.
 
-## Architecture-significant code with no dedicated ADR yet
+## Reconstructed ADRs added after the audit
 
-The following existing areas have architecture-level behavior and documentation, but no dedicated
-ADR. They should be considered candidates for future ADRs before material redesign:
+Because no historical decision records remain for several already-implemented architecture areas,
+new ADRs were created to establish the current intended architecture without inventing historical
+rationale:
 
-1. **XR application distribution/update trust model**
-   - `protocol/xr/app-lifecycle.md`
-   - `bridge/src/services/xr-app-release-service.ts`
-   - release/signing workflow
-   - also intersects the unresolved `xr-app` discovery-key question.
+- ADR 0023 — XR application update trust and release lifecycle.
+- ADR 0024 — headset offline state, durable outbox and secure credentials.
+- ADR 0025 — Bridge administrator authentication and first-run bootstrap.
+- ADR 0026 — derived candidate review and explicit Spatial promotion.
 
-2. **Headset offline storage / durable outbox / secure credentials**
-   - `docs/offline-storage.md`
-   - `ScanOutbox.kt`
-   - `ScanOutboxUploader.kt`
-   - `SecureSessionStore.kt`
+Each ADR contains a historical note stating that it is a reconstruction from the current
+implementation and surviving documentation.
 
-3. **Administrator authentication and first-run trust bootstrap**
-   - passkeys,
-   - password + TOTP,
-   - server-side admin sessions/CSRF,
-   - one-time setup proof,
-   - compatibility/recovery admin key.
-
-4. **Derived-candidate review and explicit promotion boundary**
-   - partially supported by ADR 0004 (AI independence),
-   - but the review/promotion authority boundary is substantial enough to merit its own ADR if it
-     evolves further.
+The unresolved `xr-app` discovery-key question remains separate under ADR 0017 and was deliberately
+not decided as part of ADR 0023.
 
 ## Baseline rule going forward
 
