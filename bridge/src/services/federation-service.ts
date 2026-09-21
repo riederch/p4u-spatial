@@ -288,7 +288,7 @@ export class FederationService {
       if (!(error instanceof BridgeError) || error.statusCode < 500) throw error;
       const state = await this.store.read();
       const principal = this.principalKey(localUserId);
-      return Object.entries(state.sources)
+      const cached = Object.entries(state.sources)
         .filter(([key]) => this.config.accessMode !== "delegated-user" || key.startsWith(`${principal}\u0000`))
         .map(([, { value, retrievedAt }]) => {
           if (!isRecord(value)) return {};
@@ -297,6 +297,8 @@ export class FederationService {
           if (state.upstreamInstanceId) route.upstreamInstanceId = state.upstreamInstanceId;
           return transformed;
         });
+      if (cached.length === 0) throw error;
+      return cached;
     }
   }
 
