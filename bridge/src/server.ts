@@ -545,7 +545,7 @@ export function buildServer(
       contracts: {
         core: { version: "0.1", href: `${base}/core/v1` },
         spatial: { version: "0.1", href: `${base}/spatial/v1` },
-        ...(services.federation ? { federation: { version: "0.1", href: `${base}/spatial/v1` } } : {}),
+        ...(services.federation ? { federation: { version: "0.1", href: `${base}/federation/v1` } } : {}),
         xr: { version: "0.1", href: `${base}/api/v1` },
         "xr-app": { version: "0.1", href: `${base}/xr-app/v1` },
       },
@@ -615,6 +615,76 @@ export function buildServer(
         deviceId: device.deviceId,
       },
     };
+  });
+
+  app.get("/federation/v1", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    assertOrThrow(services.federation, 404, "FEDERATION_NOT_CONFIGURED", "Federation upstream is not configured.");
+    const base = publicBridgeUrl(request, config);
+    return {
+      version: "0.1",
+      accessMode: federationAccessMode,
+      links: [
+        { rel: "sources", href: `${base}/spatial/v1/sources` },
+        { rel: "operations", href: `${base}/spatial/v1/operations` },
+        ...(services.federationDelegation
+          ? [{ rel: "authorization", href: `${base}/federation/v1/authorization/status` }]
+          : []),
+      ],
+      ...(services.federationDelegation && device.assignedUserId
+        ? { authorization: await services.federationDelegation.status(device.assignedUserId) }
+        : {}),
+    };
+  });
+
+  app.get("/federation/v1/authorization/status", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    assertOrThrow(services.federationDelegation, 404, "FEDERATION_DELEGATION_NOT_CONFIGURED", "Delegated federation is not configured.");
+    assertOrThrow(device.assignedUserId, 403, "FEDERATION_USER_REQUIRED", "This device must be assigned to a local user.");
+    return services.federationDelegation.status(device.assignedUserId);
+  });
+
+  app.post("/federation/v1/authorization/start", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    assertOrThrow(services.federationDelegation, 404, "FEDERATION_DELEGATION_NOT_CONFIGURED", "Delegated federation is not configured.");
+    assertOrThrow(device.assignedUserId, 403, "FEDERATION_USER_REQUIRED", "This device must be assigned to a local user.");
+    return services.federationDelegation.beginAuthorization(
+      device.assignedUserId,
+      publicBridgeUrl(request, config),
+    );
+  });
+
+  app.post("/federation/v1/authorization/establish", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    assertOrThrow(services.federationDelegation, 404, "FEDERATION_DELEGATION_NOT_CONFIGURED", "Delegated federation is not configured.");
+    assertOrThrow(device.assignedUserId, 403, "FEDERATION_USER_REQUIRED", "This device must be assigned to a local user.");
+    await services.federationDelegation.establishTokenExchange(device.assignedUserId);
+    return services.federationDelegation.status(device.assignedUserId);
+  });
+
+  app.delete("/federation/v1/authorization", async (request) => {
+    const device = await authenticatedDevice(request, services, "spatial.read");
+    assertOrThrow(services.federationDelegation, 404, "FEDERATION_DELEGATION_NOT_CONFIGURED", "Delegated federation is not configured.");
+    assertOrThrow(device.assignedUserId, 403, "FEDERATION_USER_REQUIRED", "This device must be assigned to a local user.");
+    await services.federationDelegation.revoke(device.assignedUserId);
+    return { revoked: true };
+  });
+
+  app.get("/federation/v1/authorization/callback", async (request, reply) => {
+    assertOrThrow(services.federationDelegation, 404, "FEDERATION_DELEGATION_NOT_CONFIGURED", "Delegated federation is not configured.");
+    const query = request.query as { state?: unknown; code?: unknown; error?: unknown; error_description?: unknown };
+    if (typeof query.error === "string") {
+      throw new BridgeError(
+        400,
+        "FEDERATION_OAUTH_FAILED",
+        typeof query.error_description === "string" ? query.error_description : query.error,
+      );
+    }
+    assertOrThrow(typeof query.state === "string" && typeof query.code === "string", 400, "FEDERATION_OAUTH_CALLBACK_INVALID", "OAuth state and code are required.");
+    await services.federationDelegation.completeAuthorization(query.state, query.code);
+    return reply
+      .type("text/html; charset=utf-8")
+      .send("<!doctype html><html><body><p>Federation authorization completed. You can close this window.</p></body></html>");
   });
 
   app.get("/spatial/v1", async (request) => {
