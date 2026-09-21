@@ -98,3 +98,20 @@ feature while PICO SecureMR is one QR scanner backend.
 - ADR 0019: Reusable QR Reader Feature
 - ADR 0020: SecureMR QR Scanner Backend
 - ADR 0021: XR Control and Status HUD
+
+## Reconciliation note
+
+This ADR is partially implemented.
+
+Implemented:
+- separate `app-core` Gradle module,
+- feature-neutral `AppFeature` contract,
+- generic `FeatureRegistry`,
+- QR exposed as the first concrete `QrFeature`,
+- `app` selects and registers shipped features.
+
+Still open:
+- `MainApplication` still knows QR-specific reader/result types and renders QR result UI,
+- the status renderer still switches on the QR icon key,
+- feature-specific presentation should move behind feature-owned UI/presentation contracts so the composition root remains thin,
+- additional features are needed to validate that no feature-to-feature dependency shortcuts emerge.
