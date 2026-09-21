@@ -209,7 +209,10 @@ export class SpatialReadService {
       capabilities: [
         "spatial.read",
         "spatial.snapshots",
-        ...(this.writable ? ["spatial.create", "spatial.update", "spatial.delete"] : []),
+        "spatial.artifacts.read",
+        ...(this.writable
+          ? ["spatial.create", "spatial.update", "spatial.delete", "spatial.artifacts.write"]
+          : []),
       ],
       ...(this.writable ? {
         writePolicy: {
@@ -222,6 +225,7 @@ export class SpatialReadService {
         { rel: "collections", href: `${root}/collections` },
         { rel: "snapshots", href: `${root}/snapshots` },
         { rel: "operations", href: `${baseUrl}/spatial/v1/operations` },
+        ...(this.writable ? [{ rel: "artifact-uploads", href: `${root}/artifact-uploads` }] : []),
       ],
     };
   }
