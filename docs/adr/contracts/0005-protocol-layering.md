@@ -1,6 +1,6 @@
 # ADR 0005: Protocol Layering
 
-Status: accepted
+Status: Superseded by ADR 0027
 
 ## Decision
 
@@ -31,3 +31,5 @@ The protocol may later move to its own repository without changing these depende
 ## Reconciliation note
 
 The layering is fully represented in the protocol tree. The P4U reference implementation does not implement every contract; in particular App Sync and Tiles are currently contract-only.
+
+> Superseded because ADR 0027 adds `xr-app` as an independent contract while retaining the other layering invariants.
