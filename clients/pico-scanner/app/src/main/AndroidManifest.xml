@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.vr.headtracking" android:required="true" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
@@ -17,28 +18,36 @@
         android:theme="@style/AppTheme">
 
         <meta-data
-            android:name="pico.spatial.use_experimental_api"
+            android:name="pvr.app.secure_mr"
             android:value="1" />
         <meta-data
-            android:name="pvr.app.secure_mr"
+            android:name="pvr.app.type"
+            android:value="vr" />
+        <meta-data
+            android:name="enable_mr_safeguard"
             android:value="1" />
 
         <activity
             android:name=".MainActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|density|uiMode|keyboardHidden|navigation|keyboard"
-            android:exported="true">
+            android:excludeFromRecents="false"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="securemrprobe" />
+            <meta-data
+                android:name="com.oculus.vr.focusaware"
+                android:value="true" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="com.oculus.intent.category.VR" />
             </intent-filter>
-
-            <meta-data
-                android:name="pico.spatial.stage.id"
-                android:value="DefaultStage" />
-            <meta-data
-                android:name="pico.spatial.stage.style"
-                android:value="1" />
         </activity>
 
         <provider
