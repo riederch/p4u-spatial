@@ -20,6 +20,7 @@ data class DerivedCandidate(
     val proposal: JSONObject,
 )
 
+// ADR: docs/adr/contracts/0026-derived-candidate-review-and-promotion.md — derivation produces non-canonical, provenance-bearing candidates for explicit review.
 object CandidateDerivation {
     private val kinds = setOf("room", "wall", "door", "window", "asset", "landmark")
 
