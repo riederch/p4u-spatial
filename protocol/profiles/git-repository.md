@@ -16,6 +16,10 @@ Below a configurable spatial root:
 │   ├── scans/
 │   │   └── <scan-id>/
 │   └── observations/
+├── artifacts/
+│   └── <artifact-id>/
+│       ├── metadata.json
+│       └── content
 ├── model/
 │   ├── buildings.jsonl
 │   ├── floors.jsonl
@@ -46,6 +50,17 @@ A scan may contain:
 - device/runtime metadata,
 - checksums,
 - original vendor payloads useful for provenance.
+
+## artifacts
+
+Committed Spatial Artifacts are stored separately from raw capture and model JSON.
+
+For the reference Git profile:
+
+- `metadata.json` contains the immutable source-scoped artifact metadata,
+- `content` contains the immutable binary payload,
+- changing bytes requires a new artifact identity,
+- upload-session staging remains Bridge state and is not part of the repository profile.
 
 ## model
 
