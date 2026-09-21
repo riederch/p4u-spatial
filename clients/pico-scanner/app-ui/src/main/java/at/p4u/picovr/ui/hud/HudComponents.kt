@@ -1,7 +1,6 @@
 package at.p4u.picovr.ui.hud
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,9 +23,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.pico.spatial.ui.design.Button
+import com.pico.spatial.ui.design.IconButton
+import com.pico.spatial.ui.design.ToggleButton
 import com.pico.spatial.ui.design.Slider
 import com.pico.spatial.ui.design.SliderDefaults
 import com.pico.spatial.ui.design.Text
+import com.pico.spatial.ui.foundation.customscoll.rememberSpatialScrollBehavior
 import com.pico.spatial.ui.foundation.hover.spatialHoverEffect
 import kotlin.math.roundToInt
 
@@ -68,15 +70,14 @@ fun HudLauncherButton(
     val scale = visualScale.coerceIn(0.5f, 1.5f)
     val visualSize = HudTokens.Icon.launcher * scale
 
-    Box(
-        contentAlignment = Alignment.Center,
+    IconButton(
+        onClick = onClick,
         modifier = modifier
             .sizeIn(
                 minWidth = HudTokens.HitTarget.minimum,
                 minHeight = HudTokens.HitTarget.minimum,
             )
-            .spatialHoverEffect()
-            .clickable(onClick = onClick),
+            .spatialHoverEffect(),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -174,10 +175,10 @@ fun HudToggleRow(
             fontSize = HudTokens.Typography.menuEm.em,
             modifier = Modifier.weight(1f),
         )
-        Button(
-            onClick = {
-                if (enabled) onToggle(!value)
-            },
+        ToggleButton(
+            checked = value,
+            onCheckedChange = onToggle,
+            enabled = enabled,
         ) {
             Text(
                 if (value) "Ein" else "Aus",
@@ -198,11 +199,8 @@ fun HudCommandButton(
         else -> command.label
     }
     Button(
-        onClick = {
-            if (command.state.availability == HudCommandAvailability.ENABLED) {
-                onExecute(command)
-            }
-        },
+        onClick = { onExecute(command) },
+        enabled = command.state.availability == HudCommandAvailability.ENABLED,
         modifier = modifier.sizeIn(minHeight = HudTokens.HitTarget.minimum),
     ) {
         Text(label, fontSize = HudTokens.Typography.bodyEm.em)
@@ -310,7 +308,10 @@ fun HudResultPanel(
             }
 
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier.verticalScroll(
+                    state = rememberScrollState(),
+                    flingBehavior = rememberSpatialScrollBehavior(),
+                ),
             ) {
                 content()
             }
