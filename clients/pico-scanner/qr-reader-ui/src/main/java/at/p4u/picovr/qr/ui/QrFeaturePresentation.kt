@@ -1,10 +1,9 @@
 package at.p4u.picovr.qr.ui
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -42,6 +42,7 @@ import at.p4u.picovr.ui.hud.HudFeedbackKind
 import at.p4u.picovr.ui.hud.HudResultPanel
 import at.p4u.picovr.ui.hud.LambdaHudCommand
 import com.pico.spatial.ui.design.Text
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — QR result/action presentation belongs to the reusable QR feature surface.
@@ -77,33 +78,50 @@ class QrFeaturePresentation(
             )
         }
 
-        val permissionLauncher =
-            rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                hasCameraPermission = granted
-                if (!granted) {
-                    reader.setEnabled(false)
-                    onFeedback(
-                        HudFeedback(
-                            kind = HudFeedbackKind.ERROR,
-                            message = "Kamerazugriff wurde nicht erlaubt.",
-                        ),
-                    )
-                }
-            }
-
         DisposableEffect(reader) {
             reader.onStateChanged = { readerState = it }
             onDispose { reader.onStateChanged = null }
         }
 
-        LaunchedEffect(snapshot.enabled, hasCameraPermission) {
+        val activityContext = LocalContext.current
+
+        LaunchedEffect(snapshot.enabled) {
             if (!snapshot.enabled) {
                 reader.setEnabled(false)
-            } else if (hasCameraPermission) {
-                reader.setEnabled(true)
-            } else {
-                permissionLauncher.launch(Manifest.permission.CAMERA)
+                return@LaunchedEffect
             }
+
+            hasCameraPermission =
+                ContextCompat.checkSelfPermission(appContext, Manifest.permission.CAMERA) ==
+                    PackageManager.PERMISSION_GRANTED
+
+            if (!hasCameraPermission) {
+                (activityContext as? Activity)?.requestPermissions(
+                    arrayOf(Manifest.permission.CAMERA),
+                    CAMERA_PERMISSION_REQUEST,
+                )
+
+                repeat(80) {
+                    delay(250)
+                    hasCameraPermission =
+                        ContextCompat.checkSelfPermission(appContext, Manifest.permission.CAMERA) ==
+                            PackageManager.PERMISSION_GRANTED
+                    if (hasCameraPermission) {
+                        reader.setEnabled(true)
+                        return@LaunchedEffect
+                    }
+                }
+
+                onFeedback(
+                    HudFeedback(
+                        kind = HudFeedbackKind.ERROR,
+                        message = "Kamerazugriff wurde nicht erlaubt.",
+                    ),
+                )
+                return@LaunchedEffect
+            }
+
+            reader.setEnabled(true)
         }
 
         val error = readerState as? QrReaderState.Error
@@ -233,5 +251,9 @@ class QrFeaturePresentation(
 
     override fun close() {
         reader.close()
+    }
+
+    companion object {
+        private const val CAMERA_PERMISSION_REQUEST = 1001
     }
 }
