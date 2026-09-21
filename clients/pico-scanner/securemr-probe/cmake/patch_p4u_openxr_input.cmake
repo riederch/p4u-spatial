@@ -516,9 +516,12 @@ set(_direct_hand_render_replacement [==[
             (thumbTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
             (indexTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
 
+        // PICO's native OpenXR sample does not gate joint usability on
+        // XrHandJointLocationsEXT::isActive. On PICO OS this flag may remain false even
+        // while individual joints carry valid tracking data, so use the joint flags as
+        // the authoritative signal.
         const bool directActive =
-            XR_UNQUALIFIED_SUCCESS(handResult) && locations.isActive == XR_TRUE &&
-            palmValid && pinchJointsValid;
+            XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
 
         if (directActive) {
           resolvedPose = palm.pose;
@@ -664,6 +667,28 @@ _p4u_replace_if_missing(
     "P4U: active hand tracking overrides stale controller pose"
     "${_direct_hand_priority_condition_old}"
     "${_direct_hand_priority_condition_new}"
+)
+
+set(_direct_hand_activity_old [==[
+        const bool directActive =
+            XR_UNQUALIFIED_SUCCESS(handResult) && locations.isActive == XR_TRUE &&
+            palmValid && pinchJointsValid;
+]==])
+
+set(_direct_hand_activity_new [==[
+        // PICO's native OpenXR sample does not gate joint usability on
+        // XrHandJointLocationsEXT::isActive. On PICO OS this flag may remain false even
+        // while individual joints carry valid tracking data, so use the joint flags as
+        // the authoritative signal.
+        const bool directActive =
+            XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand activity semantics v3"
+    "PICO's native OpenXR sample does not gate joint usability"
+    "${_direct_hand_activity_old}"
+    "${_direct_hand_activity_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
