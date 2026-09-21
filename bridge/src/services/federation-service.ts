@@ -62,6 +62,9 @@ function requestHash(operation: JsonObject): string {
   return sha256(Buffer.from(stableStringify(operation)));
 }
 
+// ADR: docs/adr/contracts/0006-source-route-identity.md — federation preserves upstream sourceId while presenting a distinct transport route.
+// ADR: docs/adr/contracts/0009-durable-relay.md — relay-durable is persisted retry responsibility, not source commit.
+// ADR: docs/adr/contracts/0012-federation-access-modes.md — upstream credentials belong to the federation route/provider, not the client.
 export class FederationService {
   private readonly store: AtomicJsonStore<FederationState>;
   private gate: Promise<void> = Promise.resolve();
