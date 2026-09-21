@@ -59,70 +59,8 @@ class QrReadbackCheck final : public ReadbackCheck {
  public:
   QrReadbackCheck(const XrInstance& instance, const XrSession& session)
       : ReadbackCheck(instance, session) {}
-
-  [[nodiscard]] bool WantsScanOverlay() const override { return true; }
-
-  bool UpdateOverlayRgba(
-      int width,
-      int height,
-      std::vector<uint8_t>& outRgba) override {
-    if (overlayGenerated_ || width <= 0 || height <= 0) {
-      return false;
-    }
-
-    outRgba.assign(static_cast<size_t>(width) * height * 4, 0);
-
-    // Samsung-style scanner guidance: four neutral corner brackets, no alarming full red box.
-    const int rectW = width * 500 / 1024;
-    const int rectH = height * 500 / 1024;
-    const int left = (width - rectW) / 2;
-    const int top = (height - rectH) / 2 - height * 100 / 1024;
-    const int right = left + rectW - 1;
-    const int bottom = top + rectH - 1;
-    const int thickness = std::max(4, width * 10 / 1024);
-    const int cornerLength = std::max(32, std::min(rectW, rectH) / 5);
-
-    auto setPixel = [&](int x, int y) {
-      if (x < 0 || x >= width || y < 0 || y >= height) return;
-      const size_t idx = (static_cast<size_t>(y) * width + x) * 4;
-      outRgba[idx + 0] = 255;
-      outRgba[idx + 1] = 255;
-      outRgba[idx + 2] = 255;
-      outRgba[idx + 3] = 230;
-    };
-
-    auto drawHorizontal = [&](int x0, int x1, int y, int direction) {
-      for (int t = 0; t < thickness; ++t) {
-        const int yy = y + direction * t;
-        for (int x = x0; x <= x1; ++x) setPixel(x, yy);
-      }
-    };
-    auto drawVertical = [&](int x, int y0, int y1, int direction) {
-      for (int t = 0; t < thickness; ++t) {
-        const int xx = x + direction * t;
-        for (int y = y0; y <= y1; ++y) setPixel(xx, y);
-      }
-    };
-
-    drawHorizontal(left, left + cornerLength, top, +1);
-    drawVertical(left, top, top + cornerLength, +1);
-
-    drawHorizontal(right - cornerLength, right, top, +1);
-    drawVertical(right, top, top + cornerLength, -1);
-
-    drawHorizontal(left, left + cornerLength, bottom, -1);
-    drawVertical(left, bottom - cornerLength, bottom, +1);
-
-    drawHorizontal(right - cornerLength, right, bottom, -1);
-    drawVertical(right, bottom - cornerLength, bottom, -1);
-
-    overlayGenerated_ = true;
-    return true;
-  }
-
- private:
-  bool overlayGenerated_ = false;
 };
+
 
 ReadbackCheck::ReadbackCheck(const XrInstance& instance, const XrSession& session)
     : xr_instance(instance), xr_session(session) {}
