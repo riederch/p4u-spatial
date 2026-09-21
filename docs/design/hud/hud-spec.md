@@ -14,7 +14,7 @@ features beyond the currently required QR example.
 
 ### Launcher
 
-- Persistent, compact, viewpoint-following.
+- Persistent, compact, HMD/head-locked via the PICO camera-target anchor.
 - Default position: lower-left field-of-view.
 - Closed state shows icon only.
 - Opening the launcher reveals the navigation panel from the same region.
@@ -44,7 +44,7 @@ Positionierung
 
 ### Status rail
 
-- Persistent, compact, viewpoint-following.
+- Persistent, compact, HMD/head-locked via the PICO camera-target anchor.
 - Located on right side of visible field.
 - Vertical arrangement.
 - Icon-first; no permanent text labels.
@@ -54,7 +54,7 @@ Positionierung
 
 ### Transient feedback
 
-- One shared HUD surface.
+- One shared HMD/head-locked HUD surface.
 - Appears close to center-bottom but outside the launcher/navigation footprint.
 - Used for progress, success, warning and recoverable error feedback.
 - Auto-dismiss for passive confirmations.
@@ -204,3 +204,24 @@ The mockup set must allow review of:
 6. Are actions visually separated from content?
 7. Does the system feel like one HUD rather than separate feature UIs?
 8. Can future features fit without redesigning the shell?
+
+
+## PICO placement model
+
+Persistent HUD chrome is not hosted by the default planar app WindowContainer.
+
+The PICO implementation uses:
+
+- a Mixed `DefaultStage`,
+- `AnchorTarget.createCameraTarget()` as the HMD/camera-relative anchor,
+- `AttachmentPanel` children for launcher/navigation, status and transient feedback,
+- metric offsets relative to the camera target for deterministic field-of-view placement.
+
+Working/result content is separate. When a result becomes visible, its panel is placed once in front
+of the current HMD pose and remains world/spatially placed instead of following subsequent head
+motion.
+
+This distinction is normative for the implementation:
+
+- launcher/menu/status/feedback = head locked,
+- result/detail/working content = world placed.

@@ -131,12 +131,12 @@ The software gap found during the audit is closed and superseded by the broader 
 - declarative HUD contributions drive menu/status rendering,
 - hierarchical navigation and authoritative feature toggles use shared HUD primitives,
 - active status is projected on the right,
-- launcher/navigation/status/feedback use PICO viewpoint-following Augments,
+- launcher/navigation/status/feedback are PICO AttachmentPanels parented to an HMD camera-target anchor,
 - QR results use the shared result panel and action dock,
 - action progress/success/error uses the shared feedback layer,
 - peripheral HUD scale is persisted and adjustable from 50% to 150%.
 
-Remaining work is physical PICO validation of placement, follow behavior, controller/gaze interaction,
+Remaining work is physical PICO validation of camera-target placement, head-lock stability, controller/gaze interaction,
 slider usability and comfort; code/CI completion does not constitute hardware validation.
 
 ### 5. App modularization validation

@@ -114,9 +114,9 @@ hierarchy are owned by the HUD design system.
 
 Persistent launcher, navigation and status surfaces are viewpoint-following HUD chrome.
 
-On PICO Spatial UI the reference implementation uses platform-native `Augment` surfaces with
-`followViewpoints = ViewPoint.All` or an equivalent platform-supported viewpoint-following
-mechanism.
+On PICO Spatial UI the reference implementation uses a Mixed `DefaultStage` and attaches persistent
+HUD `AttachmentPanel` entities to `AnchorTarget.createCameraTarget()`. This binds persistent HUD
+chrome to the HMD/camera pose rather than to a room-fixed planar WindowContainer.
 
 Large result/detail panels are not required to be head-locked. They may be spatial/world-locked
 where that improves readability and comfort.
@@ -376,7 +376,7 @@ It complements, and does not supersede:
 - `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudTokens.kt` — shared semantic design tokens derived from the accepted HUD design specification.
 - `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudComponents.kt` — shared launcher, navigation, toggle, command, status, feedback and result-panel primitives.
 - `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudSettingsStore.kt` — persisted peripheral HUD scale preference.
-- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — contribution-driven hierarchical navigation, viewpoint-following launcher/status/feedback surfaces and HUD scale integration.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — contribution-driven navigation plus HMD-camera-anchored launcher/status/feedback surfaces and world-placed working content.
 - `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — QR integration with shared result panel, commands and feedback.
 - `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrHudCommand.kt` — adapter from reusable QR actions to the common HUD command model.
 
@@ -392,7 +392,7 @@ Implemented:
 - contribution-driven hierarchical navigation,
 - authoritative feature toggles,
 - right-side active status rail,
-- viewpoint-following PICO Augments,
+- persistent HUD `AttachmentPanel` surfaces parented to a PICO HMD camera-target anchor,
 - centralized feedback/progress surface,
 - shared result/detail panel chrome and fixed action dock,
 - QR result/action migration,
