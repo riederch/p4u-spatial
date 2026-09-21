@@ -137,6 +137,7 @@ For a material change:
 | [0019](app/0019-reusable-qr-reader-feature.md) | Reusable QR reader feature | Accepted |
 | [0020](app/0020-securemr-qr-scanner-backend.md) | SecureMR QR scanner backend | Accepted |
 | [0021](app/0021-xr-control-and-status-hud.md) | XR control and status HUD | Accepted |
+| [0022](app/0022-modular-app-foundation-and-features.md) | Modular app foundation and features | Accepted |
 
 ### Contracts
 

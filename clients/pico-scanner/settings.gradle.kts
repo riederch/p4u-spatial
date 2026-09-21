@@ -18,5 +18,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "P4USpatialScanner"
 include(":app")
+include(":app-core")
 include(":qr-reader")
 include(":securemr-probe")

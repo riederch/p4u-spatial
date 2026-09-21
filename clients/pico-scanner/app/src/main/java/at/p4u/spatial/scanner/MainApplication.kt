@@ -29,11 +29,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import at.p4u.picovr.core.feature.FeatureRegistry
+import at.p4u.picovr.core.feature.FeatureSnapshot
 import at.p4u.picovr.qr.QrAction
 import at.p4u.picovr.qr.QrActionResult
+import at.p4u.picovr.qr.QrFeature
 import at.p4u.picovr.qr.QrReaderController
 import at.p4u.picovr.qr.QrReaderState
-import at.p4u.picovr.qr.QrRecognitionSettings
 import at.p4u.picovr.qr.QrResult
 import com.pico.spatial.ui.design.Button
 import com.pico.spatial.ui.design.PicoTheme
@@ -44,6 +46,7 @@ import com.pico.spatial.ui.foundation.dsl.launch
 import com.pico.spatial.ui.foundation.material.backgroundMaterial
 import kotlinx.coroutines.launch as launchCoroutine
 
+// ADR: docs/adr/app/0022-modular-app-foundation-and-features.md — app is the composition root; feature behavior lives in feature modules.
 class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -52,23 +55,31 @@ class MainApplication : Application() {
             DefaultWindowContainer {
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
+
+                val qrFeature = remember { QrFeature(context) }
+                val featureRegistry = remember {
+                    FeatureRegistry(
+                        listOf(qrFeature),
+                    )
+                }
                 val reader = remember {
                     QrReaderController(
                         context,
                         customActions = listOf(BridgeRegistrationQrAction()),
                     )
                 }
-                val qrSettings = remember { QrRecognitionSettings(context) }
-                var qrRecognitionEnabled by remember { mutableStateOf(qrSettings.isEnabled()) }
+
+                var features by remember { mutableStateOf(featureRegistry.snapshots()) }
                 var readerState by remember { mutableStateOf<QrReaderState>(reader.state) }
                 var actionMessage by remember { mutableStateOf<String?>(null) }
                 var runningActionId by remember { mutableStateOf<String?>(null) }
 
-                DisposableEffect(reader, qrSettings) {
+                DisposableEffect(reader, featureRegistry) {
                     reader.onStateChanged = { readerState = it }
-                    val settingsObserver = qrSettings.observe { qrRecognitionEnabled = it }
+                    val featureObserver = featureRegistry.observe { features = it }
                     onDispose {
-                        settingsObserver.close()
+                        featureObserver.close()
+                        featureRegistry.close()
                         reader.close()
                     }
                 }
@@ -161,7 +172,7 @@ class MainApplication : Application() {
                         }
 
                         ActiveFunctionStatusBar(
-                            qrRecognitionEnabled = qrRecognitionEnabled,
+                            features = features,
                             modifier = Modifier.align(Alignment.CenterEnd),
                         )
                     }
@@ -246,10 +257,10 @@ private fun QrResultView(
     }
 }
 
-// ADR: docs/adr/app/0021-xr-control-and-status-hud.md — active-function UI is a projection of authoritative feature state.
+// ADR: docs/adr/app/0021-xr-control-and-status-hud.md — active-function UI is derived from the generic feature registry, not feature-specific shadow state.
 @androidx.compose.runtime.Composable
 private fun ActiveFunctionStatusBar(
-    qrRecognitionEnabled: Boolean,
+    features: List<FeatureSnapshot>,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -257,9 +268,42 @@ private fun ActiveFunctionStatusBar(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (qrRecognitionEnabled) {
-            QrFunctionStatusIcon()
-        }
+        features
+            .filter { it.enabled && it.statusIconKey != null }
+            .forEach { feature ->
+                FeatureStatusIcon(feature)
+            }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun FeatureStatusIcon(
+    feature: FeatureSnapshot,
+) {
+    when (feature.statusIconKey) {
+        QrFeature.STATUS_ICON_KEY -> QrFunctionStatusIcon()
+        else -> GenericFunctionStatusIcon(feature)
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun GenericFunctionStatusIcon(
+    feature: FeatureSnapshot,
+    size: Dp = 44.dp,
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .background(Color.White.copy(alpha = 0.82f))
+            .border(2.dp, Color.Black)
+            .padding(4.dp),
+    ) {
+        Text(
+            feature.title.take(2).uppercase(),
+            textAlign = TextAlign.Center,
+            fontSize = 2.em,
+        )
     }
 }
 
