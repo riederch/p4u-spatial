@@ -1210,5 +1210,154 @@ _p4u_replace_if_missing(
     "${_toggle_type_hand_new}"
 )
 
+set(_controller_beam_pose_state_old [==[
+    std::array<XrVector3f*, 2> handDeltas{};
+    std::array<std::optional<XrPosef>, 2> handPoses{};
+    bool buttonPressed = false;
+]==])
+
+set(_controller_beam_pose_state_new [==[
+    std::array<XrVector3f*, 2> handDeltas{};
+    std::array<std::optional<XrPosef>, 2> handPoses{};
+    std::array<std::optional<XrPosef>, 2> controllerBeamPoses{};
+    bool buttonPressed = false;
+]==])
+
+_p4u_replace_if_missing(
+    "controller beam pose state v10"
+    "controllerBeamPoses{}"
+    "${_controller_beam_pose_state_old}"
+    "${_controller_beam_pose_state_new}"
+)
+
+set(_controller_beam_select_old [==[
+      if (useController) {
+        resolvedPose = controllerPose;
+        m_input.handActive[hand] = XR_TRUE;
+]==])
+
+set(_controller_beam_select_new [==[
+      if (useController) {
+        resolvedPose = controllerPose;
+        controllerBeamPoses[hand] = controllerPose;
+        m_input.handActive[hand] = XR_TRUE;
+]==])
+
+_p4u_replace_if_missing(
+    "controller beam selected source v10"
+    "controllerBeamPoses[hand] = controllerPose"
+    "${_controller_beam_select_old}"
+    "${_controller_beam_select_new}"
+)
+
+set(_controller_beam_render_anchor [==[
+      m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+]==])
+
+set(_controller_beam_render_replacement [==[
+      m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+
+      // P4U: PICO-style controller beam. Render only the controller source; direct
+      // hand input keeps the fingertip reticle without a laser beam.
+      for (auto hand : {Side::LEFT, Side::RIGHT}) {
+        if (!controllerBeamPoses[hand]) {
+          continue;
+        }
+
+        const XrPosef& beamPose = *controllerBeamPoses[hand];
+        float beamLength = 0.80f;
+
+        // Prefer ending the beam at the 50 cm head-locked HUD plane.
+        if (!m_views.empty()) {
+          XrPosef headPose = m_views[0].pose;
+          if (m_views.size() > 1) {
+            headPose.position.x =
+                (m_views[0].pose.position.x + m_views[1].pose.position.x) * 0.5f;
+            headPose.position.y =
+                (m_views[0].pose.position.y + m_views[1].pose.position.y) * 0.5f;
+            headPose.position.z =
+                (m_views[0].pose.position.z + m_views[1].pose.position.z) * 0.5f;
+          }
+
+          const XrVector3f localForward{0.0f, 0.0f, -1.0f};
+          XrVector3f rayDirection{};
+          XrQuaternionf_RotateVector3f(
+              &rayDirection, &beamPose.orientation, &localForward);
+
+          const XrVector3f localHudOffset{0.0f, 0.0f, -0.50f};
+          XrVector3f hudOffset{};
+          XrQuaternionf_RotateVector3f(
+              &hudOffset, &headPose.orientation, &localHudOffset);
+          const XrVector3f hudPoint{
+              headPose.position.x + hudOffset.x,
+              headPose.position.y + hudOffset.y,
+              headPose.position.z + hudOffset.z,
+          };
+
+          const XrVector3f localHudNormal{0.0f, 0.0f, 1.0f};
+          XrVector3f hudNormal{};
+          XrQuaternionf_RotateVector3f(
+              &hudNormal, &headPose.orientation, &localHudNormal);
+
+          const XrVector3f toHud{
+              hudPoint.x - beamPose.position.x,
+              hudPoint.y - beamPose.position.y,
+              hudPoint.z - beamPose.position.z,
+          };
+          const float denominator = XrVector3f_Dot(&rayDirection, &hudNormal);
+          if (std::abs(denominator) > 0.0001f) {
+            const float distance =
+                XrVector3f_Dot(&toHud, &hudNormal) / denominator;
+            if (distance > 0.06f && distance < 2.0f) {
+              beamLength = distance;
+            }
+          }
+        }
+
+        const float beamStart = 0.035f;
+        const float beamEnd = std::max(beamStart + 0.04f, beamLength);
+        const float halfWidth = 0.0016f;
+        const float z0 = -beamStart;
+        const float z1 = -beamEnd;
+        const XrVector3f beamColor{0.82f, 0.88f, 0.96f};
+
+        std::vector<Geometry::Vertex> beamVerts{
+            {{-halfWidth, -halfWidth, z0}, beamColor},
+            {{ halfWidth, -halfWidth, z0}, beamColor},
+            {{ halfWidth,  halfWidth, z0}, beamColor},
+            {{-halfWidth,  halfWidth, z0}, beamColor},
+            {{-halfWidth, -halfWidth, z1}, beamColor},
+            {{ halfWidth, -halfWidth, z1}, beamColor},
+            {{ halfWidth,  halfWidth, z1}, beamColor},
+            {{-halfWidth,  halfWidth, z1}, beamColor},
+        };
+        const std::vector<uint16_t> beamIndices{
+            0, 1, 2, 0, 2, 3,
+            4, 6, 5, 4, 7, 6,
+            0, 4, 5, 0, 5, 1,
+            1, 5, 6, 1, 6, 2,
+            2, 6, 7, 2, 7, 3,
+            3, 7, 4, 3, 4, 0,
+        };
+
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            beamVerts.data(),
+            static_cast<uint32_t>(beamVerts.size()),
+            beamIndices.data(),
+            static_cast<uint32_t>(beamIndices.size()),
+            beamPose);
+      }
+]==])
+
+_p4u_replace_if_missing(
+    "PICO-style controller beam render v10"
+    "P4U: PICO-style controller beam"
+    "${_controller_beam_render_anchor}"
+    "${_controller_beam_render_replacement}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
