@@ -82,6 +82,7 @@ function candidateHash(input: unknown): string {
 }
 
 // ADR: docs/adr/bridge/0004-ai-optional-deterministic-core.md — derived interpretations remain provenance-bearing candidates until explicit review/promotion.
+// ADR: docs/adr/contracts/0026-derived-candidate-review-and-promotion.md — review and promotion are an explicit authority boundary before canonical Spatial mutation.
 export class CandidateReviewService {
   private readonly store: AtomicJsonStore<CandidateState>;
 
