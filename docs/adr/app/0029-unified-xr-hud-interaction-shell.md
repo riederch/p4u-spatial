@@ -1,6 +1,6 @@
 # ADR 0029: Unified XR HUD Interaction Shell
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-09-21
 
@@ -247,6 +247,18 @@ Persistent HUD chrome is intentionally sparse.
 
 Exact field-of-view offsets and sizes require physical PICO validation.
 
+A user-adjustable **peripheral HUD scale** is supported as a display preference:
+
+- default: 100%,
+- allowed range: 50% to 150%,
+- reference step: 5%,
+- affects the persistent launcher/menu button and status rail presentation,
+- does not scale result/detail panels or working content,
+- is exposed under a non-primary display/settings path rather than persistent HUD chrome,
+- must preserve a safe minimum interaction hit target even when the visual scale is reduced.
+
+This preference is presentation-only and MUST NOT create a second feature/runtime state.
+
 ### 10. Modularity boundary
 
 The Unified HUD belongs to shared app UI infrastructure.
@@ -325,10 +337,12 @@ If this ADR is accepted, the normative architecture is elaborated by:
 Those files may evolve during visual refinement without changing this ADR as long as they preserve
 the architecture and interaction invariants above.
 
+The first visual direction derived from these artifacts was reviewed and accepted on 2026-09-21.
+
 ## Relationship to existing decisions
 
-If accepted, this ADR supersedes the interaction-shell scope of ADR 0021 while preserving its
-authoritative-state and viewpoint-following requirements.
+This ADR supersedes ADR 0021. Its authoritative-state, hierarchical-menu, active-status and
+viewpoint-following requirements are carried forward and generalized here.
 
 It complements, and does not supersede:
 
