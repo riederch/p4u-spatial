@@ -19,6 +19,7 @@ data class CaptureIntent(
     val runtimeCapabilities: List<String> = emptyList(),
 )
 
+// ADR: docs/adr/contracts/0003-spatial-coordinate-frames.md — scanner-local poses remain explicitly framed evidence and are never assumed globally meaningful.
 object CapturePackage {
     fun trajectoryJsonl(scanId: String, samples: List<PoseSample>): ByteArray {
         val frame = "scan:$scanId"
