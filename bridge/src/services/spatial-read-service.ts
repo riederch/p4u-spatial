@@ -89,6 +89,7 @@ function itemId(item: SpatialItem): string | null {
   return null;
 }
 
+// ADR: docs/adr/contracts/0006-source-route-identity.md — local source authority is stable and separate from the route used to reach it.
 export class SpatialReadService {
   private readonly sourceStore: AtomicJsonStore<SourceState>;
   private readonly snapshotRoot: string;
