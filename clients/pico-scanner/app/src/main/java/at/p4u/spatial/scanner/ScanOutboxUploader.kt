@@ -6,6 +6,7 @@ import java.security.MessageDigest
 data class UploadRunResult(val committed: Int, val deferred: Int)
 
 // ADR: docs/adr/app/0024-headset-offline-state-and-secure-storage.md — retry/resume never deletes the only local primary copy before durable commit.
+// ADR: docs/adr/app/0024-headset-offline-state-and-secure-storage.md — retry/resume never deletes the only local primary copy before durable commit.
 class ScanOutboxUploader(private val outbox: ScanOutbox, private val bridge: AuthenticatedBridgeClient) {
     fun drain(): UploadRunResult {
         var committed = 0; var deferred = 0
