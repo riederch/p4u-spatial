@@ -11,6 +11,7 @@ import java.util.UUID
 data class OutboxScan(val scanId: String, val directory: File, val manifest: JSONObject)
 
 // ADR: docs/adr/app/0024-headset-offline-state-and-secure-storage.md — primary capture evidence remains in a durable outbox until Bridge commit.
+// ADR: docs/adr/app/0024-headset-offline-state-and-secure-storage.md — primary capture evidence remains in a durable outbox until Bridge commit.
 class ScanOutbox(
     context: Context,
     profileId: String,
