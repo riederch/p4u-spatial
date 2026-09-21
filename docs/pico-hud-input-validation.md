@@ -11,6 +11,23 @@ Target device:
 Related architecture:
 
 - `docs/adr/app/0029-unified-xr-hud-interaction-shell.md`
+- `docs/adr/app/0032-pico4-ultra-native-openxr-runtime.md`
+
+## Validated native runtime baseline
+
+Hardware run on 2026-09-21 established the following baseline on PICO 4 Ultra / PICO OS
+`5.15.9.U`:
+
+- the application boots as a native OpenXR VR application rather than a Spatial SDK AppPanel;
+- the PICO OpenXR runtime exposes the SecureMR/readback extensions used by the application;
+- the application session reaches READY/SYNCHRONIZED and becomes the focused XR client;
+- the SecureMR framework, tensor and pipeline are created successfully;
+- CAMERA permission is granted;
+- 512x512 RGB readback reaches the application continuously;
+- the sampled run remains stable at approximately 90 FPS without an application crash.
+
+This baseline validates the native OpenXR/SecureMR bootstrap only. It does not validate HUD
+interaction, controller ray behavior, hand input or QR decoding.
 
 ## Purpose
 
@@ -31,9 +48,10 @@ The validation is intentionally split into:
 Before input validation:
 
 - install the debug APK produced from the current `main`;
-- confirm the application starts as the intended PICO Spatial application;
-- confirm the launcher/menu HUD is visible;
-- confirm the persistent HUD is head-locked to the HMD rather than room-locked;
+- confirm the application starts as the native OpenXR VR application;
+- confirm the OpenXR/SecureMR bootstrap completes without a fatal exception;
+- confirm the launcher/menu HUD composition layer is visible;
+- confirm the persistent HUD uses VIEW-space head locking rather than LOCAL/STAGE placement;
 - leave QR recognition disabled unless a QR-specific test explicitly enables it.
 
 If the head-locked HUD itself is not working, stop this test and investigate HUD anchoring first.
@@ -137,15 +155,17 @@ Record each row independently.
 
 When an item fails, classify it before changing architecture:
 
-- **platform input failure** — PICO does not expose the expected hand/controller interaction;
-- **spatial attachment failure** — input does not reach an `AttachmentPanel` although the platform
-  interaction is otherwise active;
-- **component failure** — a specific PICO design/foundation component does not respond;
+- **platform input failure** — PICO/OpenXR does not expose the expected hand/controller interaction;
+- **OpenXR action/binding failure** — an interaction profile is active but an action or suggested
+  binding does not produce the expected pose/value;
+- **composition-layer hit-test failure** — the HUD is rendered but its OpenXR ray/direct-interaction
+  hit test does not reach the semantic control;
+- **renderer/control failure** — a specific native HUD control does not respond;
 - **hit-target/comfort failure** — interaction technically works but target geometry is unsuitable;
 - **application state failure** — the control activates but causes the wrong semantic state change;
 - **input-transition failure** — switching source loses state or causes duplicate activation.
 
-Capture a device log for platform, attachment or component failures.
+Capture a device log for platform, action/binding, composition-layer or renderer failures.
 
 Do not introduce a separate hand-only menu or duplicate feature state as a workaround.
 
