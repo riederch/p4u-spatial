@@ -55,6 +55,14 @@ bool ReadbackCheck::isCpuBuffer = false;
 
 struct android_app* ReadbackCheck::gapp = nullptr;
 
+class QrReadbackCheck final : public ReadbackCheck {
+ public:
+  QrReadbackCheck(const XrInstance& instance, const XrSession& session)
+      : ReadbackCheck(instance, session) {}
+
+  [[nodiscard]] bool WantsScanOverlay() const override { return true; }
+};
+
 ReadbackCheck::ReadbackCheck(const XrInstance& instance, const XrSession& session)
     : xr_instance(instance), xr_session(session) {}
 
@@ -265,7 +273,7 @@ XrSecureMrPipelineRunPICO ReadbackCheck::RunRelaxMrReadBackPipeline(
 std::shared_ptr<ISecureMR> CreateSecureMrProgram(
     const XrInstance& instance,
     const XrSession& session) {
-  return std::make_shared<ReadbackCheck>(instance, session);
+  return std::make_shared<QrReadbackCheck>(instance, session);
 }
 
 }  // namespace SecureMR
