@@ -26,6 +26,30 @@ function(_p4u_replace_if_missing label marker needle replacement)
     set(_p4u_openxr_source "${_p4u_openxr_source}" PARENT_SCOPE)
 endfunction()
 
+function(_p4u_replace_if_missing_or_superseded label marker superseded_marker needle replacement)
+    string(FIND "${_p4u_openxr_source}" "${marker}" _p4u_marker_match)
+    if(NOT _p4u_marker_match EQUAL -1)
+        message(STATUS "PICO OpenXR input patch: '${label}' already applied")
+        set(_p4u_openxr_source "${_p4u_openxr_source}" PARENT_SCOPE)
+        return()
+    endif()
+
+    string(FIND "${_p4u_openxr_source}" "${superseded_marker}" _p4u_superseded_match)
+    if(NOT _p4u_superseded_match EQUAL -1)
+        message(STATUS "PICO OpenXR input patch: '${label}' superseded by newer source state")
+        set(_p4u_openxr_source "${_p4u_openxr_source}" PARENT_SCOPE)
+        return()
+    endif()
+
+    string(FIND "${_p4u_openxr_source}" "${needle}" _p4u_match)
+    if(_p4u_match EQUAL -1)
+        message(FATAL_ERROR "PICO OpenXR input patch failed: missing anchor '${label}'")
+    endif()
+
+    string(REPLACE "${needle}" "${replacement}" _p4u_openxr_source "${_p4u_openxr_source}")
+    set(_p4u_openxr_source "${_p4u_openxr_source}" PARENT_SCOPE)
+endfunction()
+
 set(_capability_anchor [==[
     // Create union of extensions required by platform and graphics plugins.
     std::vector<const char*> extensions;
@@ -730,9 +754,10 @@ set(_direct_hand_priority_new [==[
     // P4U: active hand tracking overrides stale controller pose.
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "direct hand source priority v2"
     "P4U: active hand tracking overrides stale controller pose"
+    "P4U: arbitrate by recent *actual* use"
     "${_direct_hand_priority_old}"
     "${_direct_hand_priority_new}"
 )
@@ -749,9 +774,10 @@ set(_direct_hand_priority_reset_new [==[
         resolvedPose = spaceLocation.pose;
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "direct hand source priority reset v2"
     "P4U: active hand tracking overrides stale controller pose"
+    "P4U: arbitrate by recent *actual* use"
     "${_direct_hand_priority_reset_old}"
     "${_direct_hand_priority_reset_new}"
 )
@@ -764,9 +790,10 @@ set(_direct_hand_priority_condition_new [==[
       if (m_handTrackingSupported &&
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "direct hand source priority condition v2"
     "P4U: active hand tracking overrides stale controller pose"
+    "P4U: arbitrate by recent *actual* use"
     "${_direct_hand_priority_condition_old}"
     "${_direct_hand_priority_condition_new}"
 )
