@@ -54,7 +54,7 @@ class QrFeaturePresentation(
     override val isHomeSurface: Boolean = true
 
     @Composable
-    override fun Content() {
+    override fun Content(snapshot: FeatureSnapshot) {
         val scope = rememberCoroutineScope()
         var readerState by androidx.compose.runtime.remember { mutableStateOf<QrReaderState>(reader.state) }
         var actionMessage by androidx.compose.runtime.remember { mutableStateOf<String?>(null) }
@@ -63,6 +63,16 @@ class QrFeaturePresentation(
         DisposableEffect(reader) {
             reader.onStateChanged = { readerState = it }
             onDispose { reader.onStateChanged = null }
+        }
+
+        if (!snapshot.enabled) {
+            Text(
+                "QR-Code-Erkennung ist ausgeschaltet.",
+                textAlign = TextAlign.Center,
+                fontSize = 3.em,
+                modifier = Modifier.padding(top = 24.dp),
+            )
+            return
         }
 
         when (val state = readerState) {
