@@ -1,7 +1,6 @@
 package at.p4u.spatial.scanner
 
 import android.app.Application
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -25,9 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import at.p4u.picovr.qr.QrAction
@@ -88,73 +87,76 @@ class MainApplication : Application() {
                                 .fillMaxSize()
                                 .padding(end = 72.dp),
                         ) {
-                        Text("picoVr", textAlign = TextAlign.Center, fontSize = 8.em)
+                            Text("picoVr", textAlign = TextAlign.Center, fontSize = 8.em)
 
-                        when (val state = readerState) {
-                            QrReaderState.Idle -> {
-                                Text(
-                                    "Allgemeiner QR-Reader",
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 4.em,
-                                    modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
-                                )
-                                Button(
-                                    onClick = {
-                                        actionMessage = null
-                                        reader.scan()
-                                    },
-                                ) {
-                                    Text("QR scannen")
+                            when (val state = readerState) {
+                                QrReaderState.Idle -> {
+                                    Text(
+                                        "Allgemeiner QR-Reader",
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 4.em,
+                                        modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
+                                    )
+                                    Button(
+                                        onClick = {
+                                            actionMessage = null
+                                            reader.scan()
+                                        },
+                                    ) {
+                                        Text("QR scannen")
+                                    }
                                 }
-                            }
 
-                            QrReaderState.Scanning -> {
-                                Text(
-                                    "QR-Code in den Scanbereich halten …",
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 4.em,
-                                    modifier = Modifier.padding(top = 24.dp),
-                                )
-                            }
+                                QrReaderState.Scanning -> {
+                                    Text(
+                                        "QR-Code wird erkannt …",
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 4.em,
+                                        modifier = Modifier.padding(top = 24.dp),
+                                    )
+                                }
 
-                            is QrReaderState.Error -> {
-                                Text(
-                                    state.message,
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 3.em,
-                                    modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
-                                )
-                                Button(onClick = reader::scan) { Text("Erneut scannen") }
-                            }
+                                is QrReaderState.Error -> {
+                                    Text(
+                                        state.message,
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 3.em,
+                                        modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
+                                    )
+                                    Button(onClick = reader::scan) { Text("Erneut scannen") }
+                                }
 
-                            is QrReaderState.Result -> {
-                                QrResultView(
-                                    result = state.result,
-                                    actions = state.actions,
-                                    actionMessage = actionMessage,
-                                    runningActionId = runningActionId,
-                                    onAction = { action ->
-                                        if (runningActionId != null) return@QrResultView
-                                        runningActionId = action.id
-                                        actionMessage = if (action.id == "bridge.register") {
-                                            "Bridge wird registriert …"
-                                        } else {
-                                            null
-                                        }
-                                        scope.launchCoroutine {
-                                            actionMessage = when (val outcome = action.execute(context, state.result)) {
-                                                is QrActionResult.Success ->
-                                                    outcome.message ?: "Aktion ausgeführt."
-                                                is QrActionResult.Failure -> outcome.message
+                                is QrReaderState.Result -> {
+                                    QrResultView(
+                                        result = state.result,
+                                        actions = state.actions,
+                                        actionMessage = actionMessage,
+                                        runningActionId = runningActionId,
+                                        onAction = { action ->
+                                            if (runningActionId != null) return@QrResultView
+                                            runningActionId = action.id
+                                            actionMessage = if (action.id == "bridge.register") {
+                                                "Bridge wird registriert …"
+                                            } else {
+                                                null
                                             }
-                                            runningActionId = null
-                                        }
-                                    },
-                                    onScanAgain = {
-                                        actionMessage = null
-                                        reader.scan()
-                                    },
-                                )
+                                            scope.launchCoroutine {
+                                                actionMessage = when (
+                                                    val outcome = action.execute(context, state.result)
+                                                ) {
+                                                    is QrActionResult.Success ->
+                                                        outcome.message ?: "Aktion ausgeführt."
+                                                    is QrActionResult.Failure -> outcome.message
+                                                }
+                                                runningActionId = null
+                                            }
+                                        },
+                                        onScanAgain = {
+                                            actionMessage = null
+                                            reader.scan()
+                                        },
+                                    )
+                                }
                             }
                         }
 
@@ -243,7 +245,6 @@ private fun QrResultView(
         }
     }
 }
-
 
 @androidx.compose.runtime.Composable
 private fun ActiveFunctionStatusBar(
