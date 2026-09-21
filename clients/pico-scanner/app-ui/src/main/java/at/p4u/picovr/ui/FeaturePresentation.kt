@@ -17,6 +17,14 @@ interface FeaturePresentation : AutoCloseable {
     fun panelPresentation(snapshot: FeatureSnapshot): HudPanelPresentation? =
         null
 
+    fun isContentVisible(snapshot: FeatureSnapshot): Boolean = false
+
+    @Composable
+    fun Runtime(
+        snapshot: FeatureSnapshot,
+        onFeedback: (at.p4u.picovr.ui.hud.HudFeedback) -> Unit,
+    ) = Unit
+
     @Composable
     fun Content(
         snapshot: FeatureSnapshot,

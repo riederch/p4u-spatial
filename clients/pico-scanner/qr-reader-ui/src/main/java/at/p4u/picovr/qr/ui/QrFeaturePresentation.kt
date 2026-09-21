@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +46,7 @@ import kotlinx.coroutines.launch
 
 // ADR: docs/adr/app/0019-reusable-qr-reader-feature.md — QR result/action presentation belongs to the reusable QR feature surface.
 // ADR: docs/adr/app/0022-modular-app-foundation-and-features.md — app composition does not render QR-specific state.
-// ADR: docs/adr/app/0029-unified-xr-hud-interaction-shell.md — QR results use the shared HUD result panel, commands and feedback language.
+// ADR: docs/adr/app/0029-unified-xr-hud-interaction-shell.md — QR results use world-placed shared HUD result chrome while persistent controls remain head locked.
 // ADR: docs/adr/app/0031-hud-controlled-ambient-feature-lifecycle.md — QR has no home/scan UI; HUD state directly controls ambient recognition.
 class QrFeaturePresentation(
     context: Context,
@@ -55,34 +54,35 @@ class QrFeaturePresentation(
     customActions: List<QrAction> = emptyList(),
 ) : FeaturePresentation {
     private val appContext = context.applicationContext
-    private val reader = QrReaderController(
-        context = appContext,
-        scannerBackend = scannerBackend,
-        customActions = customActions,
-    )
+    private val reader =
+        QrReaderController(
+            context = appContext,
+            scannerBackend = scannerBackend,
+            customActions = customActions,
+        )
+
+    private var readerState by mutableStateOf<QrReaderState>(reader.state)
+
+    init {
+        reader.onStateChanged = { readerState = it }
+    }
 
     override val featureId: String = QrFeature.ID
 
+    override fun isContentVisible(snapshot: FeatureSnapshot): Boolean =
+        snapshot.enabled && readerState is QrReaderState.Result
+
     @Composable
-    override fun Content(
+    override fun Runtime(
         snapshot: FeatureSnapshot,
         onFeedback: (HudFeedback) -> Unit,
     ) {
-        val scope = rememberCoroutineScope()
-        var readerState by remember { mutableStateOf<QrReaderState>(reader.state) }
-        var runningActionId by remember { mutableStateOf<String?>(null) }
         var hasCameraPermission by remember {
             mutableStateOf(
                 ContextCompat.checkSelfPermission(appContext, Manifest.permission.CAMERA) ==
                     PackageManager.PERMISSION_GRANTED,
             )
         }
-
-        DisposableEffect(reader) {
-            reader.onStateChanged = { readerState = it }
-            onDispose { reader.onStateChanged = null }
-        }
-
         val activityContext = LocalContext.current
 
         LaunchedEffect(snapshot.enabled) {
@@ -135,39 +135,51 @@ class QrFeaturePresentation(
                 )
             }
         }
+    }
+
+    @Composable
+    override fun Content(
+        snapshot: FeatureSnapshot,
+        onFeedback: (HudFeedback) -> Unit,
+    ) {
+        val scope = rememberCoroutineScope()
+        var runningActionId by remember { mutableStateOf<String?>(null) }
 
         val resultState = readerState as? QrReaderState.Result ?: return
         val blocked = runningActionId != null
-        val commands = buildList<HudCommand> {
-            resultState.actions.forEach { action ->
+        val commands =
+            buildList<HudCommand> {
+                resultState.actions.forEach { action ->
+                    add(
+                        QrHudCommand(
+                            context = appContext,
+                            result = resultState.result,
+                            action = action,
+                            running = runningActionId == action.id,
+                            blocked = blocked && runningActionId != action.id,
+                        ),
+                    )
+                }
                 add(
-                    QrHudCommand(
-                        context = appContext,
-                        result = resultState.result,
-                        action = action,
-                        running = runningActionId == action.id,
-                        blocked = blocked && runningActionId != action.id,
-                    ),
+                    LambdaHudCommand(
+                        id = "qr.close",
+                        label = "Schließen",
+                        role = HudCommandRole.PASSIVE,
+                        state =
+                            HudCommandState(
+                                availability =
+                                    if (blocked) {
+                                        HudCommandAvailability.DISABLED
+                                    } else {
+                                        HudCommandAvailability.ENABLED
+                                    },
+                            ),
+                    ) {
+                        reader.dismissResult()
+                        at.p4u.picovr.ui.hud.HudCommandResult()
+                    },
                 )
             }
-            add(
-                LambdaHudCommand(
-                    id = "qr.close",
-                    label = "Schließen",
-                    role = HudCommandRole.PASSIVE,
-                    state = HudCommandState(
-                        availability = if (blocked) {
-                            HudCommandAvailability.DISABLED
-                        } else {
-                            HudCommandAvailability.ENABLED
-                        },
-                    ),
-                ) {
-                    reader.dismissResult()
-                    at.p4u.picovr.ui.hud.HudCommandResult()
-                },
-            )
-        }
 
         HudResultPanel(
             title = "QR-Code erkannt",
@@ -206,9 +218,7 @@ class QrFeaturePresentation(
                     }
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(520.dp),
+            modifier = Modifier.fillMaxWidth().height(520.dp),
         ) {
             Text(
                 resultState.result.content.displayText,
@@ -221,30 +231,19 @@ class QrFeaturePresentation(
     @Composable
     override fun StatusIcon(snapshot: FeatureSnapshot) {
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(Color.Transparent)
-                .padding(4.dp),
+            modifier = Modifier.size(40.dp).background(Color.Transparent).padding(4.dp),
         ) {
             val cell = 8.dp
-            val finder = Modifier
-                .size(cell)
-                .background(Color.Black)
+            val finder = Modifier.size(cell).background(Color.Black)
 
             Box(modifier = finder.align(Alignment.TopStart))
             Box(modifier = finder.align(Alignment.TopEnd))
             Box(modifier = finder.align(Alignment.BottomStart))
             Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .background(Color.Black)
-                    .align(Alignment.Center),
+                modifier = Modifier.size(6.dp).background(Color.Black).align(Alignment.Center),
             )
             Box(
-                modifier = Modifier
-                    .size(5.dp)
-                    .background(Color.Black)
-                    .align(Alignment.BottomEnd),
+                modifier = Modifier.size(5.dp).background(Color.Black).align(Alignment.BottomEnd),
             )
         }
     }
