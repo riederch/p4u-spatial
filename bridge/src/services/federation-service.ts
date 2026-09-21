@@ -9,11 +9,20 @@ interface CachedValue {
   retrievedAt: string;
 }
 
+interface RelayArtifactDependency {
+  sourceId: string;
+  artifactId: string;
+  sha256: string;
+  size: number;
+  mediaType: string;
+}
+
 interface RelayEntry {
   sourceId: string;
   operationId: string;
   operation: JsonObject;
   requestHash: string;
+  artifactDependencies?: RelayArtifactDependency[];
   status: JsonObject;
   updatedAt: string;
   attempts: number;
@@ -62,9 +71,38 @@ function requestHash(operation: JsonObject): string {
   return sha256(Buffer.from(stableStringify(operation)));
 }
 
+interface ArtifactReference {
+  sourceId: string;
+  artifactId: string;
+  sha256?: string;
+  size?: number;
+  mediaType?: string;
+}
+
+function collectArtifactReferences(value: unknown, result: ArtifactReference[] = []): ArtifactReference[] {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectArtifactReferences(item, result));
+    return result;
+  }
+  if (!isRecord(value)) return result;
+
+  if (typeof value.sourceId === "string" && typeof value.artifactId === "string") {
+    result.push({
+      sourceId: value.sourceId,
+      artifactId: value.artifactId,
+      ...(typeof value.sha256 === "string" ? { sha256: value.sha256.toLowerCase() } : {}),
+      ...(Number.isSafeInteger(value.size) && (value.size as number) >= 0 ? { size: value.size as number } : {}),
+      ...(typeof value.mediaType === "string" ? { mediaType: value.mediaType } : {}),
+    });
+  }
+  Object.values(value).forEach((item) => collectArtifactReferences(item, result));
+  return result;
+}
+
 // ADR: docs/adr/contracts/0006-source-route-identity.md — federation preserves upstream sourceId while presenting a distinct transport route.
 // ADR: docs/adr/contracts/0009-durable-relay.md — relay-durable is persisted retry responsibility, not source commit.
 // ADR: docs/adr/contracts/0012-federation-access-modes.md — upstream credentials belong to the federation route/provider, not the client.
+// ADR: docs/adr/contracts/0016-artifact-immutability.md — artifact-dependent relay durability requires verified committed artifact payloads at the authoritative source or relay.
 export class FederationService {
   private readonly store: AtomicJsonStore<FederationState>;
   private gate: Promise<void> = Promise.resolve();
@@ -260,6 +298,73 @@ export class FederationService {
     }
   }
 
+  private async verifyArtifactDependencies(operation: JsonObject): Promise<RelayArtifactDependency[]> {
+    const references = collectArtifactReferences(operation.payload);
+    if (references.length === 0) return [];
+
+    const unique = new Map<string, ArtifactReference>();
+    for (const reference of references) {
+      unique.set(`${reference.sourceId}\u0000${reference.artifactId}`, reference);
+    }
+
+    const verified: RelayArtifactDependency[] = [];
+    for (const reference of unique.values()) {
+      let body: unknown;
+      try {
+        ({ body } = await this.jsonRequest(
+          `/spatial/v1/sources/${encodeURIComponent(reference.sourceId)}/artifacts/${encodeURIComponent(reference.artifactId)}`,
+          { method: "GET" },
+        ));
+      } catch (error) {
+        if (error instanceof BridgeError && error.statusCode < 500) {
+          throw new BridgeError(
+            409,
+            "ARTIFACT_NOT_READY",
+            `Artifact is not committed at the authoritative source: ${reference.artifactId}`,
+          );
+        }
+        throw error;
+      }
+
+      assertOrThrow(
+        isRecord(body)
+          && body.sourceId === reference.sourceId
+          && body.artifactId === reference.artifactId
+          && typeof body.sha256 === "string"
+          && /^[a-fA-F0-9]{64}$/.test(body.sha256)
+          && Number.isSafeInteger(body.size)
+          && (body.size as number) >= 0
+          && typeof body.mediaType === "string",
+        502,
+        "UPSTREAM_INVALID_RESPONSE",
+        "Upstream artifact descriptor is invalid.",
+      );
+
+      const descriptor = {
+        sourceId: body.sourceId as string,
+        artifactId: body.artifactId as string,
+        sha256: (body.sha256 as string).toLowerCase(),
+        size: body.size as number,
+        mediaType: body.mediaType as string,
+      };
+
+      if (
+        (reference.sha256 && reference.sha256 !== descriptor.sha256)
+        || (reference.size !== undefined && reference.size !== descriptor.size)
+        || (reference.mediaType && reference.mediaType !== descriptor.mediaType)
+      ) {
+        throw new BridgeError(
+          409,
+          "ARTIFACT_NOT_READY",
+          `Artifact reference does not match the authoritative descriptor: ${reference.artifactId}`,
+        );
+      }
+      verified.push(descriptor);
+    }
+
+    return verified;
+  }
+
   private retryDelaySeconds(attempts: number): number {
     const base = this.config.retryBaseSeconds ?? 5;
     const max = this.config.retryMaxSeconds ?? 300;
@@ -345,11 +450,14 @@ export class FederationService {
         return this.tryDeliver(existing);
       }
 
+      const artifactDependencies = await this.verifyArtifactDependencies(raw);
+
       const entry: RelayEntry = {
         sourceId,
         operationId,
         operation: raw,
         requestHash: hash,
+        ...(artifactDependencies.length > 0 ? { artifactDependencies } : {}),
         status: {},
         updatedAt: nowIso(),
         attempts: 0,
