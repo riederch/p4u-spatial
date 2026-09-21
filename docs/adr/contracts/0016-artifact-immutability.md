@@ -28,6 +28,8 @@ A durable relay may acknowledge an operation that depends on artifacts only when
 - `bridge/src/server.ts` — authenticated Artifact read/upload/commit HTTP endpoints and capability advertisement.
 - `bridge/src/services/spatial-write-service.ts` — authoritative local writes reject uncommitted local Artifact References.
 - `bridge/test/artifact.test.ts` — retry, integrity, immutability and readiness regression coverage.
+- `bridge/src/services/federation-service.ts` — verifies committed upstream artifact dependencies before acknowledging `relay-durable`.
+- `bridge/test/federation.test.ts` — verifies that artifact-dependent durable relay is refused when authoritative artifact verification is unavailable.
 
 ## Reconciliation note
 
@@ -40,6 +42,10 @@ The local authoritative-source implementation is now aligned with this ADR:
 - discovery/source capabilities expose `spatial.artifacts.read` and, for writable sources,
   `spatial.artifacts.write`.
 
-Federation remains narrower than the full ADR consequence: artifact-aware durable relay is not yet
-implemented, so a relay must not claim artifact-dependent durability until those payloads are
-durably available to the relay or authoritative source.
+Federation is also artifact-aware: before a new operation containing Artifact References is
+persisted as `relay-durable`, the relay verifies that every referenced artifact has a committed
+descriptor at the authoritative upstream source and that declared hash/size/media type agree.
+If the upstream cannot perform that verification, the operation is not accepted as durable.
+
+The reference relay does not yet maintain its own binary artifact cache. Therefore artifact-dependent
+offline acceptance relies on prior authoritative-source verification, not relay-side payload custody.
