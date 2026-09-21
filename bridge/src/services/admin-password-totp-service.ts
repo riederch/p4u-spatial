@@ -88,6 +88,7 @@ function verifyTotp(secret: string, code: string, nowMs = Date.now()): boolean {
   return false;
 }
 
+// ADR: docs/adr/bridge/0025-admin-authentication-and-bootstrap.md — password is valid only together with TOTP as an independent permanent admin login method.
 export class AdminPasswordTotpService {
   private readonly store: AtomicJsonStore<State>;
 
