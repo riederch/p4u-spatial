@@ -154,6 +154,7 @@ function requiredString(value: unknown, name: string): string {
 
 // ADR: docs/adr/contracts/0011-source-wide-operation-idempotency.md — authoritative writes are idempotent by (sourceId, operationId), independent of route.
 // ADR: docs/adr/contracts/0014-relation-authority.md — relation writes use the same source-scoped optimistic-concurrency machinery as other Spatial collections.
+// ADR: docs/adr/contracts/0016-artifact-immutability.md — new authoritative writes may only reference committed local artifacts.
 export class SpatialWriteService {
   private readonly ledger: AtomicJsonStore<OperationLedger>;
   private gate: Promise<void> = Promise.resolve();
@@ -163,6 +164,7 @@ export class SpatialWriteService {
     private readonly repository: RepositoryProvider,
     private readonly spatialRoot: string,
     private readonly sourceId: () => Promise<string>,
+    private readonly assertArtifactsReady?: (payload: unknown) => Promise<void>,
   ) {
     this.ledger = new AtomicJsonStore(join(stateDir, "spatial-operations.json"), () => ({ entries: {} }));
   }
@@ -399,6 +401,10 @@ export class SpatialWriteService {
         if (existing.status) return existing.status;
         assertOrThrow(existing.prepared, 500, "OPERATION_LEDGER_INVALID", "Prepared operation is incomplete.");
         return this.commit(existing, existing.prepared);
+      }
+
+      if ("payload" in operation && this.assertArtifactsReady) {
+        await this.assertArtifactsReady(operation.payload);
       }
 
       const prepared = await this.prepare(operation);
