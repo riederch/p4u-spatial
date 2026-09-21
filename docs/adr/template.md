@@ -22,6 +22,12 @@ for future work.
 - negative consequence or cost,
 - follow-up implication.
 
+## Implementation anchors
+
+For accepted decisions with concrete implementation, list the primary repository paths that embody the decision.
+
+- `path/to/implementation` — relationship to this decision.
+
 ## Alternatives considered
 
 Optional. Record credible alternatives and why they were not selected.
