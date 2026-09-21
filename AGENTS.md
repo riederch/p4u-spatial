@@ -42,6 +42,21 @@ P4U Spatial is public software. Do not add private site data, credentials, real 
 - Do not add new `P4U_*` environment variables for repository, federation, Spatial, XR, RCHKB or other operator-facing application settings.
 - Home Assistant-specific code must remain packaging/integration glue and must not contain Bridge business logic.
 
+## ADR traceability
+
+Architecture-significant implementation must remain traceable to its accepted Architecture Decision Record.
+
+- Code that implements an ADR MUST contain an `ADR:` comment at the relevant module, class, adapter, boundary or non-obvious implementation point.
+- Use the repository-relative ADR path, for example: `ADR: docs/adr/app/0019-reusable-qr-reader-feature.md`.
+- The comment must briefly state why the ADR constrains that code. Do not add ADR comments mechanically to every function.
+- Accepted ADRs with concrete implementation MUST contain an `Implementation anchors` section listing the primary code paths that embody the decision.
+- When code moves, the ADR anchors and code comments move with it.
+- When an ADR is superseded, implementation references must be updated as part of the same architectural change.
+- A change that materially alters an architectural decision is incomplete until the ADR and affected implementation references agree.
+- Routine implementation details that are not architectural decisions should not receive artificial ADR references.
+
+The CI traceability check validates that code-side ADR paths and ADR-side implementation anchors resolve to real repository files.
+
 ## AI independence
 
 AI/LLM/VLM processing is optional and must never be required for a fundamental workflow.
