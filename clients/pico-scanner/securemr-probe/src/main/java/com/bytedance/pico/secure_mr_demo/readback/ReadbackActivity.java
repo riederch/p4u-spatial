@@ -25,14 +25,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ReadbackActivity extends NativeActivity {
     private static final String TAG = "p4u-SecureMR-QR";
     private static final int REQ_CAMERA = 1001;
-    private static final String ACTION_RESULT = "at.p4u.spatial.scanner.SECUREMR_QR_RESULT";
-    private static final String RESULT_PACKAGE = "at.p4u.spatial.scanner";
-    private static final String EXTRA_PAYLOAD = "payload";
+
+    public static final String EXTRA_RESULT_ACTION = "at.p4u.picovr.qr.extra.RESULT_ACTION";
+    public static final String EXTRA_RESULT_PACKAGE = "at.p4u.picovr.qr.extra.RESULT_PACKAGE";
+    public static final String EXTRA_PAYLOAD = "payload";
+    public static final String EXTRA_STATUS = "status";
+    public static final String EXTRA_MESSAGE = "message";
+
+    public static final String STATUS_DECODED = "decoded";
+    public static final String STATUS_CANCELLED = "cancelled";
+    public static final String STATUS_ERROR = "error";
+
+    private static final String LEGACY_ACTION_RESULT =
+            "at.p4u.spatial.scanner.SECUREMR_QR_RESULT";
 
     private final ExecutorService decoder = Executors.newSingleThreadExecutor();
     private final AtomicBoolean decodeInFlight = new AtomicBoolean(false);
     private final AtomicBoolean completed = new AtomicBoolean(false);
     private final AtomicInteger frameCount = new AtomicInteger(0);
+
+    private String resultAction;
+    private String resultPackage;
 
     static {
         System.loadLibrary("securemrprobe");
@@ -40,6 +53,16 @@ public class ReadbackActivity extends NativeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Intent launchIntent = getIntent();
+        resultAction = launchIntent.getStringExtra(EXTRA_RESULT_ACTION);
+        if (resultAction == null || resultAction.isBlank()) {
+            resultAction = LEGACY_ACTION_RESULT;
+        }
+        resultPackage = launchIntent.getStringExtra(EXTRA_RESULT_PACKAGE);
+        if (resultPackage == null || resultPackage.isBlank()) {
+            resultPackage = getPackageName();
+        }
+
         Log.i(TAG, "Starting native OpenXR SecureMR QR scanner");
         Log.i(TAG, "device=" + Build.DEVICE + " model=" + Build.MODEL +
                 " release=" + Build.VERSION.RELEASE + " sdk=" + Build.VERSION.SDK_INT +
@@ -66,6 +89,13 @@ public class ReadbackActivity extends NativeActivity {
                 boolean granted = grants[i] == PackageManager.PERMISSION_GRANTED;
                 Log.i(TAG, "Camera permission result: " + granted);
                 nativeSetPermission(perms[i], granted);
+                if (!granted && complete(
+                        STATUS_ERROR,
+                        null,
+                        "Camera permission was denied."
+                )) {
+                    runOnUiThread(this::finish);
+                }
             }
         }
     }
@@ -83,18 +113,32 @@ public class ReadbackActivity extends NativeActivity {
         decoder.execute(() -> {
             try {
                 String raw = decodeQr(rgb, width, height);
-                if (raw != null && completed.compareAndSet(false, true)) {
+                if (raw != null && complete(STATUS_DECODED, raw, null)) {
+                    // First valid decode wins. This deliberately keeps moving/mobile QR codes responsive.
                     Log.i(TAG, "QR decoded, payloadLength=" + raw.length());
-                    Intent result = new Intent(ACTION_RESULT);
-                    result.setPackage(RESULT_PACKAGE);
-                    result.putExtra(EXTRA_PAYLOAD, raw);
-                    sendBroadcast(result);
                     runOnUiThread(this::finish);
                 }
             } finally {
                 decodeInFlight.set(false);
             }
         });
+    }
+
+    private boolean complete(String status, String payload, String message) {
+        if (!completed.compareAndSet(false, true)) {
+            return false;
+        }
+        Intent result = new Intent(resultAction);
+        result.setPackage(resultPackage);
+        result.putExtra(EXTRA_STATUS, status);
+        if (payload != null) {
+            result.putExtra(EXTRA_PAYLOAD, payload);
+        }
+        if (message != null) {
+            result.putExtra(EXTRA_MESSAGE, message);
+        }
+        sendBroadcast(result);
+        return true;
     }
 
     private String decodeQr(byte[] rgb, int width, int height) {
@@ -135,7 +179,7 @@ public class ReadbackActivity extends NativeActivity {
 
     @Override
     protected void onDestroy() {
-        completed.set(true);
+        complete(STATUS_CANCELLED, null, null);
         decoder.shutdownNow();
         super.onDestroy();
     }
