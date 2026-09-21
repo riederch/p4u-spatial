@@ -1,8 +1,10 @@
 # ADR 0020: SecureMR QR Scanner Backend
 
-Status: Accepted
+Status: Superseded by ADR 0031
 
 Date: 2026-09-21
+
+> Superseded by ADR 0031 for the product scanner lifecycle and in-process SpatialML integration. The vendor-isolation, first-valid-decode and ephemeral-frame principles remain valid.
 
 ## Context
 

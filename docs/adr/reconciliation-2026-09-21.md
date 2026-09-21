@@ -39,7 +39,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0017 | Contracts | Superseded by 0027 | The previous xr-app registry ambiguity was explicitly resolved by ADR 0027. |
 | 0018 | Bridge | Partial migration | Persisted BridgeConfigStore is authoritative after migration, but legacy functional `P4U_*` environment variables are still accepted as bootstrap/migration input. |
 | 0019 | App | Partial | Generic QR lifecycle/content/actions are reusable; QR result presentation still lives in the product app layer. |
-| 0020 | App | Aligned in code / hardware pending | SecureMR is an internal QR backend; first-valid decode, no overlay and ephemeral frames match ADR. PICO hardware validation remains required. |
+| 0020 | App | Superseded by 0031 | The original separate NativeActivity/native-OpenXR product scanner integration was replaced by the in-process SpatialML lifecycle in ADR 0031. |
 | 0021 | App | Aligned in code / hardware pending | Generic hierarchical menu, feature toggle, active-status projection and PICO viewpoint-following Augment HUD are implemented; physical placement/interaction validation remains. |
 | 0022 | App | Aligned | app-core is feature-neutral, app-ui provides generic presentation infrastructure, qr-reader-ui owns QR presentation, and MainApplication is reduced to composition/registration. |
 | 0023 | App | Aligned / reconstructed | Signed APK release trust, descriptor integrity/signing metadata and updater verification are documented and implemented; discovery key remains intentionally unresolved under ADR 0017. |
@@ -49,6 +49,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0027 | Contracts | Aligned | xr-app is now explicitly a separate discoverable contract with canonical capability namespace xr-app.*. |
 | 0028 | Contracts | Aligned in code | delegated-user routes declare PKCE or Token Exchange; credentials/cache/relay authority are user-scoped. |
 | 0029 | App | Aligned in code / hardware pending | Unified contribution-driven HUD, shared visual primitives, feedback/result panels and persisted 50–150% peripheral HUD scale are implemented; physical PICO validation remains. |
+| 0031 | App | Aligned in code / hardware pending | QR is now an ambient HUD-controlled capability with no home/scan screen; in-process SpatialML SecureMR/readback replaces the product NativeActivity scanner flow. Physical PICO validation remains. |
 
 ## Corrections made during this reconciliation
 
@@ -180,3 +181,20 @@ After this reconciliation:
 
 This report is a historical baseline, not a permanent substitute for keeping individual ADRs and
 code references current.
+
+
+### 6. Ambient QR lifecycle
+
+The foreground QR workflow found during hardware-preparation review has been removed:
+
+- the white/gray QR home surface is no longer rendered,
+- there is no `QR scannen` or normal `Neu scannen` control,
+- the HUD QR toggle directly controls recognition,
+- first valid QR result pauses recognition and opens the shared result panel,
+- closing the result resumes recognition while QR remains enabled,
+- scanner errors use HUD feedback rather than a scanner page,
+- the product scanner backend uses in-process PICO SpatialML SecureMR/readback,
+- the legacy `ReadbackActivity` is no longer invoked by the product flow.
+
+Remaining work is real-device validation of camera permission, VST readback, decode reliability and
+the ambient lifecycle on PICO 4 Ultra.

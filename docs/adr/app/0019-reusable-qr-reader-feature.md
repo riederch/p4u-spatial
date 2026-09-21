@@ -62,4 +62,7 @@ available independently of content length.
 
 ## Reconciliation note
 
-As of 2026-09-21 the reusable scan lifecycle, content classification and pluggable action model are implemented in `qr-reader`. The result presentation is still rendered by the product `app` composition layer rather than a reusable feature-owned presentation component. This does not change the public QR action model, but it remains a modularization gap tracked together with ADR 0022.
+As of 2026-09-21 the reusable scan lifecycle, content classification, pluggable action model and
+feature-owned result presentation are implemented. ADR 0031 further changed the runtime semantics so
+QR recognition is ambient: the HUD toggle starts/stops recognition, no scan home surface exists, and
+closing a result resumes recognition automatically while enabled.

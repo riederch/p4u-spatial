@@ -114,11 +114,34 @@ visually neutral/transparent when no working content is present.
 
 ## Implementation anchors
 
-Implementation anchors are added as the migration lands.
+- `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrScannerBackend.kt` — vendor-neutral scanner lifecycle contract.
+- `clients/pico-scanner/qr-reader/src/main/java/at/p4u/picovr/qr/QrReaderController.kt` — authoritative ambient start/stop, first-result latch and automatic resume after result close.
+- `clients/pico-scanner/securemr-probe/src/main/java/at/p4u/picovr/securemr/SpatialMlQrScannerBackend.kt` — in-process PICO SpatialML SecureMR/readback implementation.
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — no-home-surface QR presentation; result panel only when a QR result exists.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — transparent root content surface plus persistent HUD chrome.
+- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/MainApplication.kt` — composition root injects the PICO scanner backend into the reusable QR feature.
 
-## Related decisions
+## Implementation status
+
+The software migration is implemented and CI-green with PICO Spatial SDK 6.1.9:
+
+- no QR home/start/scan surface,
+- QR toggle directly controls runtime recognition,
+- recognition is visually silent while scanning,
+- result close automatically resumes recognition while the feature remains enabled,
+- normal product flow no longer launches `ReadbackActivity`,
+- PICO camera access/readback runs in-process through SpatialML,
+- root content chrome no longer paints the previous white/gray feature screen.
+
+Physical PICO 4 Ultra validation remains required for real camera permission behavior, VST readback,
+decode reliability, result placement and runtime lifecycle.
+
+## Relationship to existing decisions
+
+This ADR supersedes ADR 0020's NativeActivity/native-OpenXR integration choice while preserving its
+vendor-backend boundary, first-valid-decode rule and ephemeral-frame requirements.
 
 - ADR 0019 — Reusable QR Reader Feature
-- ADR 0020 — SecureMR QR Scanner Backend
+- ADR 0020 — SecureMR QR Scanner Backend (superseded integration mode)
 - ADR 0022 — Modular App Foundation and Features
 - ADR 0029 — Unified XR HUD Interaction Shell
