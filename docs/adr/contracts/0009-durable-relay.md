@@ -28,3 +28,16 @@ This ADR defines semantics only; Spatial Write/Federation endpoints are specifie
 ## Reconciliation note
 
 The reference FederationService implements durable relay persistence/retry for Spatial operations. Artifact-dependent durable relay constraints from ADR 0016 remain unimplemented because Spatial Artifacts are not yet implemented by the Bridge.
+
+
+## Artifact-dependent operations
+
+Per ADR 0016, a durable relay MUST NOT acknowledge an operation that depends on Artifact References
+unless the required artifact payload is durably available to the relay or already committed at the
+authoritative source.
+
+The reference federation implementation verifies committed upstream Artifact Descriptors before it
+persists a new artifact-dependent operation as `relay-durable`. If that verification cannot be
+completed, it returns an upstream availability/readiness error instead of a durable acknowledgement.
+
+Related: `docs/adr/contracts/0016-artifact-immutability.md`.
