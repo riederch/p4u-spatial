@@ -11,9 +11,8 @@ reconstructs and establishes the current intended architecture from the existing
 protocol documentation and release runbook. It must not be read as evidence of the original
 historical rationale.
 
-The exact discovery namespace/key used to expose the update service is intentionally NOT decided
-here. The unresolved `xr-app` versus `xr` discovery question remains under ADR 0017 until an
-explicit decision is made.
+The discovery namespace/key is defined separately by ADR 0027: application distribution is exposed
+as the independent `xr-app` contract.
 
 ## Context
 
@@ -113,5 +112,5 @@ Application version and protocol version remain independent.
 
 - ADR 0002: Authentication and device pairing
 - ADR 0013: XR Is a Profile over Core
-- ADR 0017: Discovery Identifier and Machine Namespace Registry
+- ADR 0027: Separate XR Application Lifecycle Contract and Discovery Registry
 - ADR 0024: Headset Offline State, Durable Outbox and Secure Credentials
