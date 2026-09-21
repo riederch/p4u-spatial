@@ -485,12 +485,12 @@ set(_direct_hand_render_replacement [==[
     bool buttonPressed = false;
     for (auto hand : {Side::LEFT, Side::RIGHT}) {
       std::optional<XrPosef> resolvedPose;
-      const InputState controllerToggle = m_input.handToggle[hand];
+      const InputState::ToggleStatus controllerToggle = m_input.handToggle[hand];
       bool controllerPoseValid = false;
       XrPosef controllerPose{};
       bool directHandActive = false;
       XrPosef directHandPose{};
-      InputState directHandToggle = InputState::RELEASE;
+      InputState::ToggleStatus directHandToggle = InputState::RELEASE;
       float directHandScale = 1.0f;
 
       XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
@@ -999,12 +999,12 @@ set(_input_arbitration_locals_old [==[
 set(_input_arbitration_locals_new [==[
     for (auto hand : {Side::LEFT, Side::RIGHT}) {
       std::optional<XrPosef> resolvedPose;
-      const InputState controllerToggle = m_input.handToggle[hand];
+      const InputState::ToggleStatus controllerToggle = m_input.handToggle[hand];
       bool controllerPoseValid = false;
       XrPosef controllerPose{};
       bool directHandActive = false;
       XrPosef directHandPose{};
-      InputState directHandToggle = InputState::RELEASE;
+      InputState::ToggleStatus directHandToggle = InputState::RELEASE;
       float directHandScale = 1.0f;
 
       XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
@@ -1178,6 +1178,36 @@ _p4u_replace_if_missing(
     "P4U: arbitrate by recent *actual* use"
     "${_input_arbitration_apply_old}"
     "${_input_arbitration_apply_new}"
+)
+
+set(_toggle_type_controller_old [==[
+      const InputState controllerToggle = m_input.handToggle[hand];
+]==])
+
+set(_toggle_type_controller_new [==[
+      const InputState::ToggleStatus controllerToggle = m_input.handToggle[hand];
+]==])
+
+_p4u_replace_if_missing(
+    "controller toggle enum type v9"
+    "const InputState::ToggleStatus controllerToggle"
+    "${_toggle_type_controller_old}"
+    "${_toggle_type_controller_new}"
+)
+
+set(_toggle_type_hand_old [==[
+      InputState directHandToggle = InputState::RELEASE;
+]==])
+
+set(_toggle_type_hand_new [==[
+      InputState::ToggleStatus directHandToggle = InputState::RELEASE;
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand toggle enum type v9"
+    "InputState::ToggleStatus directHandToggle"
+    "${_toggle_type_hand_old}"
+    "${_toggle_type_hand_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
