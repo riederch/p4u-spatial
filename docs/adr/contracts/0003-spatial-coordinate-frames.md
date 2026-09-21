@@ -23,3 +23,14 @@ Phone GNSS is optional and coarse. It may aid site-level plausibility or traject
 ## Quality
 
 Transforms should carry provenance and quality metadata such as method, control points, RMS error and maximum residual.
+
+## Implementation anchors
+
+- `protocol/spatial/coordinate-frames.md` — canonical frame conventions, registration quality and explicit transforms.
+- `protocol/schemas/spatial/coordinate-frame.schema.json` — machine-readable Spatial frame representation.
+- `protocol/schemas/spatial/transform.schema.json` — explicit transform representation.
+- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/CapturePackage.kt` — scan-local frame and pose/canonical-subject evidence emitted by the headset.
+
+## Reconciliation note
+
+The contract and capture representation are present. Full control-point registration, residual calculation and authoritative GIS registration are not yet implemented end-to-end in the reference app/Bridge.
