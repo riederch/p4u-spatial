@@ -102,3 +102,23 @@ Rules:
 - explicit Back,
 - path/context visible,
 - same component model as all other menu branches.
+
+
+## H10 — HUD scale setting
+
+Path:
+`System → Anzeige → HUD-Größe`
+
+Visible:
+- slider,
+- 50% minimum,
+- 100% default/current reference,
+- 150% maximum,
+- live preview through launcher/status rail size.
+
+Rules:
+- affects persistent launcher/menu button and status rail only,
+- result/detail panels are unchanged,
+- minimum interaction hit targets remain preserved,
+- value persists as a display preference,
+- changing scale does not affect feature/runtime state.
