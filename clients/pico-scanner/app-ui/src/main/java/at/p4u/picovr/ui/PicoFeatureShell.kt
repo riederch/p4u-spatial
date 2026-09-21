@@ -34,11 +34,11 @@ fun PicoFeatureShell(
     features: List<FeatureSnapshot>,
     presentations: FeaturePresentationRegistry,
     onFeatureEnabledChange: (featureId: String, enabled: Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     PicoTheme(colorScheme = defaultColorScheme()) {
         Box(
-            modifier = Modifier
-                .windowConstraints(width = 960.dp, height = 720.dp)
+            modifier = modifier
                 .backgroundMaterial(true)
                 .background(Color.LightGray)
                 .padding(32.dp),
