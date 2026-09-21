@@ -120,6 +120,7 @@ class QrReadbackCheck final : public ReadbackCheck {
     if (!launcherHit_[side]) return;
 
     hudOpen_ = !hudOpen_;
+    pointerPulseFrames_[side] = 9;
     hudDirty_ = true;
     LOGI("HUD launcher activate side=%d open=%s", side, hudOpen_ ? "yes" : "no");
   }
@@ -182,7 +183,51 @@ class QrReadbackCheck final : public ReadbackCheck {
       DrawMenuGlyph(outRgba, width, height, launcher);
     }
 
-    hudDirty_ = false;
+    bool keepAnimating = false;
+    for (int side = 0; side < 2; ++side) {
+      if (!pointerUvValid_[side]) continue;
+
+      const int x = static_cast<int>(pointerU_[side] * static_cast<float>(width));
+      const int y = static_cast<int>(pointerV_[side] * static_cast<float>(height));
+      const bool hover = launcherHit_[side];
+      const bool pressed = pointerPulseFrames_[side] > 0;
+
+      const int outerRadius = pressed ? 18 : (hover ? 15 : 12);
+      const int innerRadius = pressed ? 6 : (hover ? 5 : 4);
+      const uint8_t ringAlpha = pressed ? 245 : (hover ? 220 : 155);
+      const uint8_t dotAlpha = pressed ? 255 : (hover ? 235 : 185);
+
+      DrawCircleRing(
+          outRgba,
+          width,
+          height,
+          x,
+          y,
+          outerRadius,
+          2,
+          236,
+          241,
+          248,
+          ringAlpha);
+      DrawFilledCircle(
+          outRgba,
+          width,
+          height,
+          x,
+          y,
+          innerRadius,
+          236,
+          241,
+          248,
+          dotAlpha);
+
+      if (pointerPulseFrames_[side] > 0) {
+        --pointerPulseFrames_[side];
+        keepAnimating = pointerPulseFrames_[side] > 0 || keepAnimating;
+      }
+    }
+
+    hudDirty_ = keepAnimating;
     return true;
   }
 
@@ -203,6 +248,7 @@ class QrReadbackCheck final : public ReadbackCheck {
   static constexpr float kHudDistanceMeters = 0.35f;
   static constexpr float kHudWidthMeters = 0.30f;
   static constexpr float kHudHeightMeters = 0.30f;
+  static constexpr float kPointerRedrawThreshold = 0.003f;
 
   static Vec3 Rotate(const XrQuaternionf& q, const Vec3& v) {
     const Vec3 u{q.x, q.y, q.z};
@@ -278,7 +324,7 @@ class QrReadbackCheck final : public ReadbackCheck {
     return true;
   }
 
-  bool PointerHitsLauncher(int side) const {
+  bool ResolvePointerUv(int side, float& outU, float& outV) const {
     if (!headPoseValid_ || side < 0 || side >= 2 || !pointerPoseValid_[side]) {
       return false;
     }
@@ -286,13 +332,10 @@ class QrReadbackCheck final : public ReadbackCheck {
     const XrPosef& pointer = pointerPoses_[side];
     const Vec3 origin{pointer.position.x, pointer.position.y, pointer.position.z};
 
-    float u = 0.0f;
-    float v = 0.0f;
-
     // Primary path: controller aim orientation (and any hand pose whose orientation
     // happens to provide a usable aim ray).
     const Vec3 aim = Rotate(pointer.orientation, {0.0f, 0.0f, -1.0f});
-    bool hit = RayToHudUv(origin, Normalize(aim), u, v);
+    bool hit = RayToHudUv(origin, Normalize(aim), outU, outV);
 
     // Hand fallback: project the tracked hand position from the head onto the HUD plane.
     // This keeps direct XR_EXT_hand_tracking usable even when PICO does not expose a
@@ -308,25 +351,50 @@ class QrReadbackCheck final : public ReadbackCheck {
           headPose_.position.y,
           headPose_.position.z,
       };
-      hit = RayToHudUv(headOrigin, Normalize(fromHead), u, v);
+      hit = RayToHudUv(headOrigin, Normalize(fromHead), outU, outV);
     }
 
-    if (!hit) return false;
+    return hit;
+  }
 
+  static bool UvHitsLauncher(float u, float v) {
     return u >= 0.08f && u <= 0.27f && v >= 0.72f && v <= 0.91f;
   }
 
   void UpdateHudHover() {
-    const bool left = PointerHitsLauncher(0);
-    const bool right = PointerHitsLauncher(1);
-    launcherHit_[0] = left;
-    launcherHit_[1] = right;
+    bool anyHovered = false;
 
-    const bool hovered = left || right;
-    if (hovered != launcherHovered_) {
-      launcherHovered_ = hovered;
+    for (int side = 0; side < 2; ++side) {
+      float u = 0.0f;
+      float v = 0.0f;
+      const bool valid = ResolvePointerUv(side, u, v);
+      const bool launcherHit = valid && UvHitsLauncher(u, v);
+
+      const bool moved =
+          valid &&
+          (!pointerUvValid_[side] ||
+           std::abs(u - pointerU_[side]) >= kPointerRedrawThreshold ||
+           std::abs(v - pointerV_[side]) >= kPointerRedrawThreshold);
+      const bool visibilityChanged = valid != pointerUvValid_[side];
+      const bool hitChanged = launcherHit != launcherHit_[side];
+
+      pointerUvValid_[side] = valid;
+      if (valid) {
+        pointerU_[side] = u;
+        pointerV_[side] = v;
+      }
+      launcherHit_[side] = launcherHit;
+      anyHovered = anyHovered || launcherHit;
+
+      if (moved || visibilityChanged || hitChanged) {
+        hudDirty_ = true;
+      }
+    }
+
+    if (anyHovered != launcherHovered_) {
+      launcherHovered_ = anyHovered;
       hudDirty_ = true;
-      LOGI("HUD launcher hover=%s", hovered ? "yes" : "no");
+      LOGI("HUD launcher hover=%s", launcherHovered_ ? "yes" : "no");
     }
   }
 
@@ -380,6 +448,57 @@ class QrReadbackCheck final : public ReadbackCheck {
     FillRect(rgba, width, height, {rect.right - thickness, rect.top, rect.right, rect.bottom}, r, g, b, a);
   }
 
+  static void DrawFilledCircle(
+      std::vector<uint8_t>& rgba,
+      int width,
+      int height,
+      int cx,
+      int cy,
+      int radius,
+      uint8_t r,
+      uint8_t g,
+      uint8_t b,
+      uint8_t a) {
+    const int radiusSq = radius * radius;
+    for (int y = cy - radius; y <= cy + radius; ++y) {
+      for (int x = cx - radius; x <= cx + radius; ++x) {
+        const int dx = x - cx;
+        const int dy = y - cy;
+        if (dx * dx + dy * dy <= radiusSq) {
+          SetPixel(rgba, width, height, x, y, r, g, b, a);
+        }
+      }
+    }
+  }
+
+  static void DrawCircleRing(
+      std::vector<uint8_t>& rgba,
+      int width,
+      int height,
+      int cx,
+      int cy,
+      int radius,
+      int thickness,
+      uint8_t r,
+      uint8_t g,
+      uint8_t b,
+      uint8_t a) {
+    const int outerSq = radius * radius;
+    const int innerRadius = std::max(0, radius - thickness);
+    const int innerSq = innerRadius * innerRadius;
+
+    for (int y = cy - radius; y <= cy + radius; ++y) {
+      for (int x = cx - radius; x <= cx + radius; ++x) {
+        const int dx = x - cx;
+        const int dy = y - cy;
+        const int distanceSq = dx * dx + dy * dy;
+        if (distanceSq <= outerSq && distanceSq >= innerSq) {
+          SetPixel(rgba, width, height, x, y, r, g, b, a);
+        }
+      }
+    }
+  }
+
   static void DrawMenuGlyph(
       std::vector<uint8_t>& rgba,
       int width,
@@ -421,6 +540,10 @@ class QrReadbackCheck final : public ReadbackCheck {
 
   std::array<XrPosef, 2> pointerPoses_{};
   std::array<bool, 2> pointerPoseValid_{{false, false}};
+  std::array<bool, 2> pointerUvValid_{{false, false}};
+  std::array<float, 2> pointerU_{{0.0f, 0.0f}};
+  std::array<float, 2> pointerV_{{0.0f, 0.0f}};
+  std::array<int, 2> pointerPulseFrames_{{0, 0}};
   std::array<bool, 2> launcherHit_{{false, false}};
   XrPosef headPose_{};
   bool headPoseValid_{false};
