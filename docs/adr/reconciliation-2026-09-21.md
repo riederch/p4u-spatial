@@ -47,6 +47,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0025 | Bridge | Aligned / reconstructed | Passkeys, password+TOTP, server-side sessions/CSRF and one-time first-run setup proof are implemented. |
 | 0026 | Contracts | Aligned / reconstructed | Derived candidates remain non-canonical until explicit review/promotion using normal Spatial write authority/idempotency. |
 | 0027 | Contracts | Aligned | xr-app is now explicitly a separate discoverable contract with canonical capability namespace xr-app.*. |
+| 0028 | Contracts | Aligned in code | delegated-user routes declare PKCE or Token Exchange; credentials/cache/relay authority are user-scoped. |
 
 ## Corrections made during this reconciliation
 
@@ -102,12 +103,18 @@ unavailable it refuses a durable acknowledgement rather than weakening the contr
 
 ### 2. Federation delegated-user
 
-The contract reserves/defines `delegated-user`; the reference FederationService implements only:
+The software gap found during the audit is closed:
 
-- anonymous,
-- service.
+- `delegated-user` is implemented as a first-class access mode,
+- routes declare either `authorization-code-pkce` or `token-exchange`,
+- PKCE state/verifier handling and server-side refresh credentials are implemented,
+- Token Exchange uses a deployment-provided SubjectTokenProvider rather than inventing a protocol token,
+- delegated caches are partitioned by local user,
+- durable relay responsibility retains the delegated user for retries,
+- upstream credentials are never returned to clients.
 
-This is an implementation gap, not a reason to weaken ADR 0012.
+Token Exchange still requires a deployment adapter that can produce a trusted subject token; that is
+an integration prerequisite, not a missing protocol decision.
 
 ### 3. Coordinate registration
 
