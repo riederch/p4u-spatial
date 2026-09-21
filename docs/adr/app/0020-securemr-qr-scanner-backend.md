@@ -47,6 +47,11 @@ recognition operates directly on the available camera image.
 - Hardware validation remains required for camera orientation, image quality and decode reliability.
 - Disabling QR recognition can stop unnecessary SecureMR/decode work rather than merely hiding UI.
 
+## Implementation anchors
+
+- `clients/pico-scanner/securemr-probe/src/main/java/com/bytedance/pico/secure_mr_demo/readback/ReadbackActivity.java` — Java-side SecureMR scan lifecycle, decode latch and ephemeral frame handoff.
+- `clients/pico-scanner/securemr-probe/cpp/readback_qr.cpp` — native PICO SecureMR/OpenXR camera acquisition and CPU readback backend.
+
 ## Related decisions
 
 - ADR 0013: XR Is a Profile over Core
