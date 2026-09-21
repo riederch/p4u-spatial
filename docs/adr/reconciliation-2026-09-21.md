@@ -48,6 +48,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0026 | Contracts | Aligned / reconstructed | Derived candidates remain non-canonical until explicit review/promotion using normal Spatial write authority/idempotency. |
 | 0027 | Contracts | Aligned | xr-app is now explicitly a separate discoverable contract with canonical capability namespace xr-app.*. |
 | 0028 | Contracts | Aligned in code | delegated-user routes declare PKCE or Token Exchange; credentials/cache/relay authority are user-scoped. |
+| 0029 | App | Aligned in code / hardware pending | Unified contribution-driven HUD, shared visual primitives, feedback/result panels and persisted 50–150% peripheral HUD scale are implemented; physical PICO validation remains. |
 
 ## Corrections made during this reconciliation
 
@@ -122,18 +123,20 @@ The coordinate-frame contract is mature enough to describe quality/provenance, b
 system still lacks the complete deterministic control-point registration/residual pipeline required
 by ADR 0003.
 
-### 4. XR HUD hardware validation
+### 4. Unified XR HUD hardware validation
 
-The software gap found during the audit has been closed:
+The software gap found during the audit is closed and superseded by the broader ADR 0029 implementation:
 
-- lower-left hierarchical menu is generated from feature metadata,
-- QR enable/disable is routed through the authoritative feature registry,
-- active feature symbols are projected on the right,
-- menu and status are hosted outside the primary content box in PICO Spatial UI `Augment`
-  surfaces using `ViewPoint.All`.
+- declarative HUD contributions drive menu/status rendering,
+- hierarchical navigation and authoritative feature toggles use shared HUD primitives,
+- active status is projected on the right,
+- launcher/navigation/status/feedback use PICO viewpoint-following Augments,
+- QR results use the shared result panel and action dock,
+- action progress/success/error uses the shared feedback layer,
+- peripheral HUD scale is persisted and adjustable from 50% to 150%.
 
-Remaining work is physical PICO validation of placement, follow behavior, controller/gaze interaction
-and comfort; code/CI completion does not constitute that hardware validation.
+Remaining work is physical PICO validation of placement, follow behavior, controller/gaze interaction,
+slider usability and comfort; code/CI completion does not constitute hardware validation.
 
 ### 5. App modularization validation
 
