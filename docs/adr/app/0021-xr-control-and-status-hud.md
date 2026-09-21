@@ -57,17 +57,17 @@ world/spatial UI as appropriate.
 
 ## Reconciliation note
 
-This ADR is only partially implemented.
+This ADR is functionally implemented at the generic shell level, but the final XR placement is still open.
 
 Implemented:
-- one authoritative observable QR feature state,
-- a generic active-feature status projection through `FeatureRegistry`,
-- QR status visibility derived from that state.
+- one authoritative observable feature state through `FeatureRegistry`,
+- a generic hierarchical lower-left menu generated from feature `menuPath` metadata,
+- generic toggle handling through the feature registry,
+- `Menü → Erkennung → QR-Code-Erkennung → Ein/Aus`,
+- a generic active-feature status projection on the right,
+- QR status visibility derived from the same authoritative state.
 
 Still open:
-- the lower-left hierarchical menu entry point,
-- the `QR-Code-Erkennung` toggle UI itself,
-- moving menu and status indicators to a true head-locked XR HUD,
-- removing the current in-window status prototype.
+- moving menu and status indicators from the current Spatial app window into a true head-locked XR HUD layer.
 
-The current status indicator therefore demonstrates the state/projection model but is not the final HUD required by this ADR.
+The current in-window shell validates the interaction/state architecture; it must not be mistaken for the final field-of-view anchoring required by this ADR.
