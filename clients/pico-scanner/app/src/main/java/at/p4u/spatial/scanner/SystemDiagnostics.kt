@@ -35,6 +35,7 @@ object SystemDiagnostics {
         basicBuild()
         androidRuntime()
         appInfo(context)
+        inputManifest(context)
         display(context)
         memoryAndStorage(context)
         packageFeatures(context)
@@ -101,6 +102,50 @@ object SystemDiagnostics {
         line("sourceDir", app.sourceDir)
         line("dataDir", app.dataDir)
         line("debuggable", (app.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
+    }
+
+    private fun inputManifest(context: Context) {
+        section("PICO INPUT MANIFEST")
+
+        val pm = context.packageManager
+        val pkg = context.packageName
+        val handTrackingPermission = "com.picovr.permission.HAND_TRACKING"
+
+        val flags =
+            PackageManager.PackageInfoFlags.of(
+                (PackageManager.GET_PERMISSIONS or PackageManager.GET_META_DATA).toLong()
+            )
+
+        val info =
+            runCatching { pm.getPackageInfo(pkg, flags) }
+                .onFailure { error("inputManifest.packageInfo", it) }
+                .getOrNull()
+
+        val appMetaData = info?.applicationInfo?.metaData
+        line("input.meta.handtracking", appMetaData?.get("handtracking"))
+        line("input.meta.controller", appMetaData?.get("controller"))
+        line(
+            "input.meta.Hand_Tracking_HighFrequency",
+            appMetaData?.get("Hand_Tracking_HighFrequency"),
+        )
+
+        val requested = info?.requestedPermissions?.contains(handTrackingPermission) == true
+        val granted =
+            runCatching {
+                pm.checkPermission(handTrackingPermission, pkg) == PackageManager.PERMISSION_GRANTED
+            }.getOrDefault(false)
+
+        line("input.permission.HAND_TRACKING.requested", requested)
+        line("input.permission.HAND_TRACKING.granted", granted)
+
+        runCatching {
+            val activity =
+                pm.getActivityInfo(
+                    android.content.ComponentName(context, MainActivity::class.java),
+                    PackageManager.ComponentInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+                )
+            line("input.activity.metaData", activity.metaData?.keySet()?.sorted()?.joinToString())
+        }.onFailure { error("inputManifest.activityInfo", it) }
     }
 
     private fun display(context: Context) {
