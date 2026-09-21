@@ -316,6 +316,7 @@ set(_direct_hand_member_replacement [==[
       m_p4uHandJoints{};
   std::array<bool, Side::COUNT> m_p4uHandPinched{{false, false}};
   std::array<bool, Side::COUNT> m_p4uDirectHandWasActive{{false, false}};
+  std::array<uint32_t, Side::COUNT> m_p4uHandProbeCounter{{0, 0}};
 
   XrEventDataBuffer m_eventDataBuffer;
 ]==])
@@ -523,6 +524,26 @@ set(_direct_hand_render_replacement [==[
         const bool directActive =
             XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
 
+        // P4U: throttle hand-joint diagnostics to roughly once per second per hand.
+        // This makes runtime-specific flag behavior observable without flooding logcat.
+        if ((++m_p4uHandProbeCounter[hand] % 90u) == 1u) {
+          const char* handName[] = {"left", "right"};
+          Log::Write(
+              Log::Level::Info,
+              Fmt("P4U: hand probe (%s) result=%d isActive=%d "
+                  "palmFlags=0x%llx thumbFlags=0x%llx indexFlags=0x%llx "
+                  "palmValid=%s pinchJointsValid=%s directActive=%s",
+                  handName[hand],
+                  handResult,
+                  locations.isActive,
+                  static_cast<unsigned long long>(palm.locationFlags),
+                  static_cast<unsigned long long>(thumbTip.locationFlags),
+                  static_cast<unsigned long long>(indexTip.locationFlags),
+                  palmValid ? "yes" : "no",
+                  pinchJointsValid ? "yes" : "no",
+                  directActive ? "yes" : "no"));
+        }
+
         if (directActive) {
           resolvedPose = palm.pose;
           m_input.handActive[hand] = XR_TRUE;
@@ -689,6 +710,69 @@ _p4u_replace_if_missing(
     "PICO's native OpenXR sample does not gate joint usability"
     "${_direct_hand_activity_old}"
     "${_direct_hand_activity_new}"
+)
+
+set(_direct_hand_diag_member_old [==[
+  std::array<bool, Side::COUNT> m_p4uHandPinched{{false, false}};
+  std::array<bool, Side::COUNT> m_p4uDirectHandWasActive{{false, false}};
+
+  XrEventDataBuffer m_eventDataBuffer;
+]==])
+
+set(_direct_hand_diag_member_new [==[
+  std::array<bool, Side::COUNT> m_p4uHandPinched{{false, false}};
+  std::array<bool, Side::COUNT> m_p4uDirectHandWasActive{{false, false}};
+  std::array<uint32_t, Side::COUNT> m_p4uHandProbeCounter{{0, 0}};
+
+  XrEventDataBuffer m_eventDataBuffer;
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand probe counter v4"
+    "m_p4uHandProbeCounter{{0, 0}}"
+    "${_direct_hand_diag_member_old}"
+    "${_direct_hand_diag_member_new}"
+)
+
+set(_direct_hand_diag_old [==[
+        const bool directActive =
+            XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
+
+        if (directActive) {
+]==])
+
+set(_direct_hand_diag_new [==[
+        const bool directActive =
+            XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
+
+        // P4U: throttle hand-joint diagnostics to roughly once per second per hand.
+        // This makes runtime-specific flag behavior observable without flooding logcat.
+        if ((++m_p4uHandProbeCounter[hand] % 90u) == 1u) {
+          const char* handName[] = {"left", "right"};
+          Log::Write(
+              Log::Level::Info,
+              Fmt("P4U: hand probe (%s) result=%d isActive=%d "
+                  "palmFlags=0x%llx thumbFlags=0x%llx indexFlags=0x%llx "
+                  "palmValid=%s pinchJointsValid=%s directActive=%s",
+                  handName[hand],
+                  handResult,
+                  locations.isActive,
+                  static_cast<unsigned long long>(palm.locationFlags),
+                  static_cast<unsigned long long>(thumbTip.locationFlags),
+                  static_cast<unsigned long long>(indexTip.locationFlags),
+                  palmValid ? "yes" : "no",
+                  pinchJointsValid ? "yes" : "no",
+                  directActive ? "yes" : "no"));
+        }
+
+        if (directActive) {
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand runtime diagnostics v4"
+    "P4U: hand probe (%s)"
+    "${_direct_hand_diag_old}"
+    "${_direct_hand_diag_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
