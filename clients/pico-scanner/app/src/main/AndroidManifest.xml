@@ -6,6 +6,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="com.picovr.permission.HAND_TRACKING" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-feature android:name="android.hardware.vr.headtracking" android:required="true" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -26,6 +27,18 @@
         <meta-data
             android:name="enable_mr_safeguard"
             android:value="1" />
+
+        <!-- PICO ControllersAndHands interaction mode.
+             Keep both markers: the launcher/runtime may select either input source. -->
+        <meta-data
+            android:name="handtracking"
+            android:value="1" />
+        <meta-data
+            android:name="controller"
+            android:value="1" />
+        <meta-data
+            android:name="Hand_Tracking_HighFrequency"
+            android:value="0" />
 
         <activity
             android:name=".MainActivity"
