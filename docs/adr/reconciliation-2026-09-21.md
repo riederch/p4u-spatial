@@ -24,7 +24,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0002 | Bridge | Aligned | One-time QR pairing, administrator approval, scoped device sessions, disable/revoke and session revocation are implemented. |
 | 0003 | Contracts | Partial | Explicit frame/transform contracts and scan-local capture evidence exist; full control-point registration/residual/GIS workflow is not yet end-to-end. |
 | 0004 | Bridge | Aligned | Fundamental Bridge/capture flows remain deterministic; derived semantic candidates retain provenance and require review/promotion. |
-| 0005 | Contracts | Aligned | Core/Spatial/App Sync/Federation/XR layering exists in the protocol tree. App Sync/Tiles are not necessarily implemented by this reference product. |
+| 0005 | Contracts | Superseded by 0027 | Original layering omitted the later independent xr-app contract; remaining layering invariants continue under ADR 0027. |
 | 0006 | Contracts | Aligned / partial client | Local and federated source/route separation is implemented by the Bridge. Full multi-route client preference/deduplication is not yet a finished headset capability. |
 | 0007 | Contracts | Aligned | One Core-authenticated device principal is reused across implemented protected contracts; canonical scopes are shared. |
 | 0008 | Contracts | Contract-only | App Sync independence is fully specified, but there is no Account Provider implementation in this repository. |
@@ -36,7 +36,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0014 | Contracts | Partial | Relations use normal Spatial collections/write semantics. Efficient relation filtering is not implemented. |
 | 0015 | Contracts | Contract-only | Explicit publish workflow is specified; no MultiGIS/App Sync reference client exists here. |
 | 0016 | Contracts | Contract-only / implementation gap | Immutable Spatial Artifact contract exists; Bridge artifact read/upload endpoints are not implemented. |
-| 0017 | Contracts | **Conflict** | Canonical registry lists core/spatial/tiles/federation/app-sync/xr, while current discovery and XR app-lifecycle documentation add an `xr-app` contract key. Requires explicit resolution. |
+| 0017 | Contracts | Superseded by 0027 | The previous xr-app registry ambiguity was explicitly resolved by ADR 0027. |
 | 0018 | Bridge | Partial migration | Persisted BridgeConfigStore is authoritative after migration, but legacy functional `P4U_*` environment variables are still accepted as bootstrap/migration input. |
 | 0019 | App | Partial | Generic QR lifecycle/content/actions are reusable; QR result presentation still lives in the product app layer. |
 | 0020 | App | Aligned in code / hardware pending | SecureMR is an internal QR backend; first-valid decode, no overlay and ephemeral frames match ADR. PICO hardware validation remains required. |
@@ -46,6 +46,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0024 | App | Aligned / reconstructed | Durable outbox, retry-safe upload and Android Keystore-backed refresh credential storage are implemented. |
 | 0025 | Bridge | Aligned / reconstructed | Passkeys, password+TOTP, server-side sessions/CSRF and one-time first-run setup proof are implemented. |
 | 0026 | Contracts | Aligned / reconstructed | Derived candidates remain non-canonical until explicit review/promotion using normal Spatial write authority/idempotency. |
+| 0027 | Contracts | Aligned | xr-app is now explicitly a separate discoverable contract with canonical capability namespace xr-app.*. |
 
 ## Corrections made during this reconciliation
 
@@ -83,27 +84,7 @@ It has been changed to `implementation`, so SecureMR remains an internal backend
 
 ## Open architecture gaps
 
-### 1. Discovery namespace: `xr-app`
-
-This is the only direct ADR/documentation conflict found in the current baseline.
-
-ADR 0017 and `protocol/core/registry.md` define canonical contract keys:
-
-- core
-- spatial
-- tiles
-- federation
-- app-sync
-- xr
-
-However:
-
-- `bridge/src/server.ts` advertises `xr-app`,
-- `protocol/xr/app-lifecycle.md` explicitly documents `xr-app` as a discoverable contract.
-
-Do not remove or bless `xr-app` implicitly. Resolve this with an explicit ADR/registry decision.
-
-### 2. Spatial Artifacts
+### 1. Spatial Artifacts
 
 ADR 0016 is normative, but the Bridge does not implement:
 
@@ -115,7 +96,7 @@ ADR 0016 is normative, but the Bridge does not implement:
 Until implemented, the Bridge must not advertise artifact capabilities or make artifact-dependent
 durability guarantees.
 
-### 3. Federation delegated-user
+### 2. Federation delegated-user
 
 The contract reserves/defines `delegated-user`; the reference FederationService implements only:
 
@@ -124,13 +105,13 @@ The contract reserves/defines `delegated-user`; the reference FederationService 
 
 This is an implementation gap, not a reason to weaken ADR 0012.
 
-### 4. Coordinate registration
+### 3. Coordinate registration
 
 The coordinate-frame contract is mature enough to describe quality/provenance, but the reference
 system still lacks the complete deterministic control-point registration/residual pipeline required
 by ADR 0003.
 
-### 5. XR HUD
+### 4. XR HUD
 
 ADR 0021 remains intentionally ahead of implementation:
 
@@ -140,7 +121,7 @@ ADR 0021 remains intentionally ahead of implementation:
 - status projection still lives inside the spatial app window,
 - no final head-locked HUD interaction layer.
 
-### 6. App modularization
+### 5. App modularization
 
 ADR 0022 established the correct dependency direction, but the composition root still imports and
 renders QR-specific state/result components.
@@ -163,8 +144,8 @@ rationale:
 Each ADR contains a historical note stating that it is a reconstruction from the current
 implementation and surviving documentation.
 
-The unresolved `xr-app` discovery-key question remains separate under ADR 0017 and was deliberately
-not decided as part of ADR 0023.
+The former `xr-app` discovery-key ambiguity was resolved explicitly by ADR 0027: `xr-app` is a
+separate first-class contract.
 
 ## Baseline rule going forward
 
