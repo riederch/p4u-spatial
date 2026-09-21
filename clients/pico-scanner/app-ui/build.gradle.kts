@@ -30,5 +30,6 @@ dependencies {
     implementation(project(":app-core"))
     implementation(platform("com.pico.spatial:bom:6.1.9"))
     implementation("com.pico.spatial.ui:foundation")
+    implementation("com.pico.spatial.ui:platform")
     implementation("com.pico.spatial.ui:design")
 }
