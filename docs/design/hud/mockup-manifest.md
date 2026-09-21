@@ -124,3 +124,36 @@ State:
 - current value: 100%,
 - launcher and right status rail visibly respond to the setting,
 - central result/detail panel sizing remains unchanged.
+
+
+## GNSS extension mockups
+
+### M10 — Idle HUD with QR + GNSS
+
+Purpose:
+- validate multiple active features in the peripheral rail,
+- validate the shell with a real second feature.
+
+State:
+- QR enabled,
+- GNSS enabled with valid fix,
+- QR and GNSS icons visible,
+- no permanent coordinate text.
+
+### M11 — Positioning / GNSS detail
+
+State:
+- path: Positionierung → GNSS,
+- toggle: Ein,
+- source: Garmin GLO 2,
+- device/connection: Verbunden,
+- position quality as secondary value.
+
+### M12 — GNSS no-fix / degraded
+
+State:
+- GNSS remains enabled,
+- no valid fix or disconnected,
+- waiting/warning rail treatment,
+- detail explains the state,
+- no silent source fallback.
