@@ -368,3 +368,38 @@ It complements, and does not supersede:
 - ADR 0022 — Modular App Foundation and Features
 - ADR 0024 — Headset Offline State, Durable Outbox and Secure Credentials
 - ADR 0030 — Optional External GNSS Positioning Feature
+
+
+## Implementation anchors
+
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudContracts.kt` — declarative menu, status, command, feedback, panel and HUD settings contracts.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudTokens.kt` — shared semantic design tokens derived from the accepted HUD design specification.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudComponents.kt` — shared launcher, navigation, toggle, command, status, feedback and result-panel primitives.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/hud/HudSettingsStore.kt` — persisted peripheral HUD scale preference.
+- `clients/pico-scanner/app-ui/src/main/java/at/p4u/picovr/ui/PicoFeatureShell.kt` — contribution-driven hierarchical navigation, viewpoint-following launcher/status/feedback surfaces and HUD scale integration.
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrFeaturePresentation.kt` — QR integration with shared result panel, commands and feedback.
+- `clients/pico-scanner/qr-reader-ui/src/main/java/at/p4u/picovr/qr/ui/QrHudCommand.kt` — adapter from reusable QR actions to the common HUD command model.
+
+## Implementation status
+
+The software architecture defined by this ADR is implemented and builds successfully with the
+PICO Spatial SDK 6.1.9 debug APK.
+
+Implemented:
+
+- declarative HUD contributions,
+- unified launcher/navigation/status primitives,
+- contribution-driven hierarchical navigation,
+- authoritative feature toggles,
+- right-side active status rail,
+- viewpoint-following PICO Augments,
+- centralized feedback/progress surface,
+- shared result/detail panel chrome and fixed action dock,
+- QR result/action migration,
+- persisted `System → Anzeige → HUD-Größe` slider,
+- 50–150% peripheral HUD scale in 5% steps with 100% default,
+- minimum interaction hit target retained independently of reduced visual scale.
+
+Physical PICO 4 Ultra validation remains required for field-of-view placement, interaction comfort,
+slider usability, viewpoint-follow behavior and final visual tuning. Code/CI completion is not
+hardware validation.
