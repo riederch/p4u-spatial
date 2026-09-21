@@ -21,6 +21,14 @@ export interface BridgeConfig {
   federationUpstreamUrl?: string;
   federationToken?: string;
   federationRouteId: string;
+  federationAccessMode: "anonymous" | "service" | "delegated-user";
+  federationDelegationMethod?: "authorization-code-pkce" | "token-exchange";
+  federationOAuthAuthorizationUrl?: string;
+  federationOAuthTokenUrl?: string;
+  federationOAuthClientId?: string;
+  federationOAuthClientSecret?: string;
+  federationOAuthScopes?: string;
+  federationOAuthAudience?: string;
   spatialRoot: string;
   spatialWritable: boolean;
   spatialRouteId: string;
@@ -66,6 +74,20 @@ function intEnv(name: string, fallback: number): number {
   return value;
 }
 
+function federationAccessMode(): "anonymous" | "service" | "delegated-user" {
+  const raw = process.env.P4U_FEDERATION_ACCESS_MODE;
+  if (!raw) return process.env.P4U_FEDERATION_TOKEN ? "service" : "anonymous";
+  if (raw === "anonymous" || raw === "service" || raw === "delegated-user") return raw;
+  throw new Error("P4U_FEDERATION_ACCESS_MODE must be anonymous, service or delegated-user");
+}
+
+function federationDelegationMethod(): "authorization-code-pkce" | "token-exchange" | undefined {
+  const raw = process.env.P4U_FEDERATION_DELEGATION_METHOD;
+  if (!raw) return undefined;
+  if (raw === "authorization-code-pkce" || raw === "token-exchange") return raw;
+  throw new Error("P4U_FEDERATION_DELEGATION_METHOD must be authorization-code-pkce or token-exchange");
+}
+
 export function loadConfig(): BridgeConfig {
   const repositoryProfile = process.env.P4U_REPOSITORY_PROFILE === "rchkb" ? "rchkb" : "generic";
   const rchkbRoot = repositoryProfile === "rchkb"
@@ -88,6 +110,7 @@ export function loadConfig(): BridgeConfig {
     gitBranch: process.env.P4U_GIT_BRANCH ?? "main",
     gitRefreshIntervalMs: intEnv("P4U_GIT_REFRESH_INTERVAL_MS", 1000),
     federationRouteId: process.env.P4U_FEDERATION_ROUTE_ID ?? "upstream",
+    federationAccessMode: federationAccessMode(),
     spatialRoot,
     spatialWritable,
     spatialRouteId: repositoryProfile === "rchkb" ? "rchkb-git" : "git-repository",
@@ -120,6 +143,27 @@ export function loadConfig(): BridgeConfig {
   if (process.env.P4U_GIT_TOKEN) config.gitToken = process.env.P4U_GIT_TOKEN;
   if (process.env.P4U_FEDERATION_UPSTREAM_URL) config.federationUpstreamUrl = process.env.P4U_FEDERATION_UPSTREAM_URL;
   if (process.env.P4U_FEDERATION_TOKEN) config.federationToken = process.env.P4U_FEDERATION_TOKEN;
+  const delegationMethod = federationDelegationMethod();
+  if (delegationMethod) config.federationDelegationMethod = delegationMethod;
+  if (process.env.P4U_FEDERATION_OAUTH_AUTHORIZATION_URL) config.federationOAuthAuthorizationUrl = process.env.P4U_FEDERATION_OAUTH_AUTHORIZATION_URL;
+  if (process.env.P4U_FEDERATION_OAUTH_TOKEN_URL) config.federationOAuthTokenUrl = process.env.P4U_FEDERATION_OAUTH_TOKEN_URL;
+  if (process.env.P4U_FEDERATION_OAUTH_CLIENT_ID) config.federationOAuthClientId = process.env.P4U_FEDERATION_OAUTH_CLIENT_ID;
+  if (process.env.P4U_FEDERATION_OAUTH_CLIENT_SECRET) config.federationOAuthClientSecret = process.env.P4U_FEDERATION_OAUTH_CLIENT_SECRET;
+  if (process.env.P4U_FEDERATION_OAUTH_SCOPES) config.federationOAuthScopes = process.env.P4U_FEDERATION_OAUTH_SCOPES;
+  if (process.env.P4U_FEDERATION_OAUTH_AUDIENCE) config.federationOAuthAudience = process.env.P4U_FEDERATION_OAUTH_AUDIENCE;
   if (process.env.P4U_ADMIN_KEY) config.adminKey = process.env.P4U_ADMIN_KEY;
+
+  if (config.federationAccessMode === "service" && !config.federationToken) {
+    throw new Error("P4U_FEDERATION_TOKEN is required when P4U_FEDERATION_ACCESS_MODE=service");
+  }
+  if (config.federationAccessMode === "delegated-user") {
+    if (!config.federationDelegationMethod) throw new Error("P4U_FEDERATION_DELEGATION_METHOD is required for delegated-user federation");
+    if (!config.federationOAuthTokenUrl) throw new Error("P4U_FEDERATION_OAUTH_TOKEN_URL is required for delegated-user federation");
+    if (!config.federationOAuthClientId) throw new Error("P4U_FEDERATION_OAUTH_CLIENT_ID is required for delegated-user federation");
+    if (config.federationDelegationMethod === "authorization-code-pkce" && !config.federationOAuthAuthorizationUrl) {
+      throw new Error("P4U_FEDERATION_OAUTH_AUTHORIZATION_URL is required for authorization-code-pkce");
+    }
+  }
+
   return config;
 }
