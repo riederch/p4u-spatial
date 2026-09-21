@@ -56,3 +56,9 @@ recognition operates directly on the available camera image.
 
 - ADR 0013: XR Is a Profile over Core
 - ADR 0019: Reusable QR Reader Feature
+
+## Reconciliation note
+
+The module dependency was reconciled during the 2026-09-21 audit: `qr-reader` now uses `securemr-probe` as an internal Gradle `implementation` dependency rather than exposing it through `api`.
+
+The software boundary now matches this ADR. Real-device decode reliability, orientation/image quality and end-to-end PICO hardware validation remain required and are not implied by code/CI completion.
