@@ -1,6 +1,6 @@
 # ADR 0017: Discovery Identifier and Machine Namespace Registry
 
-Status: accepted
+Status: Superseded by ADR 0027
 
 ## Decision
 
@@ -47,3 +47,5 @@ Legacy P4U XR scopes remain accepted as compatibility aliases but are not canoni
 ## Reconciliation note
 
 One unresolved inconsistency remains: discovery currently advertises an additional `xr-app` contract and `protocol/xr/app-lifecycle.md` documents that key, while the registry lists canonical contract keys as `core`, `spatial`, `tiles`, `federation`, `app-sync`, `xr`. This audit does not silently choose one interpretation; it must be resolved by an explicit follow-up ADR or registry amendment.
+
+> Superseded because ADR 0027 resolves the `xr-app` registry/discovery ambiguity explicitly.
