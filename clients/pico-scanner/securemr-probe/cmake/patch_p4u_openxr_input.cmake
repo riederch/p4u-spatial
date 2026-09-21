@@ -84,6 +84,15 @@ set(_extension_replacement [==[
           Log::Level::Warning,
           "P4U: XR_BD_controller_interaction unavailable; using generic controller bindings only");
     }
+
+    if (m_handInteractionSupported) {
+      extensions.push_back(XR_EXT_HAND_INTERACTION_EXTENSION_NAME);
+      Log::Write(Log::Level::Info, "P4U: enabling XR_EXT_hand_interaction");
+    } else {
+      Log::Write(
+          Log::Level::Warning,
+          "P4U: XR_EXT_hand_interaction unavailable; hand HUD fallback disabled");
+    }
 ]==])
 
 _p4u_replace_once(
@@ -140,6 +149,59 @@ set(_binding_replacement [==[
       Log::Write(
           Log::Level::Info,
           "P4U: suggested bindings for /interaction_profiles/bytedance/pico4s_controller");
+    }
+
+    // P4U: Hand interaction is a semantic fallback for the same HUD controls, not a
+    // separate input mode. Pinch drives the existing grab/activate action and hand aim
+    // drives the same pose action used by controller aim. No hand haptic or hand-only
+    // menu binding is introduced.
+    if (m_handInteractionSupported) {
+      XrPath handInteractionProfilePath;
+      XrPath leftHandAimPosePath;
+      XrPath rightHandAimPosePath;
+      XrPath leftPinchValuePath;
+      XrPath rightPinchValuePath;
+
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/interaction_profiles/ext/hand_interaction_ext",
+          &handInteractionProfilePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/left/input/aim/pose",
+          &leftHandAimPosePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/right/input/aim/pose",
+          &rightHandAimPosePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/left/input/pinch_ext/value",
+          &leftPinchValuePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/right/input/pinch_ext/value",
+          &rightPinchValuePath));
+
+      std::vector<XrActionSuggestedBinding> handInteractionBindings{{
+          {m_input.grabAction, leftPinchValuePath},
+          {m_input.grabAction, rightPinchValuePath},
+          {m_input.poseAction, leftHandAimPosePath},
+          {m_input.poseAction, rightHandAimPosePath},
+      }};
+
+      XrInteractionProfileSuggestedBinding handInteractionSuggestedBindings{
+          XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+      handInteractionSuggestedBindings.interactionProfile = handInteractionProfilePath;
+      handInteractionSuggestedBindings.suggestedBindings = handInteractionBindings.data();
+      handInteractionSuggestedBindings.countSuggestedBindings =
+          static_cast<uint32_t>(handInteractionBindings.size());
+      CHECK_XRCMD(xrSuggestInteractionProfileBindings(
+          m_instance, &handInteractionSuggestedBindings));
+
+      Log::Write(
+          Log::Level::Info,
+          "P4U: suggested hand fallback bindings for /interaction_profiles/ext/hand_interaction_ext");
     }
 
     XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
