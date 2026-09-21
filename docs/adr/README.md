@@ -149,7 +149,7 @@ For a material change:
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [0003](contracts/0003-spatial-coordinate-frames.md) | Spatial coordinate frames | Accepted |
-| [0005](contracts/0005-protocol-layering.md) | Protocol layering | Accepted |
+| [0005](contracts/0005-protocol-layering.md) | Protocol layering | Superseded by 0027 |
 | [0006](contracts/0006-source-route-identity.md) | Source and route identity | Accepted |
 | [0007](contracts/0007-authentication-boundary.md) | Authentication boundary | Accepted |
 | [0008](contracts/0008-app-sync-independence.md) | App Sync independence | Accepted |
@@ -161,8 +161,9 @@ For a material change:
 | [0014](contracts/0014-relation-authority.md) | Relation authority | Accepted |
 | [0015](contracts/0015-publish-boundary.md) | Publish boundary | Accepted |
 | [0016](contracts/0016-artifact-immutability.md) | Artifact immutability | Accepted |
-| [0017](contracts/0017-discovery-and-namespace-registry.md) | Discovery and namespace registry | Accepted |
+| [0017](contracts/0017-discovery-and-namespace-registry.md) | Discovery and namespace registry | Superseded by 0027 |
 | [0026](contracts/0026-derived-candidate-review-and-promotion.md) | Derived candidate review and explicit promotion | Accepted |
+| [0027](contracts/0027-separate-xr-app-contract.md) | Separate XR application lifecycle contract and discovery registry | Accepted |
 
 ## Relationship to repository rules
 
