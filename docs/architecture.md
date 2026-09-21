@@ -1,5 +1,7 @@
 # Architecture
 
+Architectural decisions and their rationale are tracked in the [ADR index](adr/README.md).
+
 ## Open interoperability boundary
 
 P4U Spatial is a reference implementation of the open contracts incubated in `protocol/`; it is not the definition of every implementation's internal storage model.
