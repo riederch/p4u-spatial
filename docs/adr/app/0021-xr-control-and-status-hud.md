@@ -54,3 +54,20 @@ world/spatial UI as appropriate.
 
 - ADR 0019: Reusable QR Reader Feature
 - ADR 0020: SecureMR QR Scanner Backend
+
+## Reconciliation note
+
+This ADR is only partially implemented.
+
+Implemented:
+- one authoritative observable QR feature state,
+- a generic active-feature status projection through `FeatureRegistry`,
+- QR status visibility derived from that state.
+
+Still open:
+- the lower-left hierarchical menu entry point,
+- the `QR-Code-Erkennung` toggle UI itself,
+- moving menu and status indicators to a true head-locked XR HUD,
+- removing the current in-window status prototype.
+
+The current status indicator therefore demonstrates the state/projection model but is not the final HUD required by this ADR.
