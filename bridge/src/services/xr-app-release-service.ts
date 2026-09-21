@@ -67,6 +67,7 @@ function semverLike(value: unknown): string {
 }
 
 // ADR: docs/adr/app/0023-xr-application-update-trust.md — release metadata is Bridge-owned, while APK signing trust remains external and pinned by the client.
+// ADR: docs/adr/app/0023-xr-application-update-trust.md — release metadata is Bridge-owned, while APK signing trust remains external and pinned by the client.
 export class XrAppReleaseService {
   private readonly store: AtomicJsonStore<ReleaseState>;
 
