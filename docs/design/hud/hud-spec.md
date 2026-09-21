@@ -2,7 +2,7 @@
 
 Derived from: ADR 0029 — Unified XR HUD Interaction Shell
 
-Status: Draft for visual validation
+Status: Accepted design direction
 
 ## Purpose
 
@@ -139,6 +139,31 @@ These values are semantic starting points for mockups, not physical hardware cal
 - Status rail: right peripheral zone, upper-middle to middle.
 - Feedback: lower-center, short vertical footprint.
 - Result panel: central working area, not permanently head-locked.
+
+## Peripheral HUD scale
+
+A hidden display preference controls only the persistent peripheral HUD chrome:
+
+Path:
+
+```text
+System
+└── Anzeige
+    └── HUD-Größe
+```
+
+Behavior:
+
+- default: 100%,
+- range: 50%–150%,
+- reference step: 5%,
+- slider control,
+- affects launcher/menu button and status rail,
+- does not scale result/detail panels or working content,
+- persists as a user display preference,
+- visual size may shrink below 100%, but effective interaction hit targets must not shrink below the configured minimum XR hit target.
+
+This is a presentation preference only. It does not alter feature state or runtime capabilities.
 
 ## Accessibility / comfort
 
