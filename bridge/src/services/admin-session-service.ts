@@ -18,6 +18,7 @@ export interface AdminSession {
   expiresAt: string;
 }
 
+// ADR: docs/adr/bridge/0025-admin-authentication-and-bootstrap.md — administrator browser login creates server-side session and CSRF-bound state.
 export class AdminSessionService {
   private readonly store: AtomicJsonStore<State>;
 
