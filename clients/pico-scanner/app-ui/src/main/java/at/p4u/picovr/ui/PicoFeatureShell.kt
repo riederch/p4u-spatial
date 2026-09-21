@@ -25,7 +25,11 @@ import com.pico.spatial.ui.design.Button
 import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.design.Text
 import com.pico.spatial.ui.design.defaultColorScheme
+import com.pico.spatial.ui.foundation.geometry.NormalizedPoint3D
 import com.pico.spatial.ui.foundation.material.backgroundMaterial
+import com.pico.spatial.ui.foundation.window.Augment
+import com.pico.spatial.ui.foundation.window.AugmentContentAlignment
+import com.pico.spatial.ui.platform.ViewPoint
 
 // ADR: docs/adr/app/0022-modular-app-foundation-and-features.md — shell renders generic feature presentations without importing feature-specific types.
 // ADR: docs/adr/app/0021-xr-control-and-status-hud.md — menu and status projection derive from authoritative feature snapshots.
@@ -53,16 +57,31 @@ fun PicoFeatureShell(
                 presentations.home()?.Content()
             }
 
+        }
+
+        Augment(
+            anchor = NormalizedPoint3D(0.08f, 0.96f, 0f),
+            alignment = AugmentContentAlignment.BottomCenter,
+            followViewpoints = ViewPoint.All,
+            enableMaterialBackground = false,
+            focusable = true,
+        ) {
             FeatureMenu(
                 features = features,
                 onFeatureEnabledChange = onFeatureEnabledChange,
-                modifier = Modifier.align(Alignment.BottomStart),
             )
+        }
 
+        Augment(
+            anchor = NormalizedPoint3D(0.94f, 0.78f, 0f),
+            alignment = AugmentContentAlignment.BottomCenter,
+            followViewpoints = ViewPoint.All,
+            enableMaterialBackground = false,
+            focusable = false,
+        ) {
             ActiveFunctionStatusBar(
                 features = features,
                 presentations = presentations,
-                modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
     }
