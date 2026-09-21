@@ -109,3 +109,18 @@ All mockups:
 - no scan frame or QR corner overlay.
 
 The mockups are concept validation artifacts, not screenshots of the final PICO rendering.
+
+
+## M09 — HUD size setting
+
+Purpose:
+- validate discoverability and live scaling of peripheral HUD chrome.
+
+State:
+- path: System → Anzeige,
+- row: HUD-Größe,
+- slider visible,
+- range labels: 50%, 100%, 150%,
+- current value: 100%,
+- launcher and right status rail visibly respond to the setting,
+- central result/detail panel sizing remains unchanged.
