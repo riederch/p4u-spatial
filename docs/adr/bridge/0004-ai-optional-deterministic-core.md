@@ -38,3 +38,10 @@ AI output must preserve provenance and confidence. Uncertain AI output must not 
 ## Consequence
 
 If no model is available, P4U Spatial remains a fully functional spatial capture, registration, sync and display system. Semantic enrichment may be reduced or require manual confirmation.
+
+## Implementation anchors
+
+- `bridge/package.json` — the Bridge runtime has no AI/LLM dependency.
+- `bridge/src/services/candidate-review-service.ts` — derived semantic candidates preserve evidence/provenance and require explicit review/promotion before canonical Spatial mutation.
+- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/CandidateDerivation.kt` — deterministic candidate identity/provenance helpers do not depend on a model.
+- `protocol/xr/derived-candidates.md` — candidate interpretation remains non-canonical until explicit review and Spatial promotion.

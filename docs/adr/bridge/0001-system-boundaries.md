@@ -15,3 +15,9 @@ The headset communicates only with the P4U Spatial Bridge. Repository access is 
 - the bridge is the authorization boundary,
 - the same bridge runs standalone or as a Home Assistant add-on,
 - scanner, model and repository provider can evolve independently.
+
+## Implementation anchors
+
+- `bridge/src/repository/provider.ts` — repository access is isolated behind the Bridge-owned provider interface.
+- `bridge/src/repository/factory.ts` — filesystem/Git repository selection happens only on the Bridge.
+- `clients/pico-scanner/app/src/main/java/at/p4u/spatial/scanner/BridgeProfileStore.kt` — the headset stores Bridge endpoints, not repository credentials or repository-provider configuration.

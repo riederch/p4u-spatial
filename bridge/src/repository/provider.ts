@@ -1,3 +1,5 @@
+// ADR: docs/adr/bridge/0001-system-boundaries.md — repository access belongs behind the Bridge boundary, never on the headset.
+// ADR: docs/adr/contracts/0010-repository-layout-profile.md — repository storage is a backend profile, not a protocol contract.
 export interface FileChange {
   path: string;
   content: Uint8Array;

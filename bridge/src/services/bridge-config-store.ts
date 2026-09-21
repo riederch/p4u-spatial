@@ -12,6 +12,7 @@ interface State {
 
 const SECRET_FIELDS = new Set<keyof OperatorBridgeConfig>(["gitToken", "federationToken"]);
 
+// ADR: docs/adr/bridge/0018-web-managed-configuration.md — persisted Bridge state is the operator configuration authority after bootstrap migration.
 export class BridgeConfigStore {
   private readonly store: AtomicJsonStore<State>;
 

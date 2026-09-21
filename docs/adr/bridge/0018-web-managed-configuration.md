@@ -1,6 +1,6 @@
 # ADR 0018: Web-Managed Bridge Configuration
 
-Status: accepted
+Status: Accepted
 
 ## Context
 
@@ -83,3 +83,16 @@ It MUST NOT contain repository, federation, XR, Spatial, RCHKB or other Bridge b
 - The generic Docker image does not need a parallel set of application environment variables.
 - Changes to settings that require rebuilding runtime services may be persisted through the GUI and applied through a controlled Bridge restart until live reconfiguration exists.
 - The current environment-variable configuration remains a migration gap and must not be expanded.
+
+## Implementation anchors
+
+- `bridge/src/services/bridge-config-store.ts` — persisted operator configuration and one-time migration from bootstrap values.
+- `bridge/src/main.ts` — loads bootstrap values once, migrates/loads Bridge-owned persisted configuration, then constructs runtime services from it.
+- `bridge/src/web/admin-page.ts` — operator-facing Bridge configuration UI.
+- `bridge/src/config.ts` — transitional environment/bootstrap compatibility layer; this remains a documented migration gap rather than a second target configuration authority.
+
+## Reconciliation note
+
+As of 2026-09-21 the target architecture is only partially migrated: `config.ts` still accepts legacy
+functional `P4U_*` values as first-run/bootstrap migration input. The persisted `BridgeConfigStore`
+is authoritative after migration. New functional environment variables remain prohibited.

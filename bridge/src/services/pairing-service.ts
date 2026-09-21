@@ -33,6 +33,7 @@ export interface PairingQrPayload {
   expiresAt: string;
 }
 
+// ADR: docs/adr/bridge/0002-authentication-and-device-pairing.md — pairing secrets are short-lived, one-time bootstrap credentials requiring administrator approval.
 export class PairingService {
   private readonly store: AtomicJsonStore<PairingStore>;
 

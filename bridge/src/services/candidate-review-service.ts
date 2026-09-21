@@ -81,6 +81,7 @@ function candidateHash(input: unknown): string {
   return sha256(Buffer.from(stableStringify(input)));
 }
 
+// ADR: docs/adr/bridge/0004-ai-optional-deterministic-core.md — derived interpretations remain provenance-bearing candidates until explicit review/promotion.
 export class CandidateReviewService {
   private readonly store: AtomicJsonStore<CandidateState>;
 
