@@ -15,6 +15,16 @@
     },
     "accessMode": {
       "enum": ["anonymous", "service", "delegated-user"]
+    },
+    "delegation": {
+      "type": "object",
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "enum": ["authorization-code-pkce", "token-exchange"]
+        }
+      },
+      "additionalProperties": true
     }
   },
   "allOf": [
@@ -23,6 +33,21 @@
       "then": {
         "required": ["upstreamInstanceId", "accessMode"]
       }
+    },
+    {
+      "if": {"properties": {"accessMode": {"const": "delegated-user"}}},
+      "then": {
+        "required": ["delegation"]
+      }
+    },
+    {
+      "if": {
+        "required": ["delegation"],
+        "properties": {
+          "accessMode": {"not": {"const": "delegated-user"}}
+        }
+      },
+      "then": false
     }
   ],
   "additionalProperties": true
