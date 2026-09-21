@@ -287,6 +287,29 @@ Check:
 - feature state/status remains synchronized,
 - no camera frame/overlay persistence.
 
+## Second-feature validation — GNSS
+
+ADR 0030 adds optional GNSS as the first real second feature used to prove the HUD contracts are
+generic rather than QR-shaped.
+
+Rules:
+- do not hard-code `Positionierung` into the shell,
+- category appears through GNSS contributions,
+- GNSS uses the generic status rail and standard detail components,
+- Garmin-specific Bluetooth code stays outside app-core/HUD infrastructure.
+
+Sequence:
+
+```text
+GLO 2 / PICO hardware spike
+→ GNSS source/fix contracts
+→ Bluetooth adapter
+→ GNSS state
+→ HUD contributions
+→ capture/trajectory correlation
+→ hardware validation
+```
+
 ## Test strategy
 
 ### Host/unit tests
