@@ -122,3 +122,29 @@ Rules:
 - minimum interaction hit targets remain preserved,
 - value persists as a display preference,
 - changing scale does not affect feature/runtime state.
+
+
+## H11 — GNSS active / valid fix
+
+Visible:
+- GNSS enabled,
+- compact healthy GNSS icon in status rail,
+- no permanent coordinate text.
+
+## H12 — GNSS enabled / no fix
+
+Visible:
+- GNSS remains visible in the rail,
+- waiting/no-fix treatment.
+
+Detail:
+- Ein,
+- receiver connected when applicable,
+- Positionsqualität: Kein Fix.
+
+## H13 — GNSS enabled / disconnected or degraded
+
+Visible:
+- warning/degraded GNSS status icon,
+- selected source/device remains visible in detail,
+- no silent fallback to another positioning source.
