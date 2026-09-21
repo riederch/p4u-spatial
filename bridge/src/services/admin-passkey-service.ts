@@ -37,6 +37,7 @@ interface State {
 }
 
 // ADR: docs/adr/bridge/0025-admin-authentication-and-bootstrap.md — passkeys are a permanent per-admin login method with user verification.
+// ADR: docs/adr/bridge/0025-admin-authentication-and-bootstrap.md — passkeys are a permanent per-admin login method with user verification.
 export class AdminPasskeyService {
   private readonly store: AtomicJsonStore<State>;
 
