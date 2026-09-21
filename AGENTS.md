@@ -78,3 +78,14 @@ AI may assist with semantic recognition, classification, deduplication, conflict
 ## Standards
 
 Prefer the standards documented in `docs/standards.md`. Do not replace a standard representation with a proprietary one without an ADR explaining why.
+
+## User testing instructions
+
+Whenever the user is expected to manually test, validate, or verify something, provide a concrete test instruction together with a checklist.
+
+- State exactly what the user should do.
+- Provide the checks as a clear checklist.
+- Include the expected result for each relevant check where useful.
+- For hardware validation, identify the device/setup and any prerequisite state needed before testing.
+- Ask the user to report deviations or failed checklist items rather than giving only a generic "please test" request.
+- Do not mark hardware or manual validation as complete until the user has actually confirmed the relevant checklist items.
