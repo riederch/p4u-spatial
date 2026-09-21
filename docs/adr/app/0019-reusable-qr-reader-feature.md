@@ -57,3 +57,7 @@ available independently of content length.
 - ADR 0013: XR Is a Profile over Core
 - ADR 0020: SecureMR QR Scanner Backend
 - ADR 0021: XR Control and Status HUD
+
+## Reconciliation note
+
+As of 2026-09-21 the reusable scan lifecycle, content classification and pluggable action model are implemented in `qr-reader`. The result presentation is still rendered by the product `app` composition layer rather than a reusable feature-owned presentation component. This does not change the public QR action model, but it remains a modularization gap tracked together with ADR 0022.
