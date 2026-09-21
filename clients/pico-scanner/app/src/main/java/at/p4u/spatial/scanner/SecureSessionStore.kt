@@ -12,6 +12,7 @@ import javax.crypto.spec.GCMParameterSpec
 
 data class StoredSession(val refreshToken: String, val refreshExpiresAt: String)
 
+// ADR: docs/adr/app/0024-headset-offline-state-and-secure-storage.md — refresh credentials use Android Keystore-backed encryption, not plain app files.
 class SecureSessionStore(
     context: Context,
     profileId: String,
