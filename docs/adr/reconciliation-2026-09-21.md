@@ -41,7 +41,7 @@ code, but to make mismatches and implementation gaps explicit.
 | 0019 | App | Partial | Generic QR lifecycle/content/actions are reusable; QR result presentation still lives in the product app layer. |
 | 0020 | App | Aligned in code / hardware pending | SecureMR is an internal QR backend; first-valid decode, no overlay and ephemeral frames match ADR. PICO hardware validation remains required. |
 | 0021 | App | Partial | Authoritative feature state and generic status projection exist. Lower-left menu, toggle UI and true head-locked HUD are not implemented. |
-| 0022 | App | Partial | app-core, AppFeature and FeatureRegistry exist. MainApplication still contains QR-specific result/status presentation details. |
+| 0022 | App | Aligned | app-core is feature-neutral, app-ui provides generic presentation infrastructure, qr-reader-ui owns QR presentation, and MainApplication is reduced to composition/registration. |
 | 0023 | App | Aligned / reconstructed | Signed APK release trust, descriptor integrity/signing metadata and updater verification are documented and implemented; discovery key remains intentionally unresolved under ADR 0017. |
 | 0024 | App | Aligned / reconstructed | Durable outbox, retry-safe upload and Android Keystore-backed refresh credential storage are implemented. |
 | 0025 | Bridge | Aligned / reconstructed | Passkeys, password+TOTP, server-side sessions/CSRF and one-time first-run setup proof are implemented. |
@@ -121,14 +121,16 @@ ADR 0021 remains intentionally ahead of implementation:
 - status projection still lives inside the spatial app window,
 - no final head-locked HUD interaction layer.
 
-### 5. App modularization
+### 5. App modularization validation
 
-ADR 0022 established the correct dependency direction, but the composition root still imports and
-renders QR-specific state/result components.
+The known composition-root violation found during the audit has been resolved:
 
-The next modularization step should move feature presentation behind a feature-owned presentation
-contract so adding a feature does not add another feature-specific `when` branch to
-`MainApplication`.
+- `app-core` remains UI/vendor/feature neutral,
+- `app-ui` provides the generic presentation shell and presentation registry,
+- `qr-reader-ui` owns QR-specific result/action/status presentation,
+- `MainApplication` only composes registered features, presentations and product-specific custom actions.
+
+The remaining work is validation with future features rather than a known architecture violation.
 
 ## Reconstructed ADRs added after the audit
 
