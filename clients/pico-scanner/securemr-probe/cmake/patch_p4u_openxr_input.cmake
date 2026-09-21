@@ -472,9 +472,10 @@ set(_direct_hand_render_anchor [==[
 ]==])
 
 set(_direct_hand_render_replacement [==[
-    // Resolve product pointer/activation input controller-first. If the controller action
-    // pose is unavailable, fall back to XR_EXT_hand_tracking directly; this does not depend
-    // on the runtime's current interaction profile.
+    // Resolve product pointer/activation input from both sources every frame. PICO OS may
+    // keep a stale/idle controller action pose valid while the user is actually using hands,
+    // so an active XR_EXT_hand_tracking result must be allowed to override that pose.
+    // P4U: active hand tracking overrides stale controller pose.
     std::array<XrVector3f*, 2> handDeltas{};
     std::array<std::optional<XrPosef>, 2> handPoses{};
     bool buttonPressed = false;
@@ -488,13 +489,9 @@ set(_direct_hand_render_replacement [==[
           (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
           (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
         resolvedPose = spaceLocation.pose;
-
-        // A valid controller action pose wins over the direct hand fallback.
-        m_p4uDirectHandWasActive[hand] = false;
-        m_p4uHandPinched[hand] = false;
       }
 
-      if (!resolvedPose && m_handTrackingSupported &&
+      if (m_handTrackingSupported &&
           m_xrLocateHandJointsEXT != nullptr &&
           m_p4uHandTrackers[hand] != XR_NULL_HANDLE) {
         XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
@@ -613,6 +610,60 @@ _p4u_replace_if_missing(
     "P4U: direct hand fallback active"
     "${_direct_hand_render_anchor}"
     "${_direct_hand_render_replacement}"
+)
+
+set(_direct_hand_priority_old [==[
+    // Resolve product pointer/activation input controller-first. If the controller action
+    // pose is unavailable, fall back to XR_EXT_hand_tracking directly; this does not depend
+    // on the runtime's current interaction profile.
+]==])
+
+set(_direct_hand_priority_new [==[
+    // Resolve product pointer/activation input from both sources every frame. PICO OS may
+    // keep a stale/idle controller action pose valid while the user is actually using hands,
+    // so an active XR_EXT_hand_tracking result must be allowed to override that pose.
+    // P4U: active hand tracking overrides stale controller pose.
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand source priority v2"
+    "P4U: active hand tracking overrides stale controller pose"
+    "${_direct_hand_priority_old}"
+    "${_direct_hand_priority_new}"
+)
+
+set(_direct_hand_priority_reset_old [==[
+        resolvedPose = spaceLocation.pose;
+
+        // A valid controller action pose wins over the direct hand fallback.
+        m_p4uDirectHandWasActive[hand] = false;
+        m_p4uHandPinched[hand] = false;
+]==])
+
+set(_direct_hand_priority_reset_new [==[
+        resolvedPose = spaceLocation.pose;
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand source priority reset v2"
+    "P4U: active hand tracking overrides stale controller pose"
+    "${_direct_hand_priority_reset_old}"
+    "${_direct_hand_priority_reset_new}"
+)
+
+set(_direct_hand_priority_condition_old [==[
+      if (!resolvedPose && m_handTrackingSupported &&
+]==])
+
+set(_direct_hand_priority_condition_new [==[
+      if (m_handTrackingSupported &&
+]==])
+
+_p4u_replace_if_missing(
+    "direct hand source priority condition v2"
+    "P4U: active hand tracking overrides stale controller pose"
+    "${_direct_hand_priority_condition_old}"
+    "${_direct_hand_priority_condition_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
