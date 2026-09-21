@@ -6,6 +6,8 @@ ADRs record architectural decisions that should remain understandable independen
 implementation history. They complement `docs/architecture.md`: the architecture document
 describes the current system, while ADRs explain why important constraints and structures exist.
 
+Historical ADRs were reconciled against the current repository on 2026-09-21. See the [ADR/code reconciliation baseline](reconciliation-2026-09-21.md).
+
 ## Areas
 
 ADRs are grouped by architectural ownership:
