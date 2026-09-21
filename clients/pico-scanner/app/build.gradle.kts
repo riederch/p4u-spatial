@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val releaseVersionCode = providers.gradleProperty("P4U_VERSION_CODE").orNull?.toIntOrNull() ?: 1
@@ -50,7 +49,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        compose = true
     }
 
     sourceSets {
