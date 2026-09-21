@@ -854,5 +854,35 @@ _p4u_replace_if_missing(
     "${_direct_hand_pointer_origin_new}"
 )
 
+set(_hud_quad_distance_old [==[
+        quadL.pose = Math::Pose::Translation({0.0f, 0.f, -0.35f});
+]==])
+
+set(_hud_quad_distance_new [==[
+        quadL.pose = Math::Pose::Translation({0.0f, 0.f, -0.50f});
+]==])
+
+_p4u_replace_if_missing(
+    "native HUD quad distance v7"
+    "quadL.pose = Math::Pose::Translation({0.0f, 0.f, -0.50f});"
+    "${_hud_quad_distance_old}"
+    "${_hud_quad_distance_new}"
+)
+
+set(_hud_quad_distance_right_old [==[
+        quadR.pose = Math::Pose::Translation({0.0f, 0.f, -0.35f});
+]==])
+
+set(_hud_quad_distance_right_new [==[
+        quadR.pose = Math::Pose::Translation({0.0f, 0.f, -0.50f});
+]==])
+
+_p4u_replace_if_missing(
+    "native HUD quad right distance v7"
+    "quadR.pose = Math::Pose::Translation({0.0f, 0.f, -0.50f});"
+    "${_hud_quad_distance_right_old}"
+    "${_hud_quad_distance_right_new}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
