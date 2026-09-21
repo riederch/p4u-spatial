@@ -1,3 +1,5 @@
+// ADR: docs/adr/contracts/0007-authentication-boundary.md — contract authorization reuses one Core-authenticated device principal.
+// ADR: docs/adr/contracts/0017-discovery-and-namespace-registry.md — canonical scopes use contract-prefixed dot namespaces; legacy XR scopes are compatibility aliases.
 export type DeviceStatus = "pending-pairing" | "authorized" | "disabled" | "revoked";
 
 export type CanonicalDeviceScope =
