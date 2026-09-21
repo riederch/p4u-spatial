@@ -152,6 +152,8 @@ function requiredString(value: unknown, name: string): string {
   return value;
 }
 
+// ADR: docs/adr/contracts/0011-source-wide-operation-idempotency.md — authoritative writes are idempotent by (sourceId, operationId), independent of route.
+// ADR: docs/adr/contracts/0014-relation-authority.md — relation writes use the same source-scoped optimistic-concurrency machinery as other Spatial collections.
 export class SpatialWriteService {
   private readonly ledger: AtomicJsonStore<OperationLedger>;
   private gate: Promise<void> = Promise.resolve();
