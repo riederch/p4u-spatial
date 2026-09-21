@@ -25,3 +25,13 @@ A lost success response followed by retry is safe.
 Reusing the same identity with different logical content is an explicit conflict/error rather than a second operation.
 
 Providers publish operation-result retention so clients know the guaranteed idempotency window.
+
+## Implementation anchors
+
+- `protocol/spatial/write.md` — source-wide `(sourceId, operationId)` idempotency semantics.
+- `bridge/src/services/spatial-write-service.ts` — authoritative operation ledger keyed by sourceId + operationId and request-content conflict detection.
+- `bridge/src/services/federation-service.ts` — preserves operationId across relay/retry and rejects logical-content reuse.
+
+## Reconciliation note
+
+The reference Bridge implements the decision for direct and federated Spatial writes.
