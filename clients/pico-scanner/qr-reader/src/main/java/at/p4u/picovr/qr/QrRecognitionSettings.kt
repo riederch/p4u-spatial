@@ -3,6 +3,7 @@ package at.p4u.picovr.qr
 import android.content.Context
 import android.content.SharedPreferences
 
+// ADR: docs/adr/app/0021-xr-control-and-status-hud.md — controls, runtime behavior and status indicators share one authoritative feature state.
 class QrRecognitionSettings(context: Context) {
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
