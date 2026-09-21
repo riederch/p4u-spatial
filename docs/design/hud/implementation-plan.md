@@ -7,7 +7,7 @@ Derived from:
 - HUD design tokens
 - Mockup manifest
 
-Status: Planning baseline
+Status: Software implemented; hardware validation pending
 
 ## Goal
 
@@ -376,3 +376,23 @@ HUD contracts
 ```
 
 This order minimizes architecture churn and keeps visual work on top of stable contracts.
+
+
+## Implementation progress
+
+As of 2026-09-21:
+
+- Phase 0 — complete
+- Phase 1 — complete
+- Phase 2 — complete
+- Phase 3 — complete
+- Phase 4 — complete
+- Phase 5 — complete in software; physical validation pending
+- Phase 6 — complete
+- Phase 7 — complete
+- Phase 8 — complete in software; physical slider/scale validation pending
+- Phase 9 — complete
+- Phase 10 — pending PICO 4 Ultra hardware validation
+
+The debug APK builds successfully. The remaining work is physical validation and resulting visual
+parameter tuning, not another architectural implementation phase.
