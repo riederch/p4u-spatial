@@ -130,6 +130,23 @@ void ReadbackCheck::Tick() {
                static_cast<unsigned long long>(readbackFrameCount),
                static_cast<unsigned long long>(result->bufferCapacityInput));
         }
+
+        // Temporary hardware diagnostic: keep the latest periodic camera frame so we can
+        // distinguish a readback/image-content problem from a ZXing detection problem.
+        if (readbackFrameCount % 30 == 0 && gapp != nullptr &&
+            gapp->activity != nullptr && gapp->activity->externalDataPath != nullptr) {
+          std::string debugPath = gapp->activity->externalDataPath;
+          debugPath += "/qr-debug.png";
+          const int writeResult = stbi_write_png(
+              debugPath.c_str(),
+              mConfig.w,
+              mConfig.h,
+              3,
+              result->buffer,
+              mConfig.w * 3);
+          LOGI("QR debug frame path=%s write=%d", debugPath.c_str(), writeResult);
+        }
+
         OutputReadbackBufferToFile(result, "");
         delete[] reinterpret_cast<char*>(result->buffer);
       }
