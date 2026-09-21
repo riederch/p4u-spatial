@@ -54,7 +54,11 @@ fun PicoFeatureShell(
                     .padding(start = 120.dp, end = 72.dp),
             ) {
                 Text("picoVr", textAlign = TextAlign.Center, fontSize = 8.em)
-                presentations.home()?.Content()
+                presentations.home()?.let { presentation ->
+                    features.firstOrNull { it.id == presentation.featureId }?.let { snapshot ->
+                        presentation.Content(snapshot)
+                    }
+                }
             }
 
         }
