@@ -30,12 +30,17 @@ features beyond the currently required QR example.
 - Menu entries are either category rows, command rows or toggle rows.
 - No feature-specific visual treatment.
 
-Initial navigation example:
+Initial navigation examples:
 
 ```text
 Erkennung
 └── QR-Code-Erkennung   [Ein/Aus]
+
+Positionierung
+└── GNSS                [Ein/Aus]
 ```
+
+`Positionierung` appears only when a positioning feature contributes entries.
 
 ### Status rail
 
@@ -129,6 +134,18 @@ Standard result panel:
 - explicit close/new-scan affordance
 - standard actions such as Open/Copy
 - custom actions such as Bridge registration rendered with the same command components
+
+## GNSS behavior
+
+GNSS is the first real second-feature validation of the unified HUD.
+
+- Menu path: `Positionierung → GNSS`.
+- Detail rows use the standard HUD component model.
+- Valid fix: healthy status.
+- Connected without fix: waiting status.
+- Enabled but disconnected/degraded: warning status.
+- Adapter failure: error status.
+- Coordinates, accuracy and satellite/transport diagnostics appear only in the detail context.
 
 ## Layout guidance
 
