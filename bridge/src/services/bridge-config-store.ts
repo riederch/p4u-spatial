@@ -10,7 +10,11 @@ interface State {
   config?: OperatorBridgeConfig;
 }
 
-const SECRET_FIELDS = new Set<keyof OperatorBridgeConfig>(["gitToken", "federationToken"]);
+const SECRET_FIELDS = new Set<keyof OperatorBridgeConfig>([
+  "gitToken",
+  "federationToken",
+  "federationOAuthClientSecret",
+]);
 
 // ADR: docs/adr/bridge/0018-web-managed-configuration.md — persisted Bridge state is the operator configuration authority after bootstrap migration.
 export class BridgeConfigStore {
@@ -71,7 +75,9 @@ export class BridgeConfigStore {
       const strings = [
         "publicBaseUrl", "localBaseUrl", "adminWebauthnRpId", "adminWebauthnOrigin",
         "rchkbRoot", "gitRemoteUrl", "gitBranch", "gitUsername", "federationUpstreamUrl",
-        "federationRouteId", "spatialRoot", "spatialRouteId", "spatialSourceTitle",
+        "federationRouteId", "federationOAuthAuthorizationUrl", "federationOAuthTokenUrl",
+        "federationOAuthClientId", "federationOAuthScopes", "federationOAuthAudience",
+        "spatialRoot", "spatialRouteId", "spatialSourceTitle",
       ] as const;
       for (const field of strings) {
         if (!(field in input)) continue;
@@ -93,6 +99,29 @@ export class BridgeConfigStore {
       if ("spatialWritable" in input) {
         assertOrThrow(typeof input.spatialWritable === "boolean", 400, "CONFIG_INVALID", "spatialWritable must be boolean.");
         next.spatialWritable = input.spatialWritable;
+      }
+      if ("federationAccessMode" in input) {
+        assertOrThrow(
+          input.federationAccessMode === "anonymous"
+            || input.federationAccessMode === "service"
+            || input.federationAccessMode === "delegated-user",
+          400,
+          "CONFIG_INVALID",
+          "federationAccessMode must be anonymous, service or delegated-user.",
+        );
+        next.federationAccessMode = input.federationAccessMode;
+      }
+      if ("federationDelegationMethod" in input) {
+        assertOrThrow(
+          input.federationDelegationMethod === null
+            || input.federationDelegationMethod === "authorization-code-pkce"
+            || input.federationDelegationMethod === "token-exchange",
+          400,
+          "CONFIG_INVALID",
+          "federationDelegationMethod must be authorization-code-pkce, token-exchange or null.",
+        );
+        if (input.federationDelegationMethod === null) delete next.federationDelegationMethod;
+        else next.federationDelegationMethod = input.federationDelegationMethod;
       }
 
       const positiveInts = [
@@ -116,6 +145,23 @@ export class BridgeConfigStore {
         if (typeof value === "string" && value.length > 0) next[field] = value;
         else if (value === null) delete next[field];
         // Empty string means keep the current secret unchanged.
+      }
+
+      if (next.federationAccessMode === "service") {
+        assertOrThrow(typeof next.federationToken === "string" && next.federationToken.length > 0, 400, "CONFIG_INVALID", "federationToken is required for service federation.");
+      }
+      if (next.federationAccessMode === "delegated-user") {
+        assertOrThrow(
+          next.federationDelegationMethod === "authorization-code-pkce" || next.federationDelegationMethod === "token-exchange",
+          400,
+          "CONFIG_INVALID",
+          "federationDelegationMethod is required for delegated-user federation.",
+        );
+        assertOrThrow(typeof next.federationOAuthTokenUrl === "string" && next.federationOAuthTokenUrl.length > 0, 400, "CONFIG_INVALID", "federationOAuthTokenUrl is required for delegated-user federation.");
+        assertOrThrow(typeof next.federationOAuthClientId === "string" && next.federationOAuthClientId.length > 0, 400, "CONFIG_INVALID", "federationOAuthClientId is required for delegated-user federation.");
+        if (next.federationDelegationMethod === "authorization-code-pkce") {
+          assertOrThrow(typeof next.federationOAuthAuthorizationUrl === "string" && next.federationOAuthAuthorizationUrl.length > 0, 400, "CONFIG_INVALID", "federationOAuthAuthorizationUrl is required for authorization-code-pkce.");
+        }
       }
 
       const provider = next.repositoryProvider;
