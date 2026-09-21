@@ -426,8 +426,15 @@ Implemented:
 - QR result/action migration,
 - persisted `System → Anzeige → HUD-Größe` slider,
 - 50–150% peripheral HUD scale in 5% steps with 100% default,
-- minimum interaction hit target retained independently of reduced visual scale.
+- minimum interaction hit target retained independently of reduced visual scale,
+- PICO design/foundation controls are used for shared launcher, toggle, command and spatial-scroll
+  interaction paths so controller and hand input can converge on the same semantic controls.
+
+Hardware validation procedure:
+
+- `docs/pico-hud-input-validation.md`
 
 Physical PICO 4 Ultra validation remains required for field-of-view placement, interaction comfort,
-slider usability, viewpoint-follow behavior and final visual tuning. Code/CI completion is not
-hardware validation.
+controller operation, controller-free hand operation, seamless input-source switching, slider
+usability, viewpoint-follow behavior and final visual tuning. Code/CI completion is not hardware
+validation.
