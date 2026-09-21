@@ -246,6 +246,7 @@ private fun QrResultView(
     }
 }
 
+// ADR: docs/adr/app/0021-xr-control-and-status-hud.md — active-function UI is a projection of authoritative feature state.
 @androidx.compose.runtime.Composable
 private fun ActiveFunctionStatusBar(
     qrRecognitionEnabled: Boolean,
