@@ -28,6 +28,15 @@ sealed interface HudMenuControl {
     data class Command(
         val command: HudCommand,
     ) : HudMenuControl
+
+    data class RangeSetting(
+        val key: String,
+        val value: Int,
+        val min: Int,
+        val max: Int,
+        val step: Int,
+        val unitSuffix: String = "",
+    ) : HudMenuControl
 }
 
 enum class HudStatusLevel {
@@ -185,3 +194,23 @@ class LambdaHudCommand(
 ) : HudCommand {
     override suspend fun execute(): HudCommandResult = action()
 }
+
+fun HudSettings.asContribution(): HudContribution =
+    HudContribution(
+        featureId = "system.hud",
+        menu = listOf(
+            HudMenuContribution(
+                id = "system.hud.scale",
+                title = "HUD-Größe",
+                path = listOf("System", "Anzeige"),
+                control = HudMenuControl.RangeSetting(
+                    key = "peripheralHudScalePercent",
+                    value = normalizedPeripheralHudScalePercent,
+                    min = MIN_SCALE_PERCENT,
+                    max = MAX_SCALE_PERCENT,
+                    step = SCALE_STEP_PERCENT,
+                    unitSuffix = "%",
+                ),
+            ),
+        ),
+    )

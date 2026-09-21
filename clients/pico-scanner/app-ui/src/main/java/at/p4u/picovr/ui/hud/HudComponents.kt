@@ -1,6 +1,7 @@
 package at.p4u.picovr.ui.hud
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,11 +19,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.pico.spatial.ui.design.Button
+import com.pico.spatial.ui.design.Slider
+import com.pico.spatial.ui.design.SliderDefaults
 import com.pico.spatial.ui.design.Text
+import com.pico.spatial.ui.foundation.hover.spatialHoverEffect
+import kotlin.math.roundToInt
 
 // ADR: docs/adr/app/0029-unified-xr-hud-interaction-shell.md — all launcher, menu, status, feedback and panel chrome share these primitives.
 @Composable
@@ -55,20 +62,40 @@ fun HudSurface(
 fun HudLauncherButton(
     expanded: Boolean,
     onClick: () -> Unit,
+    visualScale: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
+    val scale = visualScale.coerceIn(0.5f, 1.5f)
+    val visualSize = HudTokens.Icon.launcher * scale
+
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.sizeIn(
-            minWidth = HudTokens.HitTarget.minimum,
-            minHeight = HudTokens.HitTarget.minimum,
-        ),
+        modifier = modifier
+            .sizeIn(
+                minWidth = HudTokens.HitTarget.minimum,
+                minHeight = HudTokens.HitTarget.minimum,
+            )
+            .spatialHoverEffect()
+            .clickable(onClick = onClick),
     ) {
-        Button(onClick = onClick) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(visualSize)
+                .background(
+                    Color.White.copy(alpha = HudTokens.Surface.hudOpacity),
+                    RoundedCornerShape(HudTokens.Radius.medium),
+                )
+                .border(
+                    1.dp,
+                    Color.Black.copy(alpha = HudTokens.Surface.hudBorderOpacity),
+                    RoundedCornerShape(HudTokens.Radius.medium),
+                ),
+        ) {
             Text(
                 if (expanded) "×" else "≡",
                 textAlign = TextAlign.Center,
-                fontSize = HudTokens.Typography.menuEm.em,
+                fontSize = (HudTokens.Typography.menuEm * scale).em,
             )
         }
     }
@@ -186,9 +213,11 @@ fun HudCommandButton(
 fun HudStatusContainer(
     title: String,
     level: HudStatusLevel,
+    visualScale: Float = 1f,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val scale = visualScale.coerceIn(0.5f, 1.5f)
     val border = when (level) {
         HudStatusLevel.ACTIVE -> Color.Black.copy(alpha = HudTokens.Surface.hudBorderOpacity)
         HudStatusLevel.DEGRADED -> Color(0xFF8A5A00)
@@ -197,19 +226,31 @@ fun HudStatusContainer(
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier
-            .sizeIn(
-                minWidth = HudTokens.HitTarget.minimum,
-                minHeight = HudTokens.HitTarget.minimum,
-            )
-            .background(
-                Color.White.copy(alpha = HudTokens.Surface.hudOpacity),
-                RoundedCornerShape(HudTokens.Radius.medium),
-            )
-            .border(1.dp, border, RoundedCornerShape(HudTokens.Radius.medium))
-            .padding(HudTokens.Spacing.xs),
+        modifier = modifier.sizeIn(
+            minWidth = HudTokens.HitTarget.minimum,
+            minHeight = HudTokens.HitTarget.minimum,
+        ),
     ) {
-        content()
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(HudTokens.HitTarget.minimum * scale)
+                .background(
+                    Color.White.copy(alpha = HudTokens.Surface.hudOpacity),
+                    RoundedCornerShape(HudTokens.Radius.medium),
+                )
+                .border(1.dp, border, RoundedCornerShape(HudTokens.Radius.medium))
+                .padding(HudTokens.Spacing.xs),
+        ) {
+            Box(
+                modifier = Modifier.graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                ),
+            ) {
+                content()
+            }
+        }
     }
 }
 
@@ -300,6 +341,58 @@ fun HudActionDock(
                 command = command,
                 onExecute = onCommand,
             )
+        }
+    }
+}
+
+@Composable
+fun HudSliderRow(
+    title: String,
+    value: Int,
+    min: Int,
+    max: Int,
+    step: Int,
+    unitSuffix: String = "",
+    onValueChange: (Int) -> Unit,
+) {
+    val safeRange = (max - min).coerceAtLeast(1)
+    val normalized = ((value.coerceIn(min, max) - min).toFloat() / safeRange.toFloat())
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(HudTokens.Spacing.xs),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, fontSize = HudTokens.Typography.menuEm.em)
+            Text(
+                value.coerceIn(min, max).toString() + unitSuffix,
+                fontSize = HudTokens.Typography.bodyEm.em,
+            )
+        }
+
+        Slider(
+            value = normalized,
+            onValueChange = { raw ->
+                val unsnapped = min + raw.coerceIn(0f, 1f) * safeRange
+                val snapped = (
+                    min + (((unsnapped - min) / step.toFloat()).roundToInt() * step)
+                ).coerceIn(min, max)
+                onValueChange(snapped)
+            },
+            sliderSpec = SliderDefaults.Small,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(min.toString() + unitSuffix, fontSize = HudTokens.Typography.captionEm.em)
+            Text(max.toString() + unitSuffix, fontSize = HudTokens.Typography.captionEm.em)
         }
     }
 }
