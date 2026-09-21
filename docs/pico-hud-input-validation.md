@@ -1,6 +1,6 @@
 # PICO HUD input validation
 
-Status: hardware validation required
+Status: native input substrate hardware-validated; HUD interaction validation pending
 
 Target device:
 
@@ -26,8 +26,28 @@ Hardware run on 2026-09-21 established the following baseline on PICO 4 Ultra / 
 - 512x512 RGB readback reaches the application continuously;
 - the sampled run remains stable at approximately 90 FPS without an application crash.
 
-This baseline validates the native OpenXR/SecureMR bootstrap only. It does not validate HUD
-interaction, controller ray behavior, hand input or QR decoding.
+This baseline validates the native OpenXR/SecureMR bootstrap.
+
+## Validated native input substrate
+
+Real-device runs on 2026-09-21 additionally validate the low-level input substrate:
+
+- PICO 4S controller bindings are accepted for trigger/value, aim pose, menu and haptics;
+- the runtime exposes both `XR_EXT_hand_interaction` and `XR_EXT_hand_tracking`;
+- on PICO OS `5.15.9.U`, profile-driven `XR_EXT_hand_interaction` is not sufficient by itself
+  because the runtime may keep `/interaction_profiles/bytedance/pico4s_controller` current while
+  system gestures are active;
+- direct `XR_EXT_hand_tracking` delivers valid joints once PICO switches to gesture input;
+- Palm, Thumb Tip and Index Tip locations become valid for both hands;
+- thumb/index pinch transitions are detected with hysteresis and produce stable down/up edges;
+- switching from hands back to the controller invalidates the direct hand fallback without losing
+  the OpenXR/SecureMR session;
+- switching back to gesture input reactivates direct hand tracking;
+- SecureMR RGB readback continues while input sources change.
+
+This validates the **native input substrate**, not the HUD interaction layer. Controller ray
+hit-testing, hand pointer hit-testing and semantic HUD commands remain to be validated after the
+native HUD is implemented.
 
 ## Purpose
 
