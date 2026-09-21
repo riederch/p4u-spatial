@@ -53,7 +53,7 @@ describe("XR application release service", () => {
     const discovery = await app.inject({ method: "GET", url: "/.well-known/open-spatial-interop" });
     expect(discovery.json()).toMatchObject({
       contracts: { "xr-app": { version: "0.1", href: "https://bridge.test/xr-app/v1" } },
-      capabilities: expect.arrayContaining(["xr.app.update"]),
+      capabilities: expect.arrayContaining(["xr-app.update"]),
     });
 
     for (const code of [1, 3, 2]) {
