@@ -1560,5 +1560,275 @@ _p4u_replace_if_missing(
     "${_pointer_beam_geometry_new}"
 )
 
+set(_hand_skeleton_state_old [==[
+    std::array<std::optional<XrPosef>, 2> controllerBeamPoses{};
+    std::array<bool, 2> pointerBeamIsHand{{false, false}};
+    bool buttonPressed = false;
+]==])
+
+set(_hand_skeleton_state_new [==[
+    std::array<std::optional<XrPosef>, 2> controllerBeamPoses{};
+    std::array<bool, 2> pointerBeamIsHand{{false, false}};
+    std::array<bool, 2> handSkeletonVisible{{false, false}};
+    bool buttonPressed = false;
+]==])
+
+_p4u_replace_if_missing(
+    "hand skeleton visibility state v12"
+    "handSkeletonVisible{{false, false}}"
+    "${_hand_skeleton_state_old}"
+    "${_hand_skeleton_state_new}"
+)
+
+set(_hand_skeleton_selection_old [==[
+      const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+
+      if (useController) {
+]==])
+
+set(_hand_skeleton_selection_new [==[
+      const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+      handSkeletonVisible[hand] = selectedSource == 2;
+
+      if (useController) {
+]==])
+
+_p4u_replace_if_missing(
+    "hand skeleton follows selected source v12"
+    "handSkeletonVisible[hand] = selectedSource == 2"
+    "${_hand_skeleton_selection_old}"
+    "${_hand_skeleton_selection_new}"
+)
+
+set(_hand_skeleton_build_anchor [==[
+    for (const auto& handPtr : handDeltas) {
+      delete handPtr;
+    }
+
+    // Render view to the appropriate part of the swapchain image.
+]==])
+
+set(_hand_skeleton_build_replacement [==[
+    for (const auto& handPtr : handDeltas) {
+      delete handPtr;
+    }
+
+    // P4U: build a lightweight procedural skeleton from all 26 XR_EXT_hand_tracking
+    // joints. The tracking layer remains independent from presentation, so a skinned
+    // hand model can replace this visualization later without changing input semantics.
+    std::vector<Geometry::Vertex> handSkeletonVerts;
+    std::vector<uint16_t> handSkeletonIndices;
+
+    constexpr int kSkeletonTubeSides = 6;
+    const XrVector3f skeletonColor{0.72f, 0.82f, 0.94f};
+    const XrVector3f fingertipColor{0.90f, 0.94f, 1.00f};
+
+    const auto jointPositionValid = [&](Side hand, XrHandJointEXT joint) {
+      return (m_p4uHandJoints[hand][joint].locationFlags &
+              XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
+    };
+
+    const auto appendJointMarker =
+        [&](const XrVector3f& center, float radius, const XrVector3f& color) {
+          if (handSkeletonVerts.size() + 6 >= 65535) return;
+
+          const uint16_t base =
+              static_cast<uint16_t>(handSkeletonVerts.size());
+          handSkeletonVerts.push_back({{center.x + radius, center.y, center.z}, color});
+          handSkeletonVerts.push_back({{center.x - radius, center.y, center.z}, color});
+          handSkeletonVerts.push_back({{center.x, center.y + radius, center.z}, color});
+          handSkeletonVerts.push_back({{center.x, center.y - radius, center.z}, color});
+          handSkeletonVerts.push_back({{center.x, center.y, center.z + radius}, color});
+          handSkeletonVerts.push_back({{center.x, center.y, center.z - radius}, color});
+
+          const uint16_t faces[][3] = {
+              {0, 2, 4}, {2, 1, 4}, {1, 3, 4}, {3, 0, 4},
+              {2, 0, 5}, {1, 2, 5}, {3, 1, 5}, {0, 3, 5},
+          };
+          for (const auto& face : faces) {
+            handSkeletonIndices.push_back(base + face[0]);
+            handSkeletonIndices.push_back(base + face[1]);
+            handSkeletonIndices.push_back(base + face[2]);
+          }
+        };
+
+    const auto appendBone =
+        [&](const XrVector3f& a, const XrVector3f& b, float radius,
+            const XrVector3f& color) {
+          XrVector3f direction{b.x - a.x, b.y - a.y, b.z - a.z};
+          const float length = XrVector3f_Length(&direction);
+          if (length < 0.001f ||
+              handSkeletonVerts.size() + kSkeletonTubeSides * 2 >= 65535) {
+            return;
+          }
+          XrVector3f_Normalize(&direction);
+
+          XrVector3f reference =
+              std::abs(direction.y) < 0.92f
+                  ? XrVector3f{0.0f, 1.0f, 0.0f}
+                  : XrVector3f{1.0f, 0.0f, 0.0f};
+          XrVector3f axisU{};
+          XrVector3f_Cross(&axisU, &direction, &reference);
+          XrVector3f_Normalize(&axisU);
+          XrVector3f axisV{};
+          XrVector3f_Cross(&axisV, &direction, &axisU);
+          XrVector3f_Normalize(&axisV);
+
+          const uint16_t base =
+              static_cast<uint16_t>(handSkeletonVerts.size());
+          for (int ring = 0; ring < 2; ++ring) {
+            const XrVector3f& center = ring == 0 ? a : b;
+            for (int sideIndex = 0; sideIndex < kSkeletonTubeSides; ++sideIndex) {
+              const float angle =
+                  (2.0f * MATH_PI * static_cast<float>(sideIndex)) /
+                  static_cast<float>(kSkeletonTubeSides);
+              const float cs = std::cos(angle);
+              const float sn = std::sin(angle);
+              handSkeletonVerts.push_back({
+                  {
+                      center.x + radius * (axisU.x * cs + axisV.x * sn),
+                      center.y + radius * (axisU.y * cs + axisV.y * sn),
+                      center.z + radius * (axisU.z * cs + axisV.z * sn),
+                  },
+                  color,
+              });
+            }
+          }
+
+          for (int sideIndex = 0; sideIndex < kSkeletonTubeSides; ++sideIndex) {
+            const int next = (sideIndex + 1) % kSkeletonTubeSides;
+            const uint16_t a0 = base + static_cast<uint16_t>(sideIndex);
+            const uint16_t a1 = base + static_cast<uint16_t>(next);
+            const uint16_t b1 =
+                base + static_cast<uint16_t>(kSkeletonTubeSides + next);
+            const uint16_t b0 =
+                base + static_cast<uint16_t>(kSkeletonTubeSides + sideIndex);
+            handSkeletonIndices.push_back(a0);
+            handSkeletonIndices.push_back(a1);
+            handSkeletonIndices.push_back(b1);
+            handSkeletonIndices.push_back(a0);
+            handSkeletonIndices.push_back(b1);
+            handSkeletonIndices.push_back(b0);
+          }
+        };
+
+    const std::array<std::pair<XrHandJointEXT, XrHandJointEXT>, 25>
+        skeletonBones{{
+            {XR_HAND_JOINT_WRIST_EXT, XR_HAND_JOINT_PALM_EXT},
+            {XR_HAND_JOINT_WRIST_EXT, XR_HAND_JOINT_THUMB_METACARPAL_EXT},
+            {XR_HAND_JOINT_THUMB_METACARPAL_EXT, XR_HAND_JOINT_THUMB_PROXIMAL_EXT},
+            {XR_HAND_JOINT_THUMB_PROXIMAL_EXT, XR_HAND_JOINT_THUMB_DISTAL_EXT},
+            {XR_HAND_JOINT_THUMB_DISTAL_EXT, XR_HAND_JOINT_THUMB_TIP_EXT},
+
+            {XR_HAND_JOINT_PALM_EXT, XR_HAND_JOINT_INDEX_METACARPAL_EXT},
+            {XR_HAND_JOINT_INDEX_METACARPAL_EXT, XR_HAND_JOINT_INDEX_PROXIMAL_EXT},
+            {XR_HAND_JOINT_INDEX_PROXIMAL_EXT, XR_HAND_JOINT_INDEX_INTERMEDIATE_EXT},
+            {XR_HAND_JOINT_INDEX_INTERMEDIATE_EXT, XR_HAND_JOINT_INDEX_DISTAL_EXT},
+            {XR_HAND_JOINT_INDEX_DISTAL_EXT, XR_HAND_JOINT_INDEX_TIP_EXT},
+
+            {XR_HAND_JOINT_PALM_EXT, XR_HAND_JOINT_MIDDLE_METACARPAL_EXT},
+            {XR_HAND_JOINT_MIDDLE_METACARPAL_EXT, XR_HAND_JOINT_MIDDLE_PROXIMAL_EXT},
+            {XR_HAND_JOINT_MIDDLE_PROXIMAL_EXT, XR_HAND_JOINT_MIDDLE_INTERMEDIATE_EXT},
+            {XR_HAND_JOINT_MIDDLE_INTERMEDIATE_EXT, XR_HAND_JOINT_MIDDLE_DISTAL_EXT},
+            {XR_HAND_JOINT_MIDDLE_DISTAL_EXT, XR_HAND_JOINT_MIDDLE_TIP_EXT},
+
+            {XR_HAND_JOINT_PALM_EXT, XR_HAND_JOINT_RING_METACARPAL_EXT},
+            {XR_HAND_JOINT_RING_METACARPAL_EXT, XR_HAND_JOINT_RING_PROXIMAL_EXT},
+            {XR_HAND_JOINT_RING_PROXIMAL_EXT, XR_HAND_JOINT_RING_INTERMEDIATE_EXT},
+            {XR_HAND_JOINT_RING_INTERMEDIATE_EXT, XR_HAND_JOINT_RING_DISTAL_EXT},
+            {XR_HAND_JOINT_RING_DISTAL_EXT, XR_HAND_JOINT_RING_TIP_EXT},
+
+            {XR_HAND_JOINT_PALM_EXT, XR_HAND_JOINT_LITTLE_METACARPAL_EXT},
+            {XR_HAND_JOINT_LITTLE_METACARPAL_EXT, XR_HAND_JOINT_LITTLE_PROXIMAL_EXT},
+            {XR_HAND_JOINT_LITTLE_PROXIMAL_EXT, XR_HAND_JOINT_LITTLE_INTERMEDIATE_EXT},
+            {XR_HAND_JOINT_LITTLE_INTERMEDIATE_EXT, XR_HAND_JOINT_LITTLE_DISTAL_EXT},
+            {XR_HAND_JOINT_LITTLE_DISTAL_EXT, XR_HAND_JOINT_LITTLE_TIP_EXT},
+        }};
+
+    const std::array<XrHandJointEXT, 5> fingertipJoints{{
+        XR_HAND_JOINT_THUMB_TIP_EXT,
+        XR_HAND_JOINT_INDEX_TIP_EXT,
+        XR_HAND_JOINT_MIDDLE_TIP_EXT,
+        XR_HAND_JOINT_RING_TIP_EXT,
+        XR_HAND_JOINT_LITTLE_TIP_EXT,
+    }};
+
+    const auto isFingertip = [&](XrHandJointEXT joint) {
+      return std::find(fingertipJoints.begin(), fingertipJoints.end(), joint) !=
+             fingertipJoints.end();
+    };
+
+    for (auto hand : {Side::LEFT, Side::RIGHT}) {
+      if (!handSkeletonVisible[hand]) continue;
+
+      for (const auto& [fromJoint, toJoint] : skeletonBones) {
+        if (!jointPositionValid(hand, fromJoint) ||
+            !jointPositionValid(hand, toJoint)) {
+          continue;
+        }
+        appendBone(
+            m_p4uHandJoints[hand][fromJoint].pose.position,
+            m_p4uHandJoints[hand][toJoint].pose.position,
+            0.00145f,
+            skeletonColor);
+      }
+
+      for (int jointIndex = 0; jointIndex < XR_HAND_JOINT_COUNT_EXT; ++jointIndex) {
+        const auto joint = static_cast<XrHandJointEXT>(jointIndex);
+        if (!jointPositionValid(hand, joint)) continue;
+
+        const float trackedRadius = m_p4uHandJoints[hand][joint].radius;
+        const float markerRadius =
+            std::min(0.0032f, std::max(0.0018f, trackedRadius * 0.30f));
+        appendJointMarker(
+            m_p4uHandJoints[hand][joint].pose.position,
+            isFingertip(joint) ? markerRadius * 1.18f : markerRadius,
+            isFingertip(joint) ? fingertipColor : skeletonColor);
+      }
+    }
+
+    // Render view to the appropriate part of the swapchain image.
+]==])
+
+_p4u_replace_if_missing(
+    "procedural 26-joint hand skeleton v12"
+    "P4U: build a lightweight procedural skeleton from all 26"
+    "${_hand_skeleton_build_anchor}"
+    "${_hand_skeleton_build_replacement}"
+)
+
+set(_hand_skeleton_render_anchor [==[
+      m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+
+      // P4U: PICO-style controller beam.
+]==])
+
+set(_hand_skeleton_render_replacement [==[
+      m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+
+      if (!handSkeletonVerts.empty() && !handSkeletonIndices.empty()) {
+        XrPosef skeletonWorldPose{};
+        skeletonWorldPose.orientation.w = 1.0f;
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            handSkeletonVerts.data(),
+            static_cast<uint32_t>(handSkeletonVerts.size()),
+            handSkeletonIndices.data(),
+            static_cast<uint32_t>(handSkeletonIndices.size()),
+            skeletonWorldPose);
+      }
+
+      // P4U: PICO-style controller beam.
+]==])
+
+_p4u_replace_if_missing(
+    "render procedural hand skeleton v12"
+    "if (!handSkeletonVerts.empty() && !handSkeletonIndices.empty())"
+    "${_hand_skeleton_render_anchor}"
+    "${_hand_skeleton_render_replacement}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
