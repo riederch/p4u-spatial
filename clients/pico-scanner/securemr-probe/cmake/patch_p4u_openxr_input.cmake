@@ -1868,9 +1868,10 @@ set(_skeleton_tracking_visibility_new [==[
       handSkeletonVisible[hand] = directHandActive;
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "hand skeleton tracking visibility v14"
     "handSkeletonVisible[hand] = directHandActive"
+    "handSkeletonVisible[hand] = trackedJointCount >= 6"
     "${_skeleton_tracking_visibility_old}"
     "${_skeleton_tracking_visibility_new}"
 )
@@ -2377,6 +2378,129 @@ _p4u_replace_if_missing(
     "P4U v17 diagnostic controller proxy"
     "${_controller_proxy_old}"
     "${_controller_proxy_new}"
+)
+
+
+# P4U v18: restore symmetric controller <-> hand switching after controller/action
+# separation. Controller tracking jitter must not keep ownership forever, and hand
+# presentation/input should use the finger joints actually needed by the product.
+
+set(_controller_activity_threshold_old [==[
+          if (positionDeltaSq >= 0.000036f || angularDelta >= 0.020f) {
+            m_p4uControllerRecentFrames[hand] = 90;
+          }
+]==])
+
+set(_controller_activity_threshold_new [==[
+          // P4U v18: ignore normal controller tracking jitter. A source switch should
+          // require deliberate motion, not millimetre/sub-degree pose noise.
+          constexpr float kControllerTakeoverPositionSq = 0.000225f;  // 15 mm
+          constexpr float kControllerTakeoverAngle = 0.070f;          // ~4 degrees
+          if (positionDeltaSq >= kControllerTakeoverPositionSq ||
+              angularDelta >= kControllerTakeoverAngle) {
+            m_p4uControllerRecentFrames[hand] = 45;
+          }
+]==])
+
+_p4u_replace_if_missing(
+    "controller deliberate activity threshold v18"
+    "kControllerTakeoverPositionSq = 0.000225f"
+    "\${_controller_activity_threshold_old}"
+    "\${_controller_activity_threshold_new}"
+)
+
+set(_controller_trigger_sticky_old [==[
+      if (controllerToggle == InputState::PRESS_DOWN) {
+        m_p4uControllerRecentFrames[hand] = 90;
+      }
+]==])
+
+set(_controller_trigger_sticky_new [==[
+      if (controllerToggle == InputState::PRESS_DOWN ||
+          m_p4uControllerTriggerValue[hand] > 0.05f) {
+        m_p4uControllerRecentFrames[hand] = 45;
+      }
+]==])
+
+_p4u_replace_if_missing(
+    "controller trigger activity v18"
+    "m_p4uControllerTriggerValue[hand] > 0.05f"
+    "\${_controller_trigger_sticky_old}"
+    "\${_controller_trigger_sticky_new}"
+)
+
+set(_hand_availability_old [==[
+        const bool palmValid =
+            (palm.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+            (palm.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0;
+        const bool pinchJointsValid =
+            (thumbTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+            (indexTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
+
+        // PICO's native OpenXR sample does not gate joint usability on
+        // XrHandJointLocationsEXT::isActive. On PICO OS this flag may remain false even
+        // while individual joints carry valid tracking data, so use the joint flags as
+        // the authoritative signal.
+        const bool directActive =
+            XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
+]==])
+
+set(_hand_availability_new [==[
+        const bool palmValid =
+            (palm.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+            (palm.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0;
+        const bool pinchJointsValid =
+            (thumbTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+            (indexTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
+        const bool indexAimValid =
+            (indexTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+            (indexTip.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0;
+
+        uint32_t trackedJointCount = 0;
+        if (XR_UNQUALIFIED_SUCCESS(handResult)) {
+          for (int jointIndex = 0; jointIndex < XR_HAND_JOINT_COUNT_EXT; ++jointIndex) {
+            if ((m_p4uHandJoints[hand][jointIndex].locationFlags &
+                 XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
+              ++trackedJointCount;
+            }
+          }
+        }
+
+        // Presentation follows raw joint availability. It stays visible even when the
+        // stricter interaction requirements are temporarily not met.
+        handSkeletonVisible[hand] = trackedJointCount >= 6;
+
+        // P4U v18: direct interaction needs the index aim pose and thumb position, not a
+        // valid palm orientation. Requiring the palm made hand takeover unnecessarily
+        // fragile after the controller actions were split.
+        const bool directActive =
+            XR_UNQUALIFIED_SUCCESS(handResult) && indexAimValid && pinchJointsValid;
+]==])
+
+_p4u_replace_if_missing(
+    "finger based hand availability v18"
+    "P4U v18: direct interaction needs the index aim pose"
+    "\${_hand_availability_old}"
+    "\${_hand_availability_new}"
+)
+
+set(_hand_visibility_interaction_gate_old [==[
+      // P4U: hand visualization follows tracking presence, not pointer ownership.
+      // Source arbitration may keep a controller sticky for interaction while the real
+      // hand is still fully tracked; hiding the skeleton in that state caused flicker.
+      handSkeletonVisible[hand] = directHandActive;
+]==])
+
+set(_hand_visibility_interaction_gate_new [==[
+      // P4U v18: skeleton visibility was resolved from raw tracked joints above.
+      // Do not tie presentation to pointer-source arbitration.
+]==])
+
+_p4u_replace_if_missing(
+    "decouple hand visualization from arbitration v18"
+    "skeleton visibility was resolved from raw tracked joints above"
+    "\${_hand_visibility_interaction_gate_old}"
+    "\${_hand_visibility_interaction_gate_new}"
 )
 
 file(WRITE "\${_p4u_openxr_program}" "\${_p4u_openxr_source}")
