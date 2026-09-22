@@ -1623,7 +1623,7 @@ set(_hand_skeleton_build_replacement [==[
     const XrVector3f skeletonColor{0.72f, 0.82f, 0.94f};
     const XrVector3f fingertipColor{0.90f, 0.94f, 1.00f};
 
-    const auto jointPositionValid = [&](Side hand, XrHandJointEXT joint) {
+    const auto jointPositionValid = [&](int hand, XrHandJointEXT joint) {
       return (m_p4uHandJoints[hand][joint].locationFlags &
               XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
     };
