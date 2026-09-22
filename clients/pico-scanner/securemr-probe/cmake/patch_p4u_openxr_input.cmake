@@ -1799,8 +1799,6 @@ _p4u_replace_if_missing(
 
 set(_hand_skeleton_render_anchor [==[
       m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
-
-      // P4U: PICO-style controller beam.
 ]==])
 
 set(_hand_skeleton_render_replacement [==[
@@ -1819,8 +1817,6 @@ set(_hand_skeleton_render_replacement [==[
             static_cast<uint32_t>(handSkeletonIndices.size()),
             skeletonWorldPose);
       }
-
-      // P4U: PICO-style controller beam.
 ]==])
 
 _p4u_replace_if_missing(
