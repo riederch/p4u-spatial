@@ -2772,5 +2772,500 @@ _p4u_replace_if_missing(
     "${_restore_index_pointer_new}"
 )
 
+
+# P4U v21: optional PICO Motion Tracker / XR_BD_body_tracking debug skeleton.
+# This is presentation-only and does not participate in controller/hand input arbitration.
+
+set(_body_capability_old [==[
+    m_handTrackingSupported =
+        p4uHasExtension(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+
+    Log::Write(
+]==])
+
+set(_body_capability_new [==[
+    m_handTrackingSupported =
+        p4uHasExtension(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+    m_bodyTrackingSupported =
+        p4uHasExtension(XR_BD_BODY_TRACKING_EXTENSION_NAME);
+
+    Log::Write(
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking capability probe v21"
+    "m_bodyTrackingSupported ="
+    "${_body_capability_old}"
+    "${_body_capability_new}"
+)
+
+set(_body_capability_log_old [==[
+            "XR_EXT_hand_interaction=%s XR_EXT_hand_tracking=%s",
+            m_picoControllerInteractionSupported ? "yes" : "no",
+            m_handInteractionSupported ? "yes" : "no",
+            m_handTrackingSupported ? "yes" : "no"));
+]==])
+
+set(_body_capability_log_new [==[
+            "XR_EXT_hand_interaction=%s XR_EXT_hand_tracking=%s "
+            "XR_BD_body_tracking=%s",
+            m_picoControllerInteractionSupported ? "yes" : "no",
+            m_handInteractionSupported ? "yes" : "no",
+            m_handTrackingSupported ? "yes" : "no",
+            m_bodyTrackingSupported ? "yes" : "no"));
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking capability log v21"
+    "XR_BD_body_tracking=%s"
+    "${_body_capability_log_old}"
+    "${_body_capability_log_new}"
+)
+
+set(_body_extension_old [==[
+    if (m_handTrackingSupported) {
+      extensions.push_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+      Log::Write(Log::Level::Info, "P4U: enabling XR_EXT_hand_tracking");
+    } else {
+      Log::Write(
+          Log::Level::Warning,
+          "P4U: XR_EXT_hand_tracking unavailable; direct hand fallback disabled");
+    }
+]==])
+
+set(_body_extension_new [==[
+    if (m_handTrackingSupported) {
+      extensions.push_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+      Log::Write(Log::Level::Info, "P4U: enabling XR_EXT_hand_tracking");
+    } else {
+      Log::Write(
+          Log::Level::Warning,
+          "P4U: XR_EXT_hand_tracking unavailable; direct hand fallback disabled");
+    }
+
+    if (m_bodyTrackingSupported) {
+      extensions.push_back(XR_BD_BODY_TRACKING_EXTENSION_NAME);
+      Log::Write(Log::Level::Info, "P4U: enabling XR_BD_body_tracking");
+    } else {
+      Log::Write(
+          Log::Level::Info,
+          "P4U: XR_BD_body_tracking unavailable; Motion Tracker skeleton disabled");
+    }
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking extension enable v21"
+    "P4U: enabling XR_BD_body_tracking"
+    "${_body_extension_old}"
+    "${_body_extension_new}"
+)
+
+set(_body_member_support_old [==[
+  bool m_handTrackingSupported{false};
+  bool m_handTrackingSystemSupported{false};
+]==])
+
+set(_body_member_support_new [==[
+  bool m_handTrackingSupported{false};
+  bool m_handTrackingSystemSupported{false};
+  bool m_bodyTrackingSupported{false};
+  bool m_bodyTrackingSystemSupported{false};
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking support state v21"
+    "m_bodyTrackingSystemSupported{false}"
+    "${_body_member_support_old}"
+    "${_body_member_support_new}"
+)
+
+set(_body_member_runtime_anchor [==[
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+]==])
+
+set(_body_member_runtime_replacement [==[
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+
+  // P4U v21: optional full-body Motion Tracker state.
+  PFN_xrCreateBodyTrackerBD m_xrCreateBodyTrackerBD{nullptr};
+  PFN_xrDestroyBodyTrackerBD m_xrDestroyBodyTrackerBD{nullptr};
+  PFN_xrLocateBodyJointsBD m_xrLocateBodyJointsBD{nullptr};
+  XrBodyTrackerBD m_p4uBodyTracker{XR_NULL_HANDLE};
+  std::array<XrBodyJointLocationBD, XR_BODY_JOINT_COUNT_BD> m_p4uBodyJoints{};
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking runtime state v21"
+    "m_xrCreateBodyTrackerBD{nullptr}"
+    "${_body_member_runtime_anchor}"
+    "${_body_member_runtime_replacement}"
+)
+
+set(_body_init_anchor [==[
+  void CreateVisualizedSpaces() {
+]==])
+
+set(_body_init_replacement [==[
+  // P4U v21: initialize native XR_BD_body_tracking only when the runtime/device supports it.
+  void InitializeP4uBodyTracking() {
+    if (!m_bodyTrackingSupported) {
+      return;
+    }
+
+    XrSystemBodyTrackingPropertiesBD bodyProperties{
+        XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_BD};
+    XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
+    systemProperties.next = &bodyProperties;
+    const XrResult propertiesResult =
+        xrGetSystemProperties(m_instance, m_systemId, &systemProperties);
+    if (XR_FAILED(propertiesResult) || bodyProperties.supportsBodyTracking != XR_TRUE) {
+      Log::Write(
+          Log::Level::Info,
+          "P4U: XR_BD_body_tracking extension present but body tracking unsupported");
+      return;
+    }
+    m_bodyTrackingSystemSupported = true;
+
+    PFN_xrVoidFunction function = nullptr;
+    if (XR_FAILED(xrGetInstanceProcAddr(
+            m_instance, "xrCreateBodyTrackerBD", &function)) ||
+        function == nullptr) {
+      Log::Write(Log::Level::Warning, "P4U: xrCreateBodyTrackerBD unavailable");
+      return;
+    }
+    m_xrCreateBodyTrackerBD =
+        reinterpret_cast<PFN_xrCreateBodyTrackerBD>(function);
+
+    function = nullptr;
+    if (XR_FAILED(xrGetInstanceProcAddr(
+            m_instance, "xrDestroyBodyTrackerBD", &function)) ||
+        function == nullptr) {
+      Log::Write(Log::Level::Warning, "P4U: xrDestroyBodyTrackerBD unavailable");
+      return;
+    }
+    m_xrDestroyBodyTrackerBD =
+        reinterpret_cast<PFN_xrDestroyBodyTrackerBD>(function);
+
+    function = nullptr;
+    if (XR_FAILED(xrGetInstanceProcAddr(
+            m_instance, "xrLocateBodyJointsBD", &function)) ||
+        function == nullptr) {
+      Log::Write(Log::Level::Warning, "P4U: xrLocateBodyJointsBD unavailable");
+      return;
+    }
+    m_xrLocateBodyJointsBD =
+        reinterpret_cast<PFN_xrLocateBodyJointsBD>(function);
+
+    XrBodyTrackerCreateInfoBD createInfo{XR_TYPE_BODY_TRACKER_CREATE_INFO_BD};
+    createInfo.jointSet = XR_BODY_JOINT_SET_FULL_BODY_JOINTS_BD;
+    const XrResult createResult =
+        m_xrCreateBodyTrackerBD(m_session, &createInfo, &m_p4uBodyTracker);
+    if (XR_FAILED(createResult)) {
+      m_p4uBodyTracker = XR_NULL_HANDLE;
+      Log::Write(
+          Log::Level::Info,
+          Fmt("P4U: Motion Tracker body tracker not active (%d)", createResult));
+      return;
+    }
+
+    Log::Write(
+        Log::Level::Info,
+        "P4U: Motion Tracker full-body tracker initialized (24 joints)");
+  }
+
+  void CreateVisualizedSpaces() {
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking initializer v21"
+    "P4U v21: initialize native XR_BD_body_tracking"
+    "${_body_init_anchor}"
+    "${_body_init_replacement}"
+)
+
+set(_body_init_call_old [==[
+    InitializeP4uHandTracking();
+    CreateVisualizedSpaces();
+]==])
+
+set(_body_init_call_new [==[
+    InitializeP4uHandTracking();
+    InitializeP4uBodyTracking();
+    CreateVisualizedSpaces();
+]==])
+
+_p4u_replace_if_missing(
+    "body tracking initializer call v21"
+    "InitializeP4uBodyTracking();"
+    "${_body_init_call_old}"
+    "${_body_init_call_new}"
+)
+
+set(_body_destroy_anchor [==[
+  ~OpenXrProgram() override {
+    if (m_xrDestroyHandTrackerEXT != nullptr) {
+]==])
+
+set(_body_destroy_replacement [==[
+  ~OpenXrProgram() override {
+    if (m_xrDestroyBodyTrackerBD != nullptr &&
+        m_p4uBodyTracker != XR_NULL_HANDLE) {
+      m_xrDestroyBodyTrackerBD(m_p4uBodyTracker);
+      m_p4uBodyTracker = XR_NULL_HANDLE;
+    }
+
+    if (m_xrDestroyHandTrackerEXT != nullptr) {
+]==])
+
+_p4u_replace_if_missing(
+    "body tracker cleanup v21"
+    "m_xrDestroyBodyTrackerBD(m_p4uBodyTracker)"
+    "${_body_destroy_anchor}"
+    "${_body_destroy_replacement}"
+)
+
+set(_body_skeleton_build_anchor [==[
+    // Render view to the appropriate part of the swapchain image.
+]==])
+
+set(_body_skeleton_build_replacement [==[
+    // P4U v21: optional Motion Tracker full-body debug skeleton. It appears only when
+    // enough body joints are valid in the current frame.
+    std::vector<Geometry::Vertex> bodySkeletonVerts;
+    std::vector<uint16_t> bodySkeletonIndices;
+    bool bodySkeletonVisible = false;
+
+    if (m_bodyTrackingSystemSupported &&
+        m_xrLocateBodyJointsBD != nullptr &&
+        m_p4uBodyTracker != XR_NULL_HANDLE) {
+      XrBodyJointsLocateInfoBD bodyLocateInfo{XR_TYPE_BODY_JOINTS_LOCATE_INFO_BD};
+      bodyLocateInfo.baseSpace = m_appSpace;
+      bodyLocateInfo.time = predictedDisplayTime;
+
+      XrBodyJointLocationsBD bodyLocations{XR_TYPE_BODY_JOINT_LOCATIONS_BD};
+      bodyLocations.jointLocationCount = XR_BODY_JOINT_COUNT_BD;
+      bodyLocations.jointLocations = m_p4uBodyJoints.data();
+
+      const XrResult bodyResult =
+          m_xrLocateBodyJointsBD(m_p4uBodyTracker, &bodyLocateInfo, &bodyLocations);
+
+      uint32_t validBodyJoints = 0;
+      if (XR_UNQUALIFIED_SUCCESS(bodyResult)) {
+        for (const auto& joint : m_p4uBodyJoints) {
+          if ((joint.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
+            ++validBodyJoints;
+          }
+        }
+      }
+
+      // Require a meaningful body solution, not a couple of stale tracker points.
+      bodySkeletonVisible = validBodyJoints >= 10;
+
+      if (bodySkeletonVisible) {
+        constexpr int kBodyTubeSides = 6;
+        const XrVector3f bodyColor{0.58f, 0.88f, 0.76f};
+        const XrVector3f bodyJointColor{0.78f, 0.96f, 0.88f};
+
+        const auto bodyJointValid = [&](XrBodyJointBD joint) {
+          return (m_p4uBodyJoints[joint].locationFlags &
+                  XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
+        };
+
+        const auto appendBodyJoint =
+            [&](const XrVector3f& center, float radius) {
+              if (bodySkeletonVerts.size() + 6 >= 65535) return;
+              const uint16_t base =
+                  static_cast<uint16_t>(bodySkeletonVerts.size());
+              bodySkeletonVerts.push_back(
+                  {{center.x + radius, center.y, center.z}, bodyJointColor});
+              bodySkeletonVerts.push_back(
+                  {{center.x - radius, center.y, center.z}, bodyJointColor});
+              bodySkeletonVerts.push_back(
+                  {{center.x, center.y + radius, center.z}, bodyJointColor});
+              bodySkeletonVerts.push_back(
+                  {{center.x, center.y - radius, center.z}, bodyJointColor});
+              bodySkeletonVerts.push_back(
+                  {{center.x, center.y, center.z + radius}, bodyJointColor});
+              bodySkeletonVerts.push_back(
+                  {{center.x, center.y, center.z - radius}, bodyJointColor});
+
+              const uint16_t faces[][3] = {
+                  {0, 2, 4}, {2, 1, 4}, {1, 3, 4}, {3, 0, 4},
+                  {2, 0, 5}, {1, 2, 5}, {3, 1, 5}, {0, 3, 5},
+              };
+              for (const auto& face : faces) {
+                bodySkeletonIndices.push_back(base + face[0]);
+                bodySkeletonIndices.push_back(base + face[1]);
+                bodySkeletonIndices.push_back(base + face[2]);
+              }
+            };
+
+        const auto appendBodyBone =
+            [&](const XrVector3f& a, const XrVector3f& b, float radius) {
+              XrVector3f direction{b.x - a.x, b.y - a.y, b.z - a.z};
+              const float length = XrVector3f_Length(&direction);
+              if (length < 0.001f ||
+                  bodySkeletonVerts.size() + kBodyTubeSides * 2 >= 65535) {
+                return;
+              }
+              XrVector3f_Normalize(&direction);
+
+              XrVector3f reference =
+                  std::abs(direction.y) < 0.92f
+                      ? XrVector3f{0.0f, 1.0f, 0.0f}
+                      : XrVector3f{1.0f, 0.0f, 0.0f};
+              XrVector3f axisU{};
+              XrVector3f_Cross(&axisU, &direction, &reference);
+              XrVector3f_Normalize(&axisU);
+              XrVector3f axisV{};
+              XrVector3f_Cross(&axisV, &direction, &axisU);
+              XrVector3f_Normalize(&axisV);
+
+              const uint16_t base =
+                  static_cast<uint16_t>(bodySkeletonVerts.size());
+              for (int ring = 0; ring < 2; ++ring) {
+                const XrVector3f& center = ring == 0 ? a : b;
+                for (int sideIndex = 0; sideIndex < kBodyTubeSides; ++sideIndex) {
+                  const float angle =
+                      (2.0f * MATH_PI * static_cast<float>(sideIndex)) /
+                      static_cast<float>(kBodyTubeSides);
+                  const float cs = std::cos(angle);
+                  const float sn = std::sin(angle);
+                  bodySkeletonVerts.push_back({
+                      {
+                          center.x + radius * (axisU.x * cs + axisV.x * sn),
+                          center.y + radius * (axisU.y * cs + axisV.y * sn),
+                          center.z + radius * (axisU.z * cs + axisV.z * sn),
+                      },
+                      bodyColor,
+                  });
+                }
+              }
+
+              for (int sideIndex = 0; sideIndex < kBodyTubeSides; ++sideIndex) {
+                const int next = (sideIndex + 1) % kBodyTubeSides;
+                const uint16_t a0 = base + static_cast<uint16_t>(sideIndex);
+                const uint16_t a1 = base + static_cast<uint16_t>(next);
+                const uint16_t b1 =
+                    base + static_cast<uint16_t>(kBodyTubeSides + next);
+                const uint16_t b0 =
+                    base + static_cast<uint16_t>(kBodyTubeSides + sideIndex);
+                bodySkeletonIndices.push_back(a0);
+                bodySkeletonIndices.push_back(a1);
+                bodySkeletonIndices.push_back(b1);
+                bodySkeletonIndices.push_back(a0);
+                bodySkeletonIndices.push_back(b1);
+                bodySkeletonIndices.push_back(b0);
+              }
+            };
+
+        const std::array<std::pair<XrBodyJointBD, XrBodyJointBD>, 23>
+            bodyBones{{
+                {XR_BODY_JOINT_PELVIS_BD, XR_BODY_JOINT_LEFT_HIP_BD},
+                {XR_BODY_JOINT_PELVIS_BD, XR_BODY_JOINT_RIGHT_HIP_BD},
+                {XR_BODY_JOINT_PELVIS_BD, XR_BODY_JOINT_SPINE1_BD},
+                {XR_BODY_JOINT_LEFT_HIP_BD, XR_BODY_JOINT_LEFT_KNEE_BD},
+                {XR_BODY_JOINT_LEFT_KNEE_BD, XR_BODY_JOINT_LEFT_ANKLE_BD},
+                {XR_BODY_JOINT_LEFT_ANKLE_BD, XR_BODY_JOINT_LEFT_FOOT_BD},
+                {XR_BODY_JOINT_RIGHT_HIP_BD, XR_BODY_JOINT_RIGHT_KNEE_BD},
+                {XR_BODY_JOINT_RIGHT_KNEE_BD, XR_BODY_JOINT_RIGHT_ANKLE_BD},
+                {XR_BODY_JOINT_RIGHT_ANKLE_BD, XR_BODY_JOINT_RIGHT_FOOT_BD},
+                {XR_BODY_JOINT_SPINE1_BD, XR_BODY_JOINT_SPINE2_BD},
+                {XR_BODY_JOINT_SPINE2_BD, XR_BODY_JOINT_SPINE3_BD},
+                {XR_BODY_JOINT_SPINE3_BD, XR_BODY_JOINT_NECK_BD},
+                {XR_BODY_JOINT_NECK_BD, XR_BODY_JOINT_HEAD_BD},
+                {XR_BODY_JOINT_NECK_BD, XR_BODY_JOINT_LEFT_COLLAR_BD},
+                {XR_BODY_JOINT_LEFT_COLLAR_BD, XR_BODY_JOINT_LEFT_SHOULDER_BD},
+                {XR_BODY_JOINT_LEFT_SHOULDER_BD, XR_BODY_JOINT_LEFT_ELBOW_BD},
+                {XR_BODY_JOINT_LEFT_ELBOW_BD, XR_BODY_JOINT_LEFT_WRIST_BD},
+                {XR_BODY_JOINT_LEFT_WRIST_BD, XR_BODY_JOINT_LEFT_HAND_BD},
+                {XR_BODY_JOINT_NECK_BD, XR_BODY_JOINT_RIGHT_COLLAR_BD},
+                {XR_BODY_JOINT_RIGHT_COLLAR_BD, XR_BODY_JOINT_RIGHT_SHOULDER_BD},
+                {XR_BODY_JOINT_RIGHT_SHOULDER_BD, XR_BODY_JOINT_RIGHT_ELBOW_BD},
+                {XR_BODY_JOINT_RIGHT_ELBOW_BD, XR_BODY_JOINT_RIGHT_WRIST_BD},
+                {XR_BODY_JOINT_RIGHT_WRIST_BD, XR_BODY_JOINT_RIGHT_HAND_BD},
+            }};
+
+        for (const auto& [fromJoint, toJoint] : bodyBones) {
+          if (!bodyJointValid(fromJoint) || !bodyJointValid(toJoint)) continue;
+          appendBodyBone(
+              m_p4uBodyJoints[fromJoint].pose.position,
+              m_p4uBodyJoints[toJoint].pose.position,
+              0.0042f);
+        }
+
+        for (int jointIndex = 0; jointIndex < XR_BODY_JOINT_COUNT_BD; ++jointIndex) {
+          const auto joint = static_cast<XrBodyJointBD>(jointIndex);
+          if (!bodyJointValid(joint)) continue;
+          appendBodyJoint(m_p4uBodyJoints[joint].pose.position, 0.0075f);
+        }
+      }
+    }
+
+    // Render view to the appropriate part of the swapchain image.
+]==])
+
+_p4u_replace_if_missing(
+    "motion tracker body skeleton build v21"
+    "P4U v21: optional Motion Tracker full-body debug skeleton"
+    "${_body_skeleton_build_anchor}"
+    "${_body_skeleton_build_replacement}"
+)
+
+set(_body_skeleton_render_anchor [==[
+      if (!handSkeletonVerts.empty() && !handSkeletonIndices.empty()) {
+        XrPosef skeletonWorldPose{};
+        skeletonWorldPose.orientation.w = 1.0f;
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            handSkeletonVerts.data(),
+            static_cast<uint32_t>(handSkeletonVerts.size()),
+            handSkeletonIndices.data(),
+            static_cast<uint32_t>(handSkeletonIndices.size()),
+            skeletonWorldPose);
+      }
+]==])
+
+set(_body_skeleton_render_replacement [==[
+      if (!handSkeletonVerts.empty() && !handSkeletonIndices.empty()) {
+        XrPosef skeletonWorldPose{};
+        skeletonWorldPose.orientation.w = 1.0f;
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            handSkeletonVerts.data(),
+            static_cast<uint32_t>(handSkeletonVerts.size()),
+            handSkeletonIndices.data(),
+            static_cast<uint32_t>(handSkeletonIndices.size()),
+            skeletonWorldPose);
+      }
+
+      if (bodySkeletonVisible &&
+          !bodySkeletonVerts.empty() &&
+          !bodySkeletonIndices.empty()) {
+        XrPosef bodyWorldPose{};
+        bodyWorldPose.orientation.w = 1.0f;
+        m_graphicsPlugin->RenderUserMesh(
+            projectionLayerViews[i],
+            swapchainImage,
+            m_colorSwapchainFormat,
+            bodySkeletonVerts.data(),
+            static_cast<uint32_t>(bodySkeletonVerts.size()),
+            bodySkeletonIndices.data(),
+            static_cast<uint32_t>(bodySkeletonIndices.size()),
+            bodyWorldPose);
+      }
+]==])
+
+_p4u_replace_if_missing(
+    "motion tracker body skeleton render v21"
+    "if (bodySkeletonVisible &&"
+    "${_body_skeleton_render_anchor}"
+    "${_body_skeleton_render_replacement}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
