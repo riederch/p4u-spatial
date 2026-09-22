@@ -613,10 +613,20 @@ set(_direct_hand_render_replacement [==[
         }
 
         if (directActive) {
-          // P4U: the interaction pointer originates at the index fingertip, not the palm.
-          // This matches the user's perceived pointing point and avoids a hand-center cursor.
+          // P4U: keep the hand control point near the index fingertip, but shift it
+          // slightly toward the thumb so it sits closer to the natural pinch/control area.
           directHandActive = true;
           directHandPose = indexTip.pose;
+          constexpr float kHandControlPointTowardThumb = 0.20f;
+          directHandPose.position.x +=
+              (thumbTip.pose.position.x - indexTip.pose.position.x) *
+              kHandControlPointTowardThumb;
+          directHandPose.position.y +=
+              (thumbTip.pose.position.y - indexTip.pose.position.y) *
+              kHandControlPointTowardThumb;
+          directHandPose.position.z +=
+              (thumbTip.pose.position.z - indexTip.pose.position.z) *
+              kHandControlPointTowardThumb;
 
           const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
           const float dy = thumbTip.pose.position.y - indexTip.pose.position.y;
@@ -1291,6 +1301,12 @@ set(_controller_beam_render_replacement [==[
           continue;
         }
 
+        // P4U: hands use the tracked skeleton plus HUD control point only.
+        // Keep the laser-style beam exclusively for physical controllers.
+        if (pointerBeamIsHand[hand]) {
+          continue;
+        }
+
         const XrPosef& beamPose = *controllerBeamPoses[hand];
         float beamLength = 0.80f;
 
@@ -1861,6 +1877,66 @@ _p4u_replace_if_missing(
     "handSkeletonVisible[hand] = directHandActive"
     "${_skeleton_tracking_visibility_old}"
     "${_skeleton_tracking_visibility_new}"
+)
+
+set(_hand_control_point_thumb_shift_old [==[
+          directHandActive = true;
+          directHandPose = indexTip.pose;
+
+          const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
+]==])
+
+set(_hand_control_point_thumb_shift_new [==[
+          directHandActive = true;
+          directHandPose = indexTip.pose;
+          constexpr float kHandControlPointTowardThumb = 0.20f;
+          directHandPose.position.x +=
+              (thumbTip.pose.position.x - indexTip.pose.position.x) *
+              kHandControlPointTowardThumb;
+          directHandPose.position.y +=
+              (thumbTip.pose.position.y - indexTip.pose.position.y) *
+              kHandControlPointTowardThumb;
+          directHandPose.position.z +=
+              (thumbTip.pose.position.z - indexTip.pose.position.z) *
+              kHandControlPointTowardThumb;
+
+          const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
+]==])
+
+_p4u_replace_if_missing(
+    "hand control point toward thumb v15"
+    "kHandControlPointTowardThumb = 0.20f"
+    "${_hand_control_point_thumb_shift_old}"
+    "${_hand_control_point_thumb_shift_new}"
+)
+
+set(_hand_beam_disable_old [==[
+        if (!controllerBeamPoses[hand]) {
+          continue;
+        }
+
+        const XrPosef& beamPose = *controllerBeamPoses[hand];
+]==])
+
+set(_hand_beam_disable_new [==[
+        if (!controllerBeamPoses[hand]) {
+          continue;
+        }
+
+        // P4U: hands use the tracked skeleton plus HUD control point only.
+        // Keep the laser-style beam exclusively for physical controllers.
+        if (pointerBeamIsHand[hand]) {
+          continue;
+        }
+
+        const XrPosef& beamPose = *controllerBeamPoses[hand];
+]==])
+
+_p4u_replace_if_missing(
+    "disable hand pointer beam v15"
+    "Keep the laser-style beam exclusively for physical controllers"
+    "${_hand_beam_disable_old}"
+    "${_hand_beam_disable_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
