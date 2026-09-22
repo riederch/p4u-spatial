@@ -962,9 +962,10 @@ set(_direct_hand_pointer_origin_new [==[
           m_input.handActive[hand] = XR_TRUE;
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "direct hand fingertip pointer origin v6"
     "P4U: the interaction pointer originates at the index fingertip"
+    "directHandPose = indexTip.pose"
     "${_direct_hand_pointer_origin_old}"
     "${_direct_hand_pointer_origin_new}"
 )
