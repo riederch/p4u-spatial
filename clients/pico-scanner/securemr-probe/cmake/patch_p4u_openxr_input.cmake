@@ -716,7 +716,7 @@ set(_direct_hand_render_replacement [==[
       if (resolvedPose) {
         const XrPosef& pose = *resolvedPose;
         float scale = 0.1f * m_input.handScale[hand];
-        if (renderControllerCubes) {
+        if (renderControllerCubes && useController) {
           cubes.push_back(Cube{pose, {scale, scale, scale}});
         }
         handPoses[hand] = pose;
@@ -1298,13 +1298,7 @@ set(_controller_beam_render_replacement [==[
       // P4U: PICO-style controller beam. Render only the controller source; direct
       // hand input keeps the fingertip reticle without a laser beam.
       for (auto hand : {Side::LEFT, Side::RIGHT}) {
-        if (!controllerBeamPoses[hand]) {
-          continue;
-        }
-
-        // P4U: hands use the tracked skeleton plus HUD control point only.
-        // Keep the laser-style beam exclusively for physical controllers.
-        if (pointerBeamIsHand[hand]) {
+        if (!controllerPointerSelected[hand] || !controllerBeamPoses[hand]) {
           continue;
         }
 
@@ -1435,12 +1429,9 @@ set(_pointer_beam_pose_new [==[
       if (resolvedPose) {
         const XrPosef& pose = *resolvedPose;
 
-        // P4U v11: visualize the pointer that is actually delivered to the product,
-        // not only the provisional controller candidate. This guarantees a beam for
-        // controllers as well as the direct-hand fallback.
-        controllerBeamPoses[hand] = pose;
-        pointerBeamIsHand[hand] =
-            directHandActive && m_p4uControllerRecentFrames[hand] == 0;
+        // P4U: beam ownership follows the explicit arbitration result. The controller
+        // pose was captured above only when useController=true; hands never populate it.
+        pointerBeamIsHand[hand] = false;
 
         float scale = 0.1f * m_input.handScale[hand];
 ]==])
@@ -1499,8 +1490,8 @@ set(_pointer_beam_geometry_new [==[
         // combining a shrinking radius with progressively dimmer vertex colors.
         constexpr int kBeamSides = 10;
         const int beamSegments = pointerBeamIsHand[hand] ? 10 : 5;
-        const float startRadius = pointerBeamIsHand[hand] ? 0.0026f : 0.0018f;
-        const float endRadius = pointerBeamIsHand[hand] ? 0.00015f : 0.0010f;
+        const float startRadius = pointerBeamIsHand[hand] ? 0.0026f : 0.0028f;
+        const float endRadius = pointerBeamIsHand[hand] ? 0.00015f : 0.0014f;
 
         std::vector<Geometry::Vertex> beamVerts;
         std::vector<uint16_t> beamIndices;
@@ -1586,6 +1577,7 @@ set(_hand_skeleton_state_old [==[
 set(_hand_skeleton_state_new [==[
     std::array<std::optional<XrPosef>, 2> controllerBeamPoses{};
     std::array<bool, 2> pointerBeamIsHand{{false, false}};
+    std::array<bool, 2> controllerPointerSelected{{false, false}};
     std::array<bool, 2> handSkeletonVisible{{false, false}};
     bool buttonPressed = false;
 ]==])
@@ -1605,6 +1597,7 @@ set(_hand_skeleton_selection_old [==[
 
 set(_hand_skeleton_selection_new [==[
       const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+      controllerPointerSelected[hand] = useController;
 
       // P4U: hand visualization follows tracking presence, not pointer ownership.
       // Source arbitration may keep a controller sticky for interaction while the real
@@ -1939,6 +1932,131 @@ _p4u_replace_if_missing(
     "Keep the laser-style beam exclusively for physical controllers"
     "${_hand_beam_disable_old}"
     "${_hand_beam_disable_new}"
+)
+
+set(_controller_visual_selected_state_old [==[
+    std::array<bool, 2> pointerBeamIsHand{{false, false}};
+    std::array<bool, 2> handSkeletonVisible{{false, false}};
+]==])
+
+set(_controller_visual_selected_state_new [==[
+    std::array<bool, 2> pointerBeamIsHand{{false, false}};
+    std::array<bool, 2> controllerPointerSelected{{false, false}};
+    std::array<bool, 2> handSkeletonVisible{{false, false}};
+]==])
+
+_p4u_replace_if_missing(
+    "controller selected render state v16"
+    "controllerPointerSelected{{false, false}}"
+    "${_controller_visual_selected_state_old}"
+    "${_controller_visual_selected_state_new}"
+)
+
+set(_controller_visual_selection_old [==[
+      const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+
+      // P4U: hand visualization follows tracking presence, not pointer ownership.
+]==])
+
+set(_controller_visual_selection_new [==[
+      const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
+      controllerPointerSelected[hand] = useController;
+
+      // P4U: hand visualization follows tracking presence, not pointer ownership.
+]==])
+
+_p4u_replace_if_missing(
+    "controller selected render source v16"
+    "controllerPointerSelected[hand] = useController"
+    "${_controller_visual_selection_old}"
+    "${_controller_visual_selection_new}"
+)
+
+set(_controller_visual_cube_old [==[
+        if (renderControllerCubes) {
+          cubes.push_back(Cube{pose, {scale, scale, scale}});
+        }
+]==])
+
+set(_controller_visual_cube_new [==[
+        if (renderControllerCubes && useController) {
+          cubes.push_back(Cube{pose, {scale, scale, scale}});
+        }
+]==])
+
+_p4u_replace_if_missing(
+    "controller proxy selected source v16"
+    "if (renderControllerCubes && useController)"
+    "${_controller_visual_cube_old}"
+    "${_controller_visual_cube_new}"
+)
+
+set(_controller_beam_resolved_old [==[
+        // P4U v11: visualize the pointer that is actually delivered to the product,
+        // not only the provisional controller candidate. This guarantees a beam for
+        // controllers as well as the direct-hand fallback.
+        controllerBeamPoses[hand] = pose;
+        pointerBeamIsHand[hand] =
+            directHandActive && m_p4uControllerRecentFrames[hand] == 0;
+]==])
+
+set(_controller_beam_resolved_new [==[
+        // P4U: beam ownership follows the explicit arbitration result. The controller
+        // pose was captured above only when useController=true; hands never populate it.
+        pointerBeamIsHand[hand] = false;
+]==])
+
+_p4u_replace_if_missing(
+    "controller explicit beam ownership v16"
+    "beam ownership follows the explicit arbitration result"
+    "${_controller_beam_resolved_old}"
+    "${_controller_beam_resolved_new}"
+)
+
+set(_controller_beam_guard_old [==[
+        if (!controllerBeamPoses[hand]) {
+          continue;
+        }
+
+        // P4U: hands use the tracked skeleton plus HUD control point only.
+        // Keep the laser-style beam exclusively for physical controllers.
+        if (pointerBeamIsHand[hand]) {
+          continue;
+        }
+
+        const XrPosef& beamPose = *controllerBeamPoses[hand];
+]==])
+
+set(_controller_beam_guard_new [==[
+        if (!controllerPointerSelected[hand] || !controllerBeamPoses[hand]) {
+          continue;
+        }
+
+        const XrPosef& beamPose = *controllerBeamPoses[hand];
+]==])
+
+_p4u_replace_if_missing(
+    "controller explicit beam guard v16"
+    "!controllerPointerSelected[hand] || !controllerBeamPoses[hand]"
+    "${_controller_beam_guard_old}"
+    "${_controller_beam_guard_new}"
+)
+
+set(_controller_beam_radius_old [==[
+        const float startRadius = pointerBeamIsHand[hand] ? 0.0026f : 0.0018f;
+        const float endRadius = pointerBeamIsHand[hand] ? 0.00015f : 0.0010f;
+]==])
+
+set(_controller_beam_radius_new [==[
+        const float startRadius = pointerBeamIsHand[hand] ? 0.0026f : 0.0028f;
+        const float endRadius = pointerBeamIsHand[hand] ? 0.00015f : 0.0014f;
+]==])
+
+_p4u_replace_if_missing(
+    "controller diagnostic beam width v16"
+    "pointerBeamIsHand[hand] ? 0.0026f : 0.0028f"
+    "${_controller_beam_radius_old}"
+    "${_controller_beam_radius_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
