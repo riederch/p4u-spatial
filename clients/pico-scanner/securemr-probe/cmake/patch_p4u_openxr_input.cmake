@@ -2092,8 +2092,8 @@ set(_controller_actions_state_replacement [==[
 _p4u_replace_if_missing(
     "dedicated controller state v17"
     "m_p4uControllerAimAction{XR_NULL_HANDLE}"
-    "\${_controller_actions_state_anchor}"
-    "\${_controller_actions_state_replacement}"
+    "${_controller_actions_state_anchor}"
+    "${_controller_actions_state_replacement}"
 )
 
 set(_controller_actions_create_anchor [==[
@@ -2134,8 +2134,8 @@ set(_controller_actions_create_replacement [==[
 _p4u_replace_if_missing(
     "dedicated controller actions v17"
     "P4U v17: create controller-only actions"
-    "\${_controller_actions_create_anchor}"
-    "\${_controller_actions_create_replacement}"
+    "${_controller_actions_create_anchor}"
+    "${_controller_actions_create_replacement}"
 )
 
 set(_controller_bindings_old [==[
@@ -2201,8 +2201,8 @@ set(_controller_bindings_new [==[
 _p4u_replace_if_missing(
     "dedicated PICO controller bindings v17"
     "{m_p4uControllerAimAction, leftAimPosePath}"
-    "\${_controller_bindings_old}"
-    "\${_controller_bindings_new}"
+    "${_controller_bindings_old}"
+    "${_controller_bindings_new}"
 )
 
 set(_controller_spaces_anchor [==[
@@ -2233,8 +2233,8 @@ set(_controller_spaces_replacement [==[
 _p4u_replace_if_missing(
     "dedicated controller spaces v17"
     "m_p4uControllerAimSpace[hand]"
-    "\${_controller_spaces_anchor}"
-    "\${_controller_spaces_replacement}"
+    "${_controller_spaces_anchor}"
+    "${_controller_spaces_replacement}"
 )
 
 set(_controller_poll_anchor [==[
@@ -2269,8 +2269,8 @@ set(_controller_poll_replacement [==[
 _p4u_replace_if_missing(
     "poll dedicated controller actions v17"
     "P4U v17: poll physical PICO controller actions independently"
-    "\${_controller_poll_anchor}"
-    "\${_controller_poll_replacement}"
+    "${_controller_poll_anchor}"
+    "${_controller_poll_replacement}"
 )
 
 set(_controller_render_locals_old [==[
@@ -2293,8 +2293,8 @@ set(_controller_render_locals_new [==[
 _p4u_replace_if_missing(
     "controller render locals v17"
     "controllerGripPoseValid = false"
-    "\${_controller_render_locals_old}"
-    "\${_controller_render_locals_new}"
+    "${_controller_render_locals_old}"
+    "${_controller_render_locals_new}"
 )
 
 set(_controller_locate_old [==[
@@ -2343,8 +2343,8 @@ set(_controller_locate_new [==[
 _p4u_replace_if_missing(
     "locate dedicated controller poses v17"
     "xrLocateSpace(controller aim)"
-    "\${_controller_locate_old}"
-    "\${_controller_locate_new}"
+    "${_controller_locate_old}"
+    "${_controller_locate_new}"
 )
 
 set(_controller_proxy_old [==[
@@ -2375,8 +2375,8 @@ set(_controller_proxy_new [==[
 _p4u_replace_if_missing(
     "dedicated controller proxy v17"
     "P4U v17 diagnostic controller proxy"
-    "\${_controller_proxy_old}"
-    "\${_controller_proxy_new}"
+    "${_controller_proxy_old}"
+    "${_controller_proxy_new}"
 )
 
 file(WRITE "\${_p4u_openxr_program}" "\${_p4u_openxr_source}")
