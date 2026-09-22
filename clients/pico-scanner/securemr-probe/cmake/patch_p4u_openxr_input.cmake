@@ -1588,7 +1588,11 @@ set(_hand_skeleton_selection_old [==[
 
 set(_hand_skeleton_selection_new [==[
       const int selectedSource = useController ? 1 : (directHandActive ? 2 : 0);
-      handSkeletonVisible[hand] = selectedSource == 2;
+
+      // P4U: hand visualization follows tracking presence, not pointer ownership.
+      // Source arbitration may keep a controller sticky for interaction while the real
+      // hand is still fully tracked; hiding the skeleton in that state caused flicker.
+      handSkeletonVisible[hand] = directHandActive;
 
       if (useController) {
 ]==])
@@ -1839,6 +1843,24 @@ _p4u_replace_if_missing(
     "const auto jointPositionValid = [&](int hand, XrHandJointEXT joint)"
     "${_skeleton_hand_index_type_old}"
     "${_skeleton_hand_index_type_new}"
+)
+
+set(_skeleton_tracking_visibility_old [==[
+      handSkeletonVisible[hand] = selectedSource == 2;
+]==])
+
+set(_skeleton_tracking_visibility_new [==[
+      // P4U: hand visualization follows tracking presence, not pointer ownership.
+      // Source arbitration may keep a controller sticky for interaction while the real
+      // hand is still fully tracked; hiding the skeleton in that state caused flicker.
+      handSkeletonVisible[hand] = directHandActive;
+]==])
+
+_p4u_replace_if_missing(
+    "hand skeleton tracking visibility v14"
+    "handSkeletonVisible[hand] = directHandActive"
+    "${_skeleton_tracking_visibility_old}"
+    "${_skeleton_tracking_visibility_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
