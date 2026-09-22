@@ -1436,9 +1436,10 @@ set(_pointer_beam_pose_new [==[
         float scale = 0.1f * m_input.handScale[hand];
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "beam follows resolved pointer pose v11"
     "P4U v11: visualize the pointer that is actually delivered to the product"
+    "beam ownership follows the explicit arbitration result"
     "${_pointer_beam_pose_old}"
     "${_pointer_beam_pose_new}"
 )
@@ -1927,9 +1928,10 @@ set(_hand_beam_disable_new [==[
         const XrPosef& beamPose = *controllerBeamPoses[hand];
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "disable hand pointer beam v15"
     "Keep the laser-style beam exclusively for physical controllers"
+    "!controllerPointerSelected[hand] || !controllerBeamPoses[hand]"
     "${_hand_beam_disable_old}"
     "${_hand_beam_disable_new}"
 )
@@ -1984,9 +1986,10 @@ set(_controller_visual_cube_new [==[
         }
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "controller proxy selected source v16"
     "if (renderControllerCubes && useController)"
+    "P4U v17 diagnostic controller proxy"
     "${_controller_visual_cube_old}"
     "${_controller_visual_cube_new}"
 )
