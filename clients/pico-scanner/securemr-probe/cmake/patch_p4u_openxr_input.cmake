@@ -966,7 +966,7 @@ set(_direct_hand_pointer_origin_new [==[
 _p4u_replace_if_missing_or_superseded(
     "direct hand fingertip pointer origin v6"
     "P4U: the interaction pointer originates at the index fingertip"
-    "P4U v19: stable offset toward thumb base"
+    "directHandActive = true;"
     "${_direct_hand_pointer_origin_old}"
     "${_direct_hand_pointer_origin_new}"
 )
