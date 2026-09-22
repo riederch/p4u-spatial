@@ -2405,8 +2405,8 @@ set(_controller_activity_threshold_new [==[
 _p4u_replace_if_missing(
     "controller deliberate activity threshold v18"
     "kControllerTakeoverPositionSq = 0.000225f"
-    "\${_controller_activity_threshold_old}"
-    "\${_controller_activity_threshold_new}"
+    "${_controller_activity_threshold_old}"
+    "${_controller_activity_threshold_new}"
 )
 
 set(_controller_trigger_sticky_old [==[
@@ -2425,8 +2425,8 @@ set(_controller_trigger_sticky_new [==[
 _p4u_replace_if_missing(
     "controller trigger activity v18"
     "m_p4uControllerTriggerValue[hand] > 0.05f"
-    "\${_controller_trigger_sticky_old}"
-    "\${_controller_trigger_sticky_new}"
+    "${_controller_trigger_sticky_old}"
+    "${_controller_trigger_sticky_new}"
 )
 
 set(_hand_availability_old [==[
@@ -2480,8 +2480,8 @@ set(_hand_availability_new [==[
 _p4u_replace_if_missing(
     "finger based hand availability v18"
     "P4U v18: direct interaction needs the index aim pose"
-    "\${_hand_availability_old}"
-    "\${_hand_availability_new}"
+    "${_hand_availability_old}"
+    "${_hand_availability_new}"
 )
 
 set(_hand_visibility_interaction_gate_old [==[
@@ -2499,9 +2499,9 @@ set(_hand_visibility_interaction_gate_new [==[
 _p4u_replace_if_missing(
     "decouple hand visualization from arbitration v18"
     "skeleton visibility was resolved from raw tracked joints above"
-    "\${_hand_visibility_interaction_gate_old}"
-    "\${_hand_visibility_interaction_gate_new}"
+    "${_hand_visibility_interaction_gate_old}"
+    "${_hand_visibility_interaction_gate_new}"
 )
 
-file(WRITE "\${_p4u_openxr_program}" "\${_p4u_openxr_source}")
+file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
