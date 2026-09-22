@@ -2682,5 +2682,95 @@ _p4u_replace_if_missing(
     "${_controller_proxy_remove_new}"
 )
 
+
+# P4U v20: restore the last hardware-validated hand interaction semantics. Controller
+# separation remains intact, but finger pointing/clicking again uses the raw index-tip pose
+# plus the original thumb/index pinch hysteresis.
+
+set(_restore_index_pointer_old [==[
+          directHandActive = true;
+
+          // P4U v19: stable offset toward thumb base instead of the moving thumb tip.
+          XrPosef handPointerCandidate = indexTip.pose;
+          const bool thumbBaseValid =
+              (thumbMetacarpal.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
+          if (thumbBaseValid) {
+            XrVector3f towardThumbBase{
+                thumbMetacarpal.pose.position.x - indexTip.pose.position.x,
+                thumbMetacarpal.pose.position.y - indexTip.pose.position.y,
+                thumbMetacarpal.pose.position.z - indexTip.pose.position.z,
+            };
+            const float thumbBaseDistance = XrVector3f_Length(&towardThumbBase);
+            if (thumbBaseDistance > 0.001f) {
+              XrVector3f_Normalize(&towardThumbBase);
+              constexpr float kHandControlPointOffsetMeters = 0.012f;
+              handPointerCandidate.position.x += towardThumbBase.x * kHandControlPointOffsetMeters;
+              handPointerCandidate.position.y += towardThumbBase.y * kHandControlPointOffsetMeters;
+              handPointerCandidate.position.z += towardThumbBase.z * kHandControlPointOffsetMeters;
+            }
+          }
+
+          const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
+          const float dy = thumbTip.pose.position.y - indexTip.pose.position.y;
+          const float dz = thumbTip.pose.position.z - indexTip.pose.position.z;
+          const float pinchDistance = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+          const bool previousPinch = m_p4uHandPinched[hand];
+          bool pinched = previousPinch;
+          if (!pinched && pinchDistance <= 0.028f) {
+            pinched = true;
+          } else if (pinched && pinchDistance >= 0.045f) {
+            pinched = false;
+          }
+
+          // Freeze full pointer pose while pinched so activation stays on the pre-pinch target.
+          if (!pinched) {
+            m_p4uStableHandPointerPose[hand] = handPointerCandidate;
+            m_p4uStableHandPointerValid[hand] = true;
+            directHandPose = handPointerCandidate;
+          } else if (m_p4uStableHandPointerValid[hand]) {
+            directHandPose = m_p4uStableHandPointerPose[hand];
+          } else {
+            directHandPose = handPointerCandidate;
+          }
+
+          m_p4uHandPinched[hand] = pinched;
+]==])
+
+set(_restore_index_pointer_new [==[
+          directHandActive = true;
+
+          // P4U v20: restored index fingertip interaction. This is the last
+          // hardware-validated finger pointer/click behavior from before the controller
+          // rendering changes. Keep these legacy markers for migration idempotence:
+          // P4U v19: stable offset toward thumb base instead of the moving thumb tip.
+          constexpr float kHandControlPointOffsetMeters = 0.012f;
+          (void)kHandControlPointOffsetMeters;
+          directHandPose = indexTip.pose;
+
+          const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
+          const float dy = thumbTip.pose.position.y - indexTip.pose.position.y;
+          const float dz = thumbTip.pose.position.z - indexTip.pose.position.z;
+          const float pinchDistance = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+          // Original hardware-validated hysteresis.
+          const bool previousPinch = m_p4uHandPinched[hand];
+          bool pinched = previousPinch;
+          if (!pinched && pinchDistance <= 0.028f) {
+            pinched = true;
+          } else if (pinched && pinchDistance >= 0.045f) {
+            pinched = false;
+          }
+
+          m_p4uHandPinched[hand] = pinched;
+]==])
+
+_p4u_replace_if_missing(
+    "restore hardware-validated index pointer v20"
+    "P4U v20: restored index fingertip interaction"
+    "${_restore_index_pointer_old}"
+    "${_restore_index_pointer_new}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
