@@ -2059,5 +2059,322 @@ _p4u_replace_if_missing(
     "${_controller_beam_radius_new}"
 )
 
-file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
+
+# P4U v17: separate physical controller input from hand interaction. Earlier revisions
+# shared grabAction/poseAction between XR_EXT_hand_interaction and PICO controllers, which
+# made a valid pose ambiguous and allowed controller proxy geometry to appear on fingers.
+
+set(_controller_actions_state_anchor [==[
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+
+  XrEventDataBuffer m_eventDataBuffer;
+]==])
+
+set(_controller_actions_state_replacement [==[
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+
+  // P4U v17: dedicated physical-controller state. Aim drives HUD/ray, grip drives the
+  // controller proxy, and trigger is independent from hand pinch.
+  XrAction m_p4uControllerAimAction{XR_NULL_HANDLE};
+  XrAction m_p4uControllerGripAction{XR_NULL_HANDLE};
+  XrAction m_p4uControllerTriggerAction{XR_NULL_HANDLE};
+  std::array<XrSpace, Side::COUNT> m_p4uControllerAimSpace{{XR_NULL_HANDLE, XR_NULL_HANDLE}};
+  std::array<XrSpace, Side::COUNT> m_p4uControllerGripSpace{{XR_NULL_HANDLE, XR_NULL_HANDLE}};
+  std::array<XrBool32, Side::COUNT> m_p4uControllerAimActive{{XR_FALSE, XR_FALSE}};
+  std::array<float, Side::COUNT> m_p4uControllerTriggerValue{{0.0f, 0.0f}};
+
+  XrEventDataBuffer m_eventDataBuffer;
+]==])
+
+_p4u_replace_if_missing(
+    "dedicated controller state v17"
+    "m_p4uControllerAimAction{XR_NULL_HANDLE}"
+    "\${_controller_actions_state_anchor}"
+    "\${_controller_actions_state_replacement}"
+)
+
+set(_controller_actions_create_anchor [==[
+    std::array<XrPath, Side::COUNT> selectPath;
+]==])
+
+set(_controller_actions_create_replacement [==[
+    // P4U v17: create controller-only actions so hand interaction can no longer resolve
+    // through the same pose/grab action as the physical PICO controllers.
+    {
+      XrActionCreateInfo controllerActionInfo{XR_TYPE_ACTION_CREATE_INFO};
+      controllerActionInfo.countSubactionPaths =
+          static_cast<uint32_t>(m_input.handSubactionPath.size());
+      controllerActionInfo.subactionPaths = m_input.handSubactionPath.data();
+
+      controllerActionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+      strcpy_s(controllerActionInfo.actionName, "p4u_controller_aim");
+      strcpy_s(controllerActionInfo.localizedActionName, "P4U Controller Aim");
+      CHECK_XRCMD(xrCreateAction(
+          m_input.actionSet, &controllerActionInfo, &m_p4uControllerAimAction));
+
+      controllerActionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+      strcpy_s(controllerActionInfo.actionName, "p4u_controller_grip");
+      strcpy_s(controllerActionInfo.localizedActionName, "P4U Controller Grip");
+      CHECK_XRCMD(xrCreateAction(
+          m_input.actionSet, &controllerActionInfo, &m_p4uControllerGripAction));
+
+      controllerActionInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+      strcpy_s(controllerActionInfo.actionName, "p4u_controller_trigger");
+      strcpy_s(controllerActionInfo.localizedActionName, "P4U Controller Trigger");
+      CHECK_XRCMD(xrCreateAction(
+          m_input.actionSet, &controllerActionInfo, &m_p4uControllerTriggerAction));
+    }
+
+    std::array<XrPath, Side::COUNT> selectPath;
+]==])
+
+_p4u_replace_if_missing(
+    "dedicated controller actions v17"
+    "P4U v17: create controller-only actions"
+    "\${_controller_actions_create_anchor}"
+    "\${_controller_actions_create_replacement}"
+)
+
+set(_controller_bindings_old [==[
+      XrPath leftAimPosePath;
+      XrPath rightAimPosePath;
+
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/interaction_profiles/bytedance/pico4s_controller",
+          &pico4sProfilePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/left/input/aim/pose",
+          &leftAimPosePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/right/input/aim/pose",
+          &rightAimPosePath));
+
+      std::vector<XrActionSuggestedBinding> pico4sBindings{{
+          {m_input.grabAction, triggerValuePath[Side::LEFT]},
+          {m_input.grabAction, triggerValuePath[Side::RIGHT]},
+          {m_input.poseAction, leftAimPosePath},
+          {m_input.poseAction, rightAimPosePath},
+]==])
+
+set(_controller_bindings_new [==[
+      XrPath leftAimPosePath;
+      XrPath rightAimPosePath;
+      XrPath leftGripPosePath;
+      XrPath rightGripPosePath;
+
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/interaction_profiles/bytedance/pico4s_controller",
+          &pico4sProfilePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/left/input/aim/pose",
+          &leftAimPosePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/right/input/aim/pose",
+          &rightAimPosePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/left/input/grip/pose",
+          &leftGripPosePath));
+      CHECK_XRCMD(xrStringToPath(
+          m_instance,
+          "/user/hand/right/input/grip/pose",
+          &rightGripPosePath));
+
+      std::vector<XrActionSuggestedBinding> pico4sBindings{{
+          {m_p4uControllerTriggerAction, triggerValuePath[Side::LEFT]},
+          {m_p4uControllerTriggerAction, triggerValuePath[Side::RIGHT]},
+          {m_p4uControllerAimAction, leftAimPosePath},
+          {m_p4uControllerAimAction, rightAimPosePath},
+          {m_p4uControllerGripAction, leftGripPosePath},
+          {m_p4uControllerGripAction, rightGripPosePath},
+]==])
+
+_p4u_replace_if_missing(
+    "dedicated PICO controller bindings v17"
+    "{m_p4uControllerAimAction, leftAimPosePath}"
+    "\${_controller_bindings_old}"
+    "\${_controller_bindings_new}"
+)
+
+set(_controller_spaces_anchor [==[
+    XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
+]==])
+
+set(_controller_spaces_replacement [==[
+    // P4U v17: controller aim/grip spaces are distinct from the generic hand-interaction
+    // action spaces above.
+    XrActionSpaceCreateInfo controllerSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+    controllerSpaceInfo.poseInActionSpace.orientation.w = 1.f;
+
+    for (auto hand : {Side::LEFT, Side::RIGHT}) {
+      controllerSpaceInfo.subactionPath = m_input.handSubactionPath[hand];
+
+      controllerSpaceInfo.action = m_p4uControllerAimAction;
+      CHECK_XRCMD(xrCreateActionSpace(
+          m_session, &controllerSpaceInfo, &m_p4uControllerAimSpace[hand]));
+
+      controllerSpaceInfo.action = m_p4uControllerGripAction;
+      CHECK_XRCMD(xrCreateActionSpace(
+          m_session, &controllerSpaceInfo, &m_p4uControllerGripSpace[hand]));
+    }
+
+    XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
+]==])
+
+_p4u_replace_if_missing(
+    "dedicated controller spaces v17"
+    "m_p4uControllerAimSpace[hand]"
+    "\${_controller_spaces_anchor}"
+    "\${_controller_spaces_replacement}"
+)
+
+set(_controller_poll_anchor [==[
+    // Get pose and grab action state and start haptic vibrate when hand is 90% squeezed.
+]==])
+
+set(_controller_poll_replacement [==[
+    // P4U v17: poll physical PICO controller actions independently from hand interaction.
+    for (auto hand : {Side::LEFT, Side::RIGHT}) {
+      XrActionStateGetInfo controllerGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+      controllerGetInfo.subactionPath = m_input.handSubactionPath[hand];
+
+      controllerGetInfo.action = m_p4uControllerAimAction;
+      XrActionStatePose controllerAimState{XR_TYPE_ACTION_STATE_POSE};
+      CHECK_XRCMD(xrGetActionStatePose(
+          m_session, &controllerGetInfo, &controllerAimState));
+      m_p4uControllerAimActive[hand] = controllerAimState.isActive;
+
+      controllerGetInfo.action = m_p4uControllerTriggerAction;
+      XrActionStateFloat controllerTriggerState{XR_TYPE_ACTION_STATE_FLOAT};
+      CHECK_XRCMD(xrGetActionStateFloat(
+          m_session, &controllerGetInfo, &controllerTriggerState));
+      m_p4uControllerTriggerValue[hand] =
+          controllerTriggerState.isActive == XR_TRUE
+              ? controllerTriggerState.currentState
+              : 0.0f;
+    }
+
+    // Get pose and grab action state and start haptic vibrate when hand is 90% squeezed.
+]==])
+
+_p4u_replace_if_missing(
+    "poll dedicated controller actions v17"
+    "P4U v17: poll physical PICO controller actions independently"
+    "\${_controller_poll_anchor}"
+    "\${_controller_poll_replacement}"
+)
+
+set(_controller_render_locals_old [==[
+      const InputState::ToggleStatus controllerToggle = m_input.handToggle[hand];
+      bool controllerPoseValid = false;
+      XrPosef controllerPose{};
+]==])
+
+set(_controller_render_locals_new [==[
+      const InputState::ToggleStatus controllerToggle =
+          m_p4uControllerTriggerValue[hand] > 0.75f
+              ? InputState::PRESS_DOWN
+              : InputState::RELEASE;
+      bool controllerPoseValid = false;
+      XrPosef controllerPose{};
+      bool controllerGripPoseValid = false;
+      XrPosef controllerGripPose{};
+]==])
+
+_p4u_replace_if_missing(
+    "controller render locals v17"
+    "controllerGripPoseValid = false"
+    "\${_controller_render_locals_old}"
+    "\${_controller_render_locals_new}"
+)
+
+set(_controller_locate_old [==[
+      XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
+      res = xrLocateSpace(m_input.handSpace[hand], m_appSpace, predictedDisplayTime, &spaceLocation);
+      CHECK_XRRESULT(res, "xrLocateSpace");
+      if (XR_UNQUALIFIED_SUCCESS(res) &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+        controllerPose = spaceLocation.pose;
+        controllerPoseValid = true;
+]==])
+
+set(_controller_locate_new [==[
+      // P4U v17: locate the physical controller aim space directly. This is never shared
+      // with XR_EXT_hand_interaction.
+      XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
+      res = xrLocateSpace(
+          m_p4uControllerAimSpace[hand],
+          m_appSpace,
+          predictedDisplayTime,
+          &spaceLocation);
+      CHECK_XRRESULT(res, "xrLocateSpace(controller aim)");
+      if (m_p4uControllerAimActive[hand] == XR_TRUE &&
+          XR_UNQUALIFIED_SUCCESS(res) &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+          (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+        controllerPose = spaceLocation.pose;
+        controllerPoseValid = true;
+
+        XrSpaceLocation gripLocation{XR_TYPE_SPACE_LOCATION};
+        const XrResult gripResult = xrLocateSpace(
+            m_p4uControllerGripSpace[hand],
+            m_appSpace,
+            predictedDisplayTime,
+            &gripLocation);
+        CHECK_XRRESULT(gripResult, "xrLocateSpace(controller grip)");
+        if (XR_UNQUALIFIED_SUCCESS(gripResult) &&
+            (gripLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+            (gripLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+          controllerGripPose = gripLocation.pose;
+          controllerGripPoseValid = true;
+        }
+]==])
+
+_p4u_replace_if_missing(
+    "locate dedicated controller poses v17"
+    "xrLocateSpace(controller aim)"
+    "\${_controller_locate_old}"
+    "\${_controller_locate_new}"
+)
+
+set(_controller_proxy_old [==[
+        float scale = 0.1f * m_input.handScale[hand];
+        if (renderControllerCubes && useController) {
+          cubes.push_back(Cube{pose, {scale, scale, scale}});
+        }
+        handPoses[hand] = pose;
+]==])
+
+set(_controller_proxy_new [==[
+        float scale = 0.1f * m_input.handScale[hand];
+
+        // P4U v17 diagnostic controller proxy. Use grip pose for the physical body and
+        // animate its size with trigger pressure. It is deliberately simple until the
+        // final controller model is chosen.
+        if (useController && controllerGripPoseValid) {
+          const float trigger = std::min(
+              1.0f, std::max(0.0f, m_p4uControllerTriggerValue[hand]));
+          const float bodyScale = 0.045f - 0.010f * trigger;
+          cubes.push_back(Cube{
+              controllerGripPose,
+              {bodyScale, bodyScale * 1.45f, bodyScale * 0.80f}});
+        }
+        handPoses[hand] = pose;
+]==])
+
+_p4u_replace_if_missing(
+    "dedicated controller proxy v17"
+    "P4U v17 diagnostic controller proxy"
+    "\${_controller_proxy_old}"
+    "\${_controller_proxy_new}"
+)
+
+file(WRITE "\${_p4u_openxr_program}" "\${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
