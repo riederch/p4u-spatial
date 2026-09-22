@@ -79,7 +79,7 @@ class QrReadbackCheck final : public ReadbackCheck {
   // exclusively the persistent ADR-0029 HUD surface; no scanner frame is rendered.
   [[nodiscard]] bool WantsScanOverlay() const override { return true; }
 
-  [[nodiscard]] bool WantsControllerVisualization() const override { return true; }
+  [[nodiscard]] bool WantsControllerVisualization() const override { return false; }
 
   void UpdateControllerPose(
       const XrPosef* leftPose,
