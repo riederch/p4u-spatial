@@ -1613,9 +1613,10 @@ set(_hand_skeleton_selection_new [==[
       if (useController) {
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "hand skeleton follows selected source v12"
     "handSkeletonVisible[hand] = selectedSource == 2"
+    "handSkeletonVisible[hand] = directHandActive"
     "${_hand_skeleton_selection_old}"
     "${_hand_skeleton_selection_new}"
 )
