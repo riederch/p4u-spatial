@@ -1900,9 +1900,10 @@ set(_hand_control_point_thumb_shift_new [==[
           const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "hand control point toward thumb v15"
     "kHandControlPointTowardThumb = 0.20f"
+    "kHandControlPointOffsetMeters = 0.012f"
     "${_hand_control_point_thumb_shift_old}"
     "${_hand_control_point_thumb_shift_new}"
 )
@@ -2373,9 +2374,10 @@ set(_controller_proxy_new [==[
         handPoses[hand] = pose;
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "dedicated controller proxy v17"
     "P4U v17 diagnostic controller proxy"
+    "P4U v19: controller proxy removed"
     "${_controller_proxy_old}"
     "${_controller_proxy_new}"
 )
@@ -2501,6 +2503,186 @@ _p4u_replace_if_missing(
     "skeleton visibility was resolved from raw tracked joints above"
     "${_hand_visibility_interaction_gate_old}"
     "${_hand_visibility_interaction_gate_new}"
+)
+
+
+# P4U v19: remove temporary controller proxy geometry and stabilize hand activation.
+# The pointer must not move underneath the user when thumb/index pinch crosses the click threshold.
+
+set(_stable_hand_pointer_state_anchor [==[
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+
+  // P4U v17: dedicated physical-controller state.
+]==])
+
+set(_stable_hand_pointer_state_replacement [==[
+  std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
+  std::array<XrPosef, Side::COUNT> m_p4uStableHandPointerPose{};
+  std::array<bool, Side::COUNT> m_p4uStableHandPointerValid{{false, false}};
+
+  // P4U v17: dedicated physical-controller state.
+]==])
+
+_p4u_replace_if_missing(
+    "stable hand pointer state v19"
+    "m_p4uStableHandPointerValid{{false, false}}"
+    "${_stable_hand_pointer_state_anchor}"
+    "${_stable_hand_pointer_state_replacement}"
+)
+
+set(_stable_hand_joint_anchor [==[
+        const auto& palm = m_p4uHandJoints[hand][XR_HAND_JOINT_PALM_EXT];
+        const auto& thumbTip = m_p4uHandJoints[hand][XR_HAND_JOINT_THUMB_TIP_EXT];
+        const auto& indexTip = m_p4uHandJoints[hand][XR_HAND_JOINT_INDEX_TIP_EXT];
+]==])
+
+set(_stable_hand_joint_replacement [==[
+        const auto& palm = m_p4uHandJoints[hand][XR_HAND_JOINT_PALM_EXT];
+        const auto& thumbTip = m_p4uHandJoints[hand][XR_HAND_JOINT_THUMB_TIP_EXT];
+        const auto& thumbMetacarpal =
+            m_p4uHandJoints[hand][XR_HAND_JOINT_THUMB_METACARPAL_EXT];
+        const auto& indexTip = m_p4uHandJoints[hand][XR_HAND_JOINT_INDEX_TIP_EXT];
+]==])
+
+_p4u_replace_if_missing(
+    "thumb base control reference v19"
+    "const auto& thumbMetacarpal ="
+    "${_stable_hand_joint_anchor}"
+    "${_stable_hand_joint_replacement}"
+)
+
+set(_stable_hand_control_old [==[
+          // P4U: keep the hand control point near the index fingertip, but shift it
+          // slightly toward the thumb so it sits closer to the natural pinch/control area.
+          directHandActive = true;
+          directHandPose = indexTip.pose;
+          constexpr float kHandControlPointTowardThumb = 0.20f;
+          directHandPose.position.x +=
+              (thumbTip.pose.position.x - indexTip.pose.position.x) *
+              kHandControlPointTowardThumb;
+          directHandPose.position.y +=
+              (thumbTip.pose.position.y - indexTip.pose.position.y) *
+              kHandControlPointTowardThumb;
+          directHandPose.position.z +=
+              (thumbTip.pose.position.z - indexTip.pose.position.z) *
+              kHandControlPointTowardThumb;
+
+          const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
+          const float dy = thumbTip.pose.position.y - indexTip.pose.position.y;
+          const float dz = thumbTip.pose.position.z - indexTip.pose.position.z;
+          const float pinchDistance = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+          // Hysteresis prevents a noisy thumb/index distance around the threshold from
+          // generating repeated button edges.
+          const bool previousPinch = m_p4uHandPinched[hand];
+          bool pinched = previousPinch;
+          if (!pinched && pinchDistance <= 0.028f) {
+            pinched = true;
+          } else if (pinched && pinchDistance >= 0.045f) {
+            pinched = false;
+          }
+
+          m_p4uHandPinched[hand] = pinched;
+]==])
+
+set(_stable_hand_control_new [==[
+          directHandActive = true;
+
+          // P4U v19: stable offset toward thumb base instead of the moving thumb tip.
+          XrPosef handPointerCandidate = indexTip.pose;
+          const bool thumbBaseValid =
+              (thumbMetacarpal.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0;
+          if (thumbBaseValid) {
+            XrVector3f towardThumbBase{
+                thumbMetacarpal.pose.position.x - indexTip.pose.position.x,
+                thumbMetacarpal.pose.position.y - indexTip.pose.position.y,
+                thumbMetacarpal.pose.position.z - indexTip.pose.position.z,
+            };
+            const float thumbBaseDistance = XrVector3f_Length(&towardThumbBase);
+            if (thumbBaseDistance > 0.001f) {
+              XrVector3f_Normalize(&towardThumbBase);
+              constexpr float kHandControlPointOffsetMeters = 0.012f;
+              handPointerCandidate.position.x += towardThumbBase.x * kHandControlPointOffsetMeters;
+              handPointerCandidate.position.y += towardThumbBase.y * kHandControlPointOffsetMeters;
+              handPointerCandidate.position.z += towardThumbBase.z * kHandControlPointOffsetMeters;
+            }
+          }
+
+          const float dx = thumbTip.pose.position.x - indexTip.pose.position.x;
+          const float dy = thumbTip.pose.position.y - indexTip.pose.position.y;
+          const float dz = thumbTip.pose.position.z - indexTip.pose.position.z;
+          const float pinchDistance = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+          const bool previousPinch = m_p4uHandPinched[hand];
+          bool pinched = previousPinch;
+          if (!pinched && pinchDistance <= 0.028f) {
+            pinched = true;
+          } else if (pinched && pinchDistance >= 0.045f) {
+            pinched = false;
+          }
+
+          // Freeze full pointer pose while pinched so activation stays on the pre-pinch target.
+          if (!pinched) {
+            m_p4uStableHandPointerPose[hand] = handPointerCandidate;
+            m_p4uStableHandPointerValid[hand] = true;
+            directHandPose = handPointerCandidate;
+          } else if (m_p4uStableHandPointerValid[hand]) {
+            directHandPose = m_p4uStableHandPointerPose[hand];
+          } else {
+            directHandPose = handPointerCandidate;
+          }
+
+          m_p4uHandPinched[hand] = pinched;
+]==])
+
+_p4u_replace_if_missing(
+    "stable pinch control point v19"
+    "P4U v19: stable offset toward thumb base"
+    "${_stable_hand_control_old}"
+    "${_stable_hand_control_new}"
+)
+
+set(_stable_hand_tracking_loss_old [==[
+          m_p4uDirectHandWasActive[hand] = false;
+          m_p4uHandPinched[hand] = false;
+]==])
+
+set(_stable_hand_tracking_loss_new [==[
+          m_p4uDirectHandWasActive[hand] = false;
+          m_p4uHandPinched[hand] = false;
+          m_p4uStableHandPointerValid[hand] = false;
+]==])
+
+_p4u_replace_if_missing(
+    "reset stable hand pointer on tracking loss v19"
+    "m_p4uStableHandPointerValid[hand] = false"
+    "${_stable_hand_tracking_loss_old}"
+    "${_stable_hand_tracking_loss_new}"
+)
+
+set(_controller_proxy_remove_old [==[
+        // P4U v17 diagnostic controller proxy. Use grip pose for the physical body and
+        // animate its size with trigger pressure. It is deliberately simple until the
+        // final controller model is chosen.
+        if (useController && controllerGripPoseValid) {
+          const float trigger = std::min(
+              1.0f, std::max(0.0f, m_p4uControllerTriggerValue[hand]));
+          const float bodyScale = 0.045f - 0.010f * trigger;
+          cubes.push_back(Cube{
+              controllerGripPose,
+              {bodyScale, bodyScale * 1.45f, bodyScale * 0.80f}});
+        }
+]==])
+
+set(_controller_proxy_remove_new [==[
+        // P4U v19: controller proxy removed. Controller input and beam remain active.
+]==])
+
+_p4u_replace_if_missing(
+    "remove diagnostic controller proxy v19"
+    "P4U v19: controller proxy removed"
+    "${_controller_proxy_remove_old}"
+    "${_controller_proxy_remove_new}"
 )
 
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
