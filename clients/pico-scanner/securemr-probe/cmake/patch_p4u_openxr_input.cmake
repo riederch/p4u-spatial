@@ -1826,5 +1826,20 @@ _p4u_replace_if_missing(
     "${_hand_skeleton_render_replacement}"
 )
 
+set(_skeleton_hand_index_type_old [==[
+    const auto jointPositionValid = [&](Side hand, XrHandJointEXT joint) {
+]==])
+
+set(_skeleton_hand_index_type_new [==[
+    const auto jointPositionValid = [&](int hand, XrHandJointEXT joint) {
+]==])
+
+_p4u_replace_if_missing(
+    "skeleton hand index type v13"
+    "const auto jointPositionValid = [&](int hand, XrHandJointEXT joint)"
+    "${_skeleton_hand_index_type_old}"
+    "${_skeleton_hand_index_type_new}"
+)
+
 file(WRITE "${_p4u_openxr_program}" "${_p4u_openxr_source}")
 message(STATUS "Applied PICO 4 Ultra OpenXR input patch")
