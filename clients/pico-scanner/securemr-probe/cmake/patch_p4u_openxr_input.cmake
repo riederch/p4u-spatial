@@ -823,9 +823,10 @@ set(_direct_hand_activity_new [==[
             XR_UNQUALIFIED_SUCCESS(handResult) && palmValid && pinchJointsValid;
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "direct hand activity semantics v3"
     "PICO's native OpenXR sample does not gate joint usability"
+    "P4U v18: direct interaction needs the index aim pose"
     "${_direct_hand_activity_old}"
     "${_direct_hand_activity_new}"
 )
