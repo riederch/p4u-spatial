@@ -2512,16 +2512,12 @@ _p4u_replace_if_missing(
 
 set(_stable_hand_pointer_state_anchor [==[
   std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
-
-  // P4U v17: dedicated physical-controller state.
 ]==])
 
 set(_stable_hand_pointer_state_replacement [==[
   std::array<int, Side::COUNT> m_p4uPointerSource{{0, 0}};
   std::array<XrPosef, Side::COUNT> m_p4uStableHandPointerPose{};
   std::array<bool, Side::COUNT> m_p4uStableHandPointerValid{{false, false}};
-
-  // P4U v17: dedicated physical-controller state.
 ]==])
 
 _p4u_replace_if_missing(
