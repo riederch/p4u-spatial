@@ -1049,9 +1049,10 @@ set(_input_arbitration_locals_new [==[
       XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
 ]==])
 
-_p4u_replace_if_missing(
+_p4u_replace_if_missing_or_superseded(
     "input source arbitration locals v8"
     "const InputState::ToggleStatus controllerToggle = m_input.handToggle[hand]"
+    "controllerGripPoseValid = false"
     "${_input_arbitration_locals_old}"
     "${_input_arbitration_locals_new}"
 )
