@@ -228,6 +228,9 @@ class QrReadbackCheck final : public ReadbackCheck {
 
     if (resultCloseHit_[side]) {
       ClearQrOutcome();
+      if (gQrRecognitionEnabled.load()) {
+        NotifyJavaRecognitionChanged(true);
+      }
       pointerPulseFrames_[side] = 9;
       hudDirty_ = true;
       LOGI("QR lifecycle: result/error dismissed; ambient recognition resumes=%s",
