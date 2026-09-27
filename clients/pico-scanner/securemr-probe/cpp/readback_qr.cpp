@@ -23,6 +23,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <mutex>
 #include <string>
 
 #ifdef __cplusplus
@@ -59,14 +60,121 @@ bool ReadbackCheck::isCpuBuffer = false;
 #endif
 
 struct android_app* ReadbackCheck::gapp = nullptr;
+
+enum class QrLifecycleState {
+  Disabled,
+  Scanning,
+  Result,
+  Error,
+};
+
 static std::atomic<bool> gQrRecognitionEnabled{true};
+static std::atomic<bool> gQrResultActive{false};
+static std::atomic<bool> gQrErrorActive{false};
+static std::atomic<uint64_t> gQrStateVersion{1};
+static std::mutex gQrStateMutex;
+static std::string gQrResultPayload;
+static std::string gQrErrorMessage;
+
+static QrLifecycleState CurrentQrLifecycleState() {
+  if (!gQrRecognitionEnabled.load()) return QrLifecycleState::Disabled;
+  if (gQrErrorActive.load()) return QrLifecycleState::Error;
+  if (gQrResultActive.load()) return QrLifecycleState::Result;
+  return QrLifecycleState::Scanning;
+}
+
+static bool IsQrRecognitionRunning() {
+  return CurrentQrLifecycleState() == QrLifecycleState::Scanning;
+}
+
+static void ClearQrOutcome() {
+  {
+    std::lock_guard<std::mutex> lock(gQrStateMutex);
+    gQrResultPayload.clear();
+    gQrErrorMessage.clear();
+  }
+  gQrResultActive.store(false);
+  gQrErrorActive.store(false);
+  ++gQrStateVersion;
+}
+
+static void NotifyJavaRecognitionChanged(bool enabled) {
+  if (ReadbackCheck::gapp == nullptr) return;
+
+  JNIEnv* env = nullptr;
+  bool detach = false;
+  JavaVM* vm = ReadbackCheck::gapp->activity->vm;
+  const jint envStatus = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+  if (envStatus == JNI_EDETACHED) {
+    if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return;
+    detach = true;
+  } else if (envStatus != JNI_OK) {
+    return;
+  }
+
+  jobject activity = ReadbackCheck::gapp->activity->clazz;
+  jclass cls = env->GetObjectClass(activity);
+  jmethodID mid = env->GetMethodID(cls, "onQrRecognitionChanged", "(Z)V");
+  if (mid != nullptr) {
+    env->CallVoidMethod(activity, mid, enabled ? JNI_TRUE : JNI_FALSE);
+  }
+  if (env->ExceptionCheck()) {
+    LOGE("Exception while persisting QR recognition state");
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+  }
+  env->DeleteLocalRef(cls);
+  if (detach) vm->DetachCurrentThread();
+}
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_bytedance_pico_secure_1mr_1demo_readback_ReadbackActivity_nativeSetQrRecognitionEnabled(
     JNIEnv*,
     jclass,
     jboolean enabled) {
-  gQrRecognitionEnabled.store(enabled == JNI_TRUE);
+  const bool value = enabled == JNI_TRUE;
+  gQrRecognitionEnabled.store(value);
+  if (!value) {
+    ClearQrOutcome();
+  } else {
+    ++gQrStateVersion;
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_bytedance_pico_secure_1mr_1demo_readback_ReadbackActivity_nativeOnQrDecoded(
+    JNIEnv* env,
+    jclass,
+    jstring payload) {
+  const char* utf = env->GetStringUTFChars(payload, nullptr);
+  {
+    std::lock_guard<std::mutex> lock(gQrStateMutex);
+    gQrResultPayload = utf != nullptr ? utf : "";
+    gQrErrorMessage.clear();
+  }
+  if (utf != nullptr) env->ReleaseStringUTFChars(payload, utf);
+  gQrErrorActive.store(false);
+  gQrResultActive.store(true);
+  ++gQrStateVersion;
+  LOGI("QR lifecycle: result captured; ambient recognition paused");
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_bytedance_pico_secure_1mr_1demo_readback_ReadbackActivity_nativeOnQrError(
+    JNIEnv* env,
+    jclass,
+    jstring message) {
+  const char* utf = env->GetStringUTFChars(message, nullptr);
+  {
+    std::lock_guard<std::mutex> lock(gQrStateMutex);
+    gQrErrorMessage = utf != nullptr ? utf : "QR scanner error";
+    gQrResultPayload.clear();
+  }
+  if (utf != nullptr) env->ReleaseStringUTFChars(message, utf);
+  gQrResultActive.store(false);
+  gQrErrorActive.store(true);
+  ++gQrStateVersion;
+  LOGI("QR lifecycle: scanner error captured; ambient recognition paused");
 }
 
 
@@ -117,8 +225,29 @@ class QrReadbackCheck final : public ReadbackCheck {
 
   void HandleButtonPress(int side = -1) override {
     if (side < 0 || side >= 2) return;
-    if (!launcherHit_[side]) return;
 
+    if (resultCloseHit_[side]) {
+      ClearQrOutcome();
+      pointerPulseFrames_[side] = 9;
+      hudDirty_ = true;
+      LOGI("QR lifecycle: result/error dismissed; ambient recognition resumes=%s",
+           gQrRecognitionEnabled.load() ? "yes" : "no");
+      return;
+    }
+
+    if (qrToggleHit_[side]) {
+      const bool enabled = !gQrRecognitionEnabled.load();
+      gQrRecognitionEnabled.store(enabled);
+      if (!enabled) ClearQrOutcome();
+      ++gQrStateVersion;
+      NotifyJavaRecognitionChanged(enabled);
+      pointerPulseFrames_[side] = 9;
+      hudDirty_ = true;
+      LOGI("HUD QR recognition toggle=%s", enabled ? "on" : "off");
+      return;
+    }
+
+    if (!launcherHit_[side]) return;
     hudOpen_ = !hudOpen_;
     pointerPulseFrames_[side] = 9;
     hudDirty_ = true;
@@ -129,6 +258,12 @@ class QrReadbackCheck final : public ReadbackCheck {
       int width,
       int height,
       std::vector<uint8_t>& outRgba) override {
+    const uint64_t stateVersion = gQrStateVersion.load();
+    if (stateVersion != qrStateVersionSeen_) {
+      qrStateVersionSeen_ = stateVersion;
+      hudDirty_ = true;
+    }
+
     if (!hudDirty_ && outRgba.size() == static_cast<size_t>(width) * height * 4) {
       return false;
     }
@@ -137,32 +272,73 @@ class QrReadbackCheck final : public ReadbackCheck {
 
     const PixelRect launcher = LauncherRect(width, height);
     if (hudOpen_) {
-      const PixelRect panel{
-          static_cast<int>(width * 0.08f),
-          static_cast<int>(height * 0.20f),
-          static_cast<int>(width * 0.70f),
-          static_cast<int>(height * 0.66f),
-      };
+      const PixelRect panel = MenuPanelRect(width, height);
       FillRect(outRgba, width, height, panel, 18, 20, 24, 220);
       StrokeRect(outRgba, width, height, panel, 3, 220, 224, 232, 170);
 
-      // Temporary shell geometry only. Semantic rows arrive from app-core in the next step.
-      const int rowLeft = panel.left + static_cast<int>(width * 0.035f);
-      const int rowRight = panel.right - static_cast<int>(width * 0.035f);
-      const int firstRow = panel.top + static_cast<int>(height * 0.13f);
-      const int rowGap = static_cast<int>(height * 0.11f);
-      for (int row = 0; row < 3; ++row) {
-        const int y = firstRow + row * rowGap;
-        FillRect(
-            outRgba,
-            width,
-            height,
-            PixelRect{rowLeft, y, rowRight, y + static_cast<int>(height * 0.055f)},
-            44,
-            48,
-            56,
-            215);
-      }
+      // First real semantic HUD row: ambient QR recognition on/off.
+      const PixelRect qrRow = QrToggleRect(width, height);
+      const bool qrEnabled = gQrRecognitionEnabled.load();
+      FillRect(
+          outRgba,
+          width,
+          height,
+          qrRow,
+          qrToggleHovered_ ? 64 : 44,
+          qrToggleHovered_ ? 70 : 48,
+          qrToggleHovered_ ? 78 : 56,
+          225);
+      StrokeRect(outRgba, width, height, qrRow, 2, 118, 126, 138, 200);
+      const int indicatorRadius = std::max(5, (qrRow.bottom - qrRow.top) / 7);
+      DrawFilledCircle(
+          outRgba,
+          width,
+          height,
+          qrRow.right - indicatorRadius * 3,
+          (qrRow.top + qrRow.bottom) / 2,
+          indicatorRadius,
+          qrEnabled ? 105 : 92,
+          qrEnabled ? 220 : 98,
+          qrEnabled ? 150 : 105,
+          245);
+    }
+
+    const bool resultActive = gQrResultActive.load();
+    const bool errorActive = gQrErrorActive.load();
+    if (resultActive || errorActive) {
+      const PixelRect resultPanel = ResultPanelRect(width, height);
+      FillRect(
+          outRgba,
+          width,
+          height,
+          resultPanel,
+          errorActive ? 48 : 22,
+          errorActive ? 24 : 28,
+          errorActive ? 28 : 34,
+          235);
+      StrokeRect(
+          outRgba,
+          width,
+          height,
+          resultPanel,
+          3,
+          errorActive ? 220 : 170,
+          errorActive ? 100 : 210,
+          errorActive ? 104 : 190,
+          210);
+
+      const PixelRect close = ResultCloseRect(width, height);
+      FillRect(
+          outRgba,
+          width,
+          height,
+          close,
+          resultCloseHovered_ ? 226 : 198,
+          resultCloseHovered_ ? 230 : 204,
+          resultCloseHovered_ ? 236 : 214,
+          240);
+      StrokeRect(outRgba, width, height, close, 2, 30, 34, 40, 220);
+      DrawCloseGlyph(outRgba, width, height, close);
     }
 
     const bool hovered = launcherHovered_;
@@ -291,6 +467,44 @@ class QrReadbackCheck final : public ReadbackCheck {
     };
   }
 
+  static PixelRect MenuPanelRect(int width, int height) {
+    return {
+        static_cast<int>(width * 0.08f),
+        static_cast<int>(height * 0.20f),
+        static_cast<int>(width * 0.70f),
+        static_cast<int>(height * 0.66f),
+    };
+  }
+
+  static PixelRect QrToggleRect(int width, int height) {
+    const PixelRect panel = MenuPanelRect(width, height);
+    return {
+        panel.left + static_cast<int>(width * 0.035f),
+        panel.top + static_cast<int>(height * 0.13f),
+        panel.right - static_cast<int>(width * 0.035f),
+        panel.top + static_cast<int>(height * 0.205f),
+    };
+  }
+
+  static PixelRect ResultPanelRect(int width, int height) {
+    return {
+        static_cast<int>(width * 0.18f),
+        static_cast<int>(height * 0.18f),
+        static_cast<int>(width * 0.88f),
+        static_cast<int>(height * 0.68f),
+    };
+  }
+
+  static PixelRect ResultCloseRect(int width, int height) {
+    const PixelRect panel = ResultPanelRect(width, height);
+    return {
+        panel.right - static_cast<int>(width * 0.18f),
+        panel.bottom - static_cast<int>(height * 0.12f),
+        panel.right - static_cast<int>(width * 0.035f),
+        panel.bottom - static_cast<int>(height * 0.035f),
+    };
+  }
+
   bool RayToHudUv(
       const Vec3& originWorld,
       const Vec3& directionWorld,
@@ -361,14 +575,29 @@ class QrReadbackCheck final : public ReadbackCheck {
     return u >= 0.08f && u <= 0.27f && v >= 0.72f && v <= 0.91f;
   }
 
+  static bool UvHitsQrToggle(float u, float v) {
+    return u >= 0.115f && u <= 0.665f && v >= 0.33f && v <= 0.405f;
+  }
+
+  static bool UvHitsResultClose(float u, float v) {
+    return u >= 0.70f && u <= 0.845f && v >= 0.56f && v <= 0.645f;
+  }
+
   void UpdateHudHover() {
-    bool anyHovered = false;
+    bool anyLauncherHovered = false;
+    bool anyQrToggleHovered = false;
+    bool anyResultCloseHovered = false;
+    const bool resultSurfaceActive =
+        gQrResultActive.load() || gQrErrorActive.load();
 
     for (int side = 0; side < 2; ++side) {
       float u = 0.0f;
       float v = 0.0f;
       const bool valid = ResolvePointerUv(side, u, v);
       const bool launcherHit = valid && UvHitsLauncher(u, v);
+      const bool qrToggleHit = valid && hudOpen_ && UvHitsQrToggle(u, v);
+      const bool resultCloseHit =
+          valid && resultSurfaceActive && UvHitsResultClose(u, v);
 
       const bool moved =
           valid &&
@@ -376,7 +605,10 @@ class QrReadbackCheck final : public ReadbackCheck {
            std::abs(u - pointerU_[side]) >= kPointerRedrawThreshold ||
            std::abs(v - pointerV_[side]) >= kPointerRedrawThreshold);
       const bool visibilityChanged = valid != pointerUvValid_[side];
-      const bool hitChanged = launcherHit != launcherHit_[side];
+      const bool hitChanged =
+          launcherHit != launcherHit_[side] ||
+          qrToggleHit != qrToggleHit_[side] ||
+          resultCloseHit != resultCloseHit_[side];
 
       pointerUvValid_[side] = valid;
       if (valid) {
@@ -384,17 +616,29 @@ class QrReadbackCheck final : public ReadbackCheck {
         pointerV_[side] = v;
       }
       launcherHit_[side] = launcherHit;
-      anyHovered = anyHovered || launcherHit;
+      qrToggleHit_[side] = qrToggleHit;
+      resultCloseHit_[side] = resultCloseHit;
+      anyLauncherHovered = anyLauncherHovered || launcherHit;
+      anyQrToggleHovered = anyQrToggleHovered || qrToggleHit;
+      anyResultCloseHovered = anyResultCloseHovered || resultCloseHit;
 
       if (moved || visibilityChanged || hitChanged) {
         hudDirty_ = true;
       }
     }
 
-    if (anyHovered != launcherHovered_) {
-      launcherHovered_ = anyHovered;
+    if (anyLauncherHovered != launcherHovered_) {
+      launcherHovered_ = anyLauncherHovered;
       hudDirty_ = true;
       LOGI("HUD launcher hover=%s", launcherHovered_ ? "yes" : "no");
+    }
+    if (anyQrToggleHovered != qrToggleHovered_) {
+      qrToggleHovered_ = anyQrToggleHovered;
+      hudDirty_ = true;
+    }
+    if (anyResultCloseHovered != resultCloseHovered_) {
+      resultCloseHovered_ = anyResultCloseHovered;
+      hudDirty_ = true;
     }
   }
 
@@ -545,11 +789,16 @@ class QrReadbackCheck final : public ReadbackCheck {
   std::array<float, 2> pointerV_{{0.0f, 0.0f}};
   std::array<int, 2> pointerPulseFrames_{{0, 0}};
   std::array<bool, 2> launcherHit_{{false, false}};
+  std::array<bool, 2> qrToggleHit_{{false, false}};
+  std::array<bool, 2> resultCloseHit_{{false, false}};
   XrPosef headPose_{};
   bool headPoseValid_{false};
   bool launcherHovered_{false};
+  bool qrToggleHovered_{false};
+  bool resultCloseHovered_{false};
   bool hudOpen_{false};
   bool hudDirty_{true};
+  uint64_t qrStateVersionSeen_{0};
 };
 
 
@@ -612,7 +861,7 @@ void ReadbackCheck::CreateGlobalTensor() {
 }
 
 void ReadbackCheck::Tick() {
-  if (!pipelineAllInitialized || !gPermissionCamera || !gQrRecognitionEnabled.load()) return;
+  if (!pipelineAllInitialized || !gPermissionCamera || !IsQrRecognitionRunning()) return;
 
   if (isCpuBuffer) {
     if (!mCurrentReadbackRequest) {
