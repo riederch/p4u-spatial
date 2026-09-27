@@ -44,7 +44,10 @@ public class ReadbackActivity extends NativeActivity {
     private final AtomicBoolean decodeInFlight = new AtomicBoolean(false);
     private final AtomicBoolean recognitionEnabled = new AtomicBoolean(true);
     private final AtomicInteger frameCount = new AtomicInteger(0);
+    private String blockedPayload;
+    private int consecutiveNoQrFrames = 0;
 
+    private static final int REARM_NO_QR_FRAMES = 6;
     private static final String PREFS_NAME = "p4u-qr-reader";
     private static final String PREF_RECOGNITION_ENABLED = "qr-recognition-enabled";
 
@@ -119,9 +122,28 @@ public class ReadbackActivity extends NativeActivity {
         decoder.execute(() -> {
             try {
                 String raw = decodeQr(rgb, width, height);
-                if (raw != null && recognitionEnabled.get()) {
-                    // First valid decode pauses native ambient recognition until the user
-                    // dismisses the result. Keep the OpenXR activity/session alive.
+
+                if (raw == null) {
+                    if (blockedPayload != null) {
+                        consecutiveNoQrFrames++;
+                        if (consecutiveNoQrFrames >= REARM_NO_QR_FRAMES) {
+                            Log.i(TAG, "QR dedupe re-armed after code left the camera view");
+                            blockedPayload = null;
+                            consecutiveNoQrFrames = 0;
+                        }
+                    }
+                    return;
+                }
+
+                consecutiveNoQrFrames = 0;
+                if (blockedPayload != null && blockedPayload.equals(raw)) {
+                    // Do not reopen the same result while the same physical QR code is
+                    // still visible. A different QR remains eligible immediately.
+                    return;
+                }
+
+                if (recognitionEnabled.get()) {
+                    blockedPayload = raw;
                     recognitionEnabled.set(false);
                     nativeOnQrDecoded(raw);
                     Log.i(TAG, "QR decoded; ambient recognition paused, payloadLength=" + raw.length());
@@ -170,6 +192,10 @@ public class ReadbackActivity extends NativeActivity {
 
     public void onQrRecognitionChanged(boolean enabled) {
         recognitionEnabled.set(enabled);
+        if (!enabled) {
+            blockedPayload = null;
+            consecutiveNoQrFrames = 0;
+        }
         nativeSetQrRecognitionEnabled(enabled);
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
