@@ -42,7 +42,6 @@ public class ReadbackActivity extends NativeActivity {
 
     private final ExecutorService decoder = Executors.newSingleThreadExecutor();
     private final AtomicBoolean decodeInFlight = new AtomicBoolean(false);
-    private final AtomicBoolean completed = new AtomicBoolean(false);
     private final AtomicBoolean recognitionEnabled = new AtomicBoolean(true);
     private final AtomicInteger frameCount = new AtomicInteger(0);
 
@@ -99,12 +98,8 @@ public class ReadbackActivity extends NativeActivity {
                 boolean granted = grants[i] == PackageManager.PERMISSION_GRANTED;
                 Log.i(TAG, "Camera permission result: " + granted);
                 nativeSetPermission(perms[i], granted);
-                if (!granted && complete(
-                        STATUS_ERROR,
-                        null,
-                        "Camera permission was denied."
-                )) {
-                    runOnUiThread(this::finish);
+                if (!granted) {
+                    nativeOnQrError("Camera permission was denied.");
                 }
             }
         }
@@ -117,40 +112,24 @@ public class ReadbackActivity extends NativeActivity {
             Log.i(TAG, "RGB frame #" + currentFrame + " " + width + "x" + height +
                     " bytes=" + rgb.length);
         }
-        if (!recognitionEnabled.get() || completed.get() ||
+        if (!recognitionEnabled.get() ||
                 !decodeInFlight.compareAndSet(false, true)) {
             return;
         }
         decoder.execute(() -> {
             try {
                 String raw = decodeQr(rgb, width, height);
-                if (raw != null && recognitionEnabled.get() &&
-                        complete(STATUS_DECODED, raw, null)) {
-                    // First valid decode wins. This deliberately keeps moving/mobile QR codes responsive.
-                    Log.i(TAG, "QR decoded, payloadLength=" + raw.length());
-                    runOnUiThread(this::finish);
+                if (raw != null && recognitionEnabled.get()) {
+                    // First valid decode pauses native ambient recognition until the user
+                    // dismisses the result. Keep the OpenXR activity/session alive.
+                    recognitionEnabled.set(false);
+                    nativeOnQrDecoded(raw);
+                    Log.i(TAG, "QR decoded; ambient recognition paused, payloadLength=" + raw.length());
                 }
             } finally {
                 decodeInFlight.set(false);
             }
         });
-    }
-
-    private boolean complete(String status, String payload, String message) {
-        if (!completed.compareAndSet(false, true)) {
-            return false;
-        }
-        Intent result = new Intent(resultAction);
-        result.setPackage(resultPackage);
-        result.putExtra(EXTRA_STATUS, status);
-        if (payload != null) {
-            result.putExtra(EXTRA_PAYLOAD, payload);
-        }
-        if (message != null) {
-            result.putExtra(EXTRA_MESSAGE, message);
-        }
-        sendBroadcast(result);
-        return true;
     }
 
     private String decodeQr(byte[] rgb, int width, int height) {
@@ -191,6 +170,7 @@ public class ReadbackActivity extends NativeActivity {
 
     public void onQrRecognitionChanged(boolean enabled) {
         recognitionEnabled.set(enabled);
+        nativeSetQrRecognitionEnabled(enabled);
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
                 .putBoolean(PREF_RECOGNITION_ENABLED, enabled)
@@ -198,13 +178,19 @@ public class ReadbackActivity extends NativeActivity {
         Log.i(TAG, "QR recognition " + (enabled ? "enabled" : "disabled"));
     }
 
+    public void onQrRecognitionResumedFromNative() {
+        recognitionEnabled.set(true);
+        Log.i(TAG, "QR recognition resumed after result dismissal");
+    }
+
     @Override
     protected void onDestroy() {
-        complete(STATUS_CANCELLED, null, null);
         decoder.shutdownNow();
         super.onDestroy();
     }
 
     public native void nativeSetPermission(String permission, boolean granted);
     public native void nativeSetQrRecognitionEnabled(boolean enabled);
+    public native void nativeOnQrDecoded(String payload);
+    public native void nativeOnQrError(String message);
 }
