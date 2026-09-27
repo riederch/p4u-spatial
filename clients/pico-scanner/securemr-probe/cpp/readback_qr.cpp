@@ -233,6 +233,7 @@ class QrReadbackCheck final : public ReadbackCheck {
       }
       pointerPulseFrames_[side] = 9;
       hudDirty_ = true;
+      hudBaseDirty_ = true;
       LOGI("QR lifecycle: result/error dismissed; ambient recognition resumes=%s",
            gQrRecognitionEnabled.load() ? "yes" : "no");
       return;
@@ -246,6 +247,7 @@ class QrReadbackCheck final : public ReadbackCheck {
       NotifyJavaRecognitionChanged(enabled);
       pointerPulseFrames_[side] = 9;
       hudDirty_ = true;
+      hudBaseDirty_ = true;
       LOGI("HUD QR recognition toggle=%s", enabled ? "on" : "off");
       return;
     }
@@ -254,6 +256,7 @@ class QrReadbackCheck final : public ReadbackCheck {
     hudOpen_ = !hudOpen_;
     pointerPulseFrames_[side] = 9;
     hudDirty_ = true;
+    hudBaseDirty_ = true;
     LOGI("HUD launcher activate side=%d open=%s", side, hudOpen_ ? "yes" : "no");
   }
 
@@ -265,25 +268,33 @@ class QrReadbackCheck final : public ReadbackCheck {
     if (stateVersion != qrStateVersionSeen_) {
       qrStateVersionSeen_ = stateVersion;
       hudDirty_ = true;
+      hudBaseDirty_ = true;
     }
 
-    if (!hudDirty_ && outRgba.size() == static_cast<size_t>(width) * height * 4) {
+    const size_t rgbaSize = static_cast<size_t>(width) * height * 4;
+    if (!hudDirty_ && outRgba.size() == rgbaSize) {
       return false;
     }
 
-    outRgba.assign(static_cast<size_t>(width) * height * 4, 0);
+    const bool baseSizeChanged =
+        hudBaseWidth_ != width || hudBaseHeight_ != height ||
+        hudBaseRgba_.size() != rgbaSize;
+    if (hudBaseDirty_ || baseSizeChanged) {
+      hudBaseRgba_.assign(rgbaSize, 0);
+      hudBaseWidth_ = width;
+      hudBaseHeight_ = height;
 
-    const PixelRect launcher = LauncherRect(width, height);
+      const PixelRect launcher = LauncherRect(width, height);
     if (hudOpen_) {
       const PixelRect panel = MenuPanelRect(width, height);
-      FillRect(outRgba, width, height, panel, 18, 20, 24, 220);
-      StrokeRect(outRgba, width, height, panel, 3, 220, 224, 232, 170);
+      FillRect(hudBaseRgba_, width, height, panel, 18, 20, 24, 220);
+      StrokeRect(hudBaseRgba_, width, height, panel, 3, 220, 224, 232, 170);
 
       // First real semantic HUD row: ambient QR recognition on/off.
       const PixelRect qrRow = QrToggleRect(width, height);
       const bool qrEnabled = gQrRecognitionEnabled.load();
       FillRect(
-          outRgba,
+          hudBaseRgba_,
           width,
           height,
           qrRow,
@@ -291,10 +302,10 @@ class QrReadbackCheck final : public ReadbackCheck {
           qrToggleHovered_ ? 70 : 48,
           qrToggleHovered_ ? 78 : 56,
           225);
-      StrokeRect(outRgba, width, height, qrRow, 2, 118, 126, 138, 200);
+      StrokeRect(hudBaseRgba_, width, height, qrRow, 2, 118, 126, 138, 200);
       const int indicatorRadius = std::max(5, (qrRow.bottom - qrRow.top) / 7);
       DrawFilledCircle(
-          outRgba,
+          hudBaseRgba_,
           width,
           height,
           qrRow.right - indicatorRadius * 3,
@@ -311,7 +322,7 @@ class QrReadbackCheck final : public ReadbackCheck {
     if (resultActive || errorActive) {
       const PixelRect resultPanel = ResultPanelRect(width, height);
       FillRect(
-          outRgba,
+          hudBaseRgba_,
           width,
           height,
           resultPanel,
@@ -320,7 +331,7 @@ class QrReadbackCheck final : public ReadbackCheck {
           errorActive ? 28 : 34,
           235);
       StrokeRect(
-          outRgba,
+          hudBaseRgba_,
           width,
           height,
           resultPanel,
@@ -332,7 +343,7 @@ class QrReadbackCheck final : public ReadbackCheck {
 
       const PixelRect close = ResultCloseRect(width, height);
       FillRect(
-          outRgba,
+          hudBaseRgba_,
           width,
           height,
           close,
@@ -340,13 +351,13 @@ class QrReadbackCheck final : public ReadbackCheck {
           resultCloseHovered_ ? 230 : 204,
           resultCloseHovered_ ? 236 : 214,
           240);
-      StrokeRect(outRgba, width, height, close, 2, 30, 34, 40, 220);
-      DrawCloseGlyph(outRgba, width, height, close);
+      StrokeRect(hudBaseRgba_, width, height, close, 2, 30, 34, 40, 220);
+      DrawCloseGlyph(hudBaseRgba_, width, height, close);
     }
 
     const bool hovered = launcherHovered_;
     FillRect(
-        outRgba,
+        hudBaseRgba_,
         width,
         height,
         launcher,
@@ -354,13 +365,18 @@ class QrReadbackCheck final : public ReadbackCheck {
         hovered ? 236 : 224,
         hovered ? 244 : 232,
         hovered ? 245 : 220);
-    StrokeRect(outRgba, width, height, launcher, 3, 24, 28, 34, 210);
+    StrokeRect(hudBaseRgba_, width, height, launcher, 3, 24, 28, 34, 210);
 
     if (hudOpen_) {
-      DrawCloseGlyph(outRgba, width, height, launcher);
+      DrawCloseGlyph(hudBaseRgba_, width, height, launcher);
     } else {
-      DrawMenuGlyph(outRgba, width, height, launcher);
+      DrawMenuGlyph(hudBaseRgba_, width, height, launcher);
     }
+
+      hudBaseDirty_ = false;
+    }
+
+    outRgba = hudBaseRgba_;
 
     bool keepAnimating = false;
     for (int side = 0; side < 2; ++side) {
@@ -628,20 +644,26 @@ class QrReadbackCheck final : public ReadbackCheck {
       if (moved || visibilityChanged || hitChanged) {
         hudDirty_ = true;
       }
+      if (hitChanged) {
+        hudBaseDirty_ = true;
+      }
     }
 
     if (anyLauncherHovered != launcherHovered_) {
       launcherHovered_ = anyLauncherHovered;
       hudDirty_ = true;
+      hudBaseDirty_ = true;
       LOGI("HUD launcher hover=%s", launcherHovered_ ? "yes" : "no");
     }
     if (anyQrToggleHovered != qrToggleHovered_) {
       qrToggleHovered_ = anyQrToggleHovered;
       hudDirty_ = true;
+      hudBaseDirty_ = true;
     }
     if (anyResultCloseHovered != resultCloseHovered_) {
       resultCloseHovered_ = anyResultCloseHovered;
       hudDirty_ = true;
+      hudBaseDirty_ = true;
     }
   }
 
@@ -801,6 +823,10 @@ class QrReadbackCheck final : public ReadbackCheck {
   bool resultCloseHovered_{false};
   bool hudOpen_{false};
   bool hudDirty_{true};
+  bool hudBaseDirty_{true};
+  int hudBaseWidth_{0};
+  int hudBaseHeight_{0};
+  std::vector<uint8_t> hudBaseRgba_;
   uint64_t qrStateVersionSeen_{0};
 };
 
@@ -905,7 +931,9 @@ void ReadbackCheck::RunPipelines() {
       initialized.wait(guard);
     }
     while (keepRunning) {
-      RunRelaxMrReadBackPipeline();
+      if (IsQrRecognitionRunning()) {
+        RunRelaxMrReadBackPipeline();
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
   });
